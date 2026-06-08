@@ -1,0 +1,6 @@
+{
+  "name": "LBT Social",
+  "description": "A high-fidelity, premium social media and streaming application with rich features like Home Feed, Reels, Messaging, Creator Insights, customized profiles, video calls, and live camera stories.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

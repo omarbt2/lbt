@@ -1,0 +1,10 @@
+{
+  "appId": "com.lbt.app",
+  "appName": "LBT",
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false
+    }
+  }
+}

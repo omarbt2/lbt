@@ -7,6 +7,7 @@ import { followUser, unfollowUser, isFollowing } from '../lib/api/follows';
 import { User } from '../types';
 import { getDefaultAvatar } from '../lib/defaultAvatars';
 import { useAuthStore } from '../store/authStore';
+import FollowButton from './ui/FollowButton';
 
 interface ExploreViewProps {
   onSelectHashtag: (tag: string) => void;
@@ -23,7 +24,10 @@ export default function ExploreView({ onSelectHashtag, onPostSelect, onViewProfi
   const [isSearchingPeople, setIsSearchingPeople] = useState(false);
   const [peopleSearched, setPeopleSearched] = useState(false);
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'photos' | 'videos' | 'people'>('all');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { currentUser } = useAuthStore();
 
   const categories = ['For You', 'All', 'Trending', 'Following'];
@@ -162,7 +166,21 @@ export default function ExploreView({ onSelectHashtag, onPostSelect, onViewProfi
 
   const aspectRatios = ['aspect-[4/5]', 'aspect-[3/4]', 'aspect-[1/1]', 'aspect-[4/3]'];
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const q = e.target.value;
+    setSearchQuery(q);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (!q.trim()) { setSearchResults([]); return; }
+      searchTimeoutRef.current = setTimeout(async () => {
+        const { data } = await (supabase.rpc as any)('search_profiles', { q: q.trim(), lim: 20 });
+        setSearchResults(data || []);
+      }, 250);
+  };
+
   const filteredItems = exploreItems.filter((item) => {
+    if (activeFilter === 'photos') return !item.is_video && item.media_urls?.[0];
+    if (activeFilter === 'videos') return item.is_video || item.media_urls?.[0]?.includes('.mp4');
+    if (activeFilter === 'people') return false;
     const matchesSearch =
       (item.caption || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.profiles?.display_name || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -181,7 +199,7 @@ export default function ExploreView({ onSelectHashtag, onPostSelect, onViewProfi
             id="explore_search"
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleSearchChange}
             className="w-full bg-surface-container-low focus:bg-white text-on-surface border border-transparent focus:border-primary/20 rounded-full py-3 pl-12 pr-12 text-sm outline-none transition-all shadow-sm focus:ring-4 focus:ring-primary/20 placeholder:text-outline-variant"
             placeholder="Search for ideas, designs, creators..."
           />
@@ -194,6 +212,22 @@ export default function ExploreView({ onSelectHashtag, onPostSelect, onViewProfi
           </button>
         </div>
       </section>
+
+      <div className="flex gap-2 px-4 py-2 overflow-x-auto no-scrollbar">
+        {(['all', 'photos', 'videos', 'people'] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setActiveFilter(f)}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize whitespace-nowrap transition-all ${
+              activeFilter === f
+                ? 'bg-primary text-white'
+                : 'bg-surface-container-highest text-on-surface-variant hover:bg-surface-container'
+            }`}
+          >
+            {f === 'all' ? '✦ All' : f === 'photos' ? '📷 Photos' : f === 'videos' ? '🎬 Videos' : '👤 People'}
+          </button>
+        ))}
+      </div>
 
       <section className="w-full overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="flex space-x-2 min-w-max">
@@ -212,6 +246,29 @@ export default function ExploreView({ onSelectHashtag, onPostSelect, onViewProfi
           ))}
         </div>
       </section>
+
+      {searchResults.length > 0 && searchQuery.trim().length >= 2 && activeFilter === 'all' && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-md font-bold tracking-tight text-on-surface flex items-center gap-1">
+            <Sparkles className="w-4 h-4 text-primary" /> Quick Results
+          </h2>
+          <div className="flex flex-col">
+            {searchResults.slice(0, 5).map((user: any) => (
+              <div key={user.id} className="flex items-center gap-3 px-4 py-3 hover:bg-surface-container/40 cursor-pointer" onClick={() => onViewProfile(user.id)}>
+                <img src={user.avatar_url || getDefaultAvatar(user.id)} className="w-10 h-10 rounded-full object-cover" alt="" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-bold text-on-surface truncate">{user.display_name || user.username}</span>
+                    {user.is_verified && <span className="text-primary text-xs">✓</span>}
+                  </div>
+                  <span className="text-xs text-outline">@{user.username} · {user.followers_count ?? 0} followers</span>
+                </div>
+                {currentUser && <FollowButton userId={user.id} currentUserId={currentUser.id} size="sm" />}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {searchQuery.trim().length >= 2 && (
         <section className="flex flex-col gap-3">
@@ -317,7 +374,10 @@ export default function ExploreView({ onSelectHashtag, onPostSelect, onViewProfi
                     onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=80'; }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                    <div className="flex items-center space-x-2 mb-1.5">
+                    <div
+                      className="flex items-center space-x-2 mb-1.5 cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); if (item.profiles?.id) onViewProfile(item.profiles.id); }}
+                    >
                       <img
                         src={item.profiles?.avatar_url || getDefaultAvatar(item.profiles?.id || '')}
                         alt={item.profiles?.display_name}

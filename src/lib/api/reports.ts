@@ -6,19 +6,17 @@ export async function reportContent(
   reportedId: string,
   reportType: ReportType,
   reason: string,
-  reporterId: string
+  reporterId: string,
+  description?: string
 ): Promise<void> {
   const { error } = await (supabase.from as any)('reports').insert({
-    reported_id: reportedId,
     reporter_id: reporterId,
-    type: reportType,
+    post_id: reportedId,
     reason,
+    description: description || '',
   });
 
-  if (error) {
-    console.error('Failed to submit report:', error);
-    throw error;
-  }
+  if (error) throw error;
 
   await (supabase.from as any)('notifications').insert({
     recipient_id: reportedId,

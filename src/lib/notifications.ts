@@ -14,10 +14,15 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
-  if (!('Notification' in window)) return 'denied';
-  if (Notification.permission === 'granted') return 'granted';
-  if (Notification.permission === 'denied') return 'denied';
-  return await Notification.requestPermission();
+  try {
+    if (!('Notification' in window)) return 'denied';
+    if (Notification.permission === 'granted') return 'granted';
+    if (Notification.permission === 'denied') return 'denied';
+    return await Notification.requestPermission();
+  } catch (err) {
+    console.error('Notification permission error:', err);
+    return 'denied';
+  }
 }
 
 export function showLocalNotification(title: string, body: string, icon?: string) {

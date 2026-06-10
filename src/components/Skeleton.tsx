@@ -330,6 +330,51 @@ export function SettingsSkeleton() {
   );
 }
 
+export function ChatSkeleton() {
+  return (
+    <div className="flex items-center gap-3 p-4 animate-shimmer">
+      <div className="w-12 h-12 rounded-full bg-surface-container-high shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div className="h-3 bg-surface-container-high rounded w-1/3" />
+        <div className="h-2.5 bg-surface-container-high rounded w-2/3" />
+      </div>
+    </div>
+  );
+}
+
+export function NotificationSkeleton() {
+  return (
+    <div className="flex items-center gap-3 p-4 animate-shimmer">
+      <div className="w-10 h-10 rounded-full bg-surface-container-high shrink-0" />
+      <div className="flex-1 space-y-1.5">
+        <div className="h-3 bg-surface-container-high rounded w-3/4" />
+        <div className="h-2.5 bg-surface-container-high rounded w-1/4" />
+      </div>
+    </div>
+  );
+}
+
+export function GridSkeleton() {
+  return (
+    <div className="grid grid-cols-3 gap-0.5 animate-shimmer">
+      {Array.from({length: 9}).map((_, i) => (
+        <div key={i} className="aspect-square bg-surface-container-high" />
+      ))}
+    </div>
+  );
+}
+
+export function ReelSkeleton() {
+  return (
+    <div className="w-full h-screen bg-surface-container-high animate-shimmer relative">
+      <div className="absolute bottom-20 left-4 space-y-2">
+        <div className="h-4 w-32 bg-surface-container rounded" />
+        <div className="h-3 w-48 bg-surface-container rounded" />
+      </div>
+    </div>
+  );
+}
+
 export function CreateSkeleton() {
   return (
     <div className="space-y-4 max-w-2xl">

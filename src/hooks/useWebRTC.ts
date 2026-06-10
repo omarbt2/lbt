@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { createCallRecord, updateCallRecord } from '../lib/api/calls';
-import { checkPermission } from '../lib/permissions';
+import { checkPermission, requestMicPermission } from '../lib/permissions';
 import { ICE_SERVERS } from '../lib/webrtc';
 
 export type CallState = 'idle' | 'calling' | 'ringing' | 'active' | 'ended';
@@ -89,11 +89,26 @@ export function useWebRTC(
       onPermissionDenied?.('microphone');
       throw new Error('Microphone permission denied');
     }
+    if (permState === 'prompt') {
+      const granted = await requestMicPermission();
+      if (!granted) {
+        onPermissionDenied?.('microphone');
+        throw new Error('Microphone permission denied');
+      }
+    }
     if (video) {
+      const { requestCamPermission } = await import('../lib/permissions');
       const camPermState = await checkPermission('camera');
       if (camPermState === 'denied') {
         onPermissionDenied?.('camera');
         throw new Error('Camera permission denied');
+      }
+      if (camPermState === 'prompt') {
+        const granted = await requestCamPermission();
+        if (!granted) {
+          onPermissionDenied?.('camera');
+          throw new Error('Camera permission denied');
+        }
       }
     }
     return navigator.mediaDevices.getUserMedia({ audio: true, video });

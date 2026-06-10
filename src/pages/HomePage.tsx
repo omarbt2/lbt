@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { OutletContextType } from '../types/context';
-import SkeletonSystem from '../components/Skeleton';
+import { StorySkeleton, PostSkeleton } from '../components/Skeleton';
 import NotesBar from '../components/NotesBar';
-import { MoreVertical, Heart, MessageCircle, Bookmark } from 'lucide-react';
+import { MoreVertical, Heart, MessageCircle, Bookmark, Repeat2 } from 'lucide-react';
 import { QUICK_REACTIONS } from '../lib/api/emojis';
 import { supabase } from '../lib/supabase';
 import { Avatar } from '../components/ui/Avatar';
@@ -194,7 +194,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <NotesBar currentUser={currentUser} />
+      <NotesBar />
 
       <section className="flex flex-col gap-3 py-4 px-1">
         <div className="flex items-center gap-3 px-1">
@@ -261,9 +261,12 @@ export default function HomePage() {
 
       <div className="flex flex-col gap-6" id="home_posts_feed">
         {postsLoading && posts.length === 0 && (
-          <div className="flex flex-col gap-6">
-            <SkeletonSystem type="home" />
-          </div>
+          <>
+            <div className="flex gap-4 overflow-x-auto">
+              {[...Array(5)].map((_,i) => <StorySkeleton key={i}/>)}
+            </div>
+            {[...Array(3)].map((_,i) => <PostSkeleton key={i}/>)}
+          </>
         )}
 
         {posts.map((post) => (
@@ -284,6 +287,11 @@ export default function HomePage() {
                   className="group-hover:scale-105 transition-transform shadow-sm"
                 />
                 <div>
+                  {(post as any).is_repost && (
+                    <div className="flex items-center gap-1 text-[10px] text-primary font-bold mb-0.5">
+                      <Repeat2 className="w-3 h-3" /> Reposted
+                    </div>
+                  )}
                   <h3 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">
                     {post.user.name}
                   </h3>
@@ -299,6 +307,7 @@ export default function HomePage() {
               <button
                 onClick={() => setPostMenuPostId(post.id)}
                 className="p-2 hover:bg-surface-container rounded-full transition-colors"
+                aria-label="Post options"
               >
                 <MoreVertical className="w-5 h-5 text-on-surface-variant" />
               </button>
@@ -315,7 +324,7 @@ export default function HomePage() {
               >
                 <img
                   src={post.imageUrl}
-                  alt="Feed Image"
+                  alt={post.caption ? `Photo by ${post.user.name}: ${post.caption.slice(0, 50)}` : `Photo by ${post.user.name}`}
                   className="w-full h-full object-contain bg-black group-hover:scale-102 transition-transform duration-500"
                   loading="lazy"
                 />
@@ -338,10 +347,11 @@ export default function HomePage() {
                     onTouchStart={() => handleReactionLongPress(post.id)}
                     onTouchEnd={handleReactionPressEnd}
                     className="flex items-center space-x-1.5 text-on-surface-variant hover:text-primary transition-colors group"
+                    aria-label={post.hasLiked ? 'Unlike post' : 'Like post'}
                   >
                     <Heart
                       className={`w-5 h-5 group-hover:scale-110 transition-transform duration-150 ${
-                        post.hasLiked ? 'text-error fill-error' : ''
+                        post.hasLiked ? 'text-error fill-error like-pop' : ''
                       }`}
                     />
                     <span className="text-xs font-bold">{post.likes}</span>
@@ -365,6 +375,7 @@ export default function HomePage() {
                 <button
                   onClick={() => navigate('/post/' + post.id)}
                   className="flex items-center space-x-1.5 text-on-surface-variant hover:text-primary transition-colors"
+                  aria-label={`View ${post.commentsCount} comments`}
                 >
                   <MessageCircle className="w-5 h-5" />
                   <span className="text-xs font-bold">{post.commentsCount}</span>
@@ -379,6 +390,24 @@ export default function HomePage() {
                 <Bookmark
                    className={`w-5 h-5 ${post.hasBookmarked ? 'text-on-surface fill-on-surface' : ''}`}
                 />
+              </button>
+
+              <button
+                onClick={async () => {
+                  if (!currentUser?.id) return;
+                  try {
+                    await (supabase.from('post_shares') as any).insert({
+                      user_id: currentUser.id,
+                      post_id: post.id,
+                      share_type: 'repost'
+                    });
+                    triggerToast('Reposted!');
+                  } catch (_) {}
+                }}
+                className="text-on-surface-variant hover:text-primary transition-colors"
+                aria-label="Repost post"
+              >
+                <Repeat2 className="w-5 h-5" />
               </button>
             </div>
 

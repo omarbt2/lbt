@@ -57,6 +57,7 @@ export default function StoryViewer({ groups, initialGroupIndex, currentUserId, 
   const story = group?.stories[storyIdx];
   const isOwner = story?.user.id === currentUserId;
   const isVideo = story?.media_type === 'video';
+  const isText = story?.media_type === 'text';
 
   const duration = isVideo ? (videoRef.current?.duration || 15) * 1000 : STORY_DURATION_MS;
 
@@ -311,12 +312,22 @@ export default function StoryViewer({ groups, initialGroupIndex, currentUserId, 
             muted={isMuted}
             autoPlay
           />
+        ) : story.media_type === 'text' ? (
+          <div
+            className="w-full h-full flex items-center justify-center p-8"
+            style={{ backgroundColor: '#1a1a2e' }}
+          >
+            <p className="text-white text-xl font-semibold text-center leading-relaxed drop-shadow-lg">
+              {story.caption || ''}
+            </p>
+          </div>
         ) : (
           <img
             src={story.media_url}
             alt="Story"
             className="w-full h-full object-contain bg-black"
             draggable={false}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         )}
           </motion.div>
@@ -400,7 +411,7 @@ export default function StoryViewer({ groups, initialGroupIndex, currentUserId, 
         <div className="absolute inset-0 z-[60]" onClick={() => setShowViewers(false)}>
           <div className="absolute inset-0 bg-black/60" />
           <div
-            className="absolute bottom-0 left-0 right-0 bg-surface-container-lowest rounded-t-3xl max-h-[60vh] overflow-hidden animate-slideIn"
+            className="absolute bottom-0 left-0 right-0 bg-surface-container-lowest rounded-t-3xl max-h-[60dvh] overflow-hidden animate-slideIn"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center pt-3 pb-2">

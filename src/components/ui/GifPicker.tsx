@@ -118,7 +118,7 @@ export default function GifPicker({ isOpen, onClose, onSelect }: GifPickerProps)
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="relative z-10 w-full max-w-lg bg-surface-container-lowest rounded-t-3xl shadow-2xl overflow-hidden"
-        style={{ height: '60vh' }}
+        style={{ height: '60dvh' }}
       >
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant/20">
@@ -143,7 +143,7 @@ export default function GifPicker({ isOpen, onClose, onSelect }: GifPickerProps)
         </div>
 
         {/* GIF Grid */}
-        <div className="overflow-y-auto h-[calc(60vh-56px-32px)]">
+        <div className="overflow-y-auto h-[calc(60dvh-56px-32px)]">
           {loading ? (
             <SkeletonGrid />
           ) : gifs.length === 0 ? (

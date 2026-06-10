@@ -1,6 +1,6 @@
-@import url('https://fonts.cdnfonts.com/css/sf-pro-display');
-@import url('https://fonts.cdnfonts.com/css/sf-pro-text');
 @import "tailwindcss";
+
+* { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
 
 @theme {
   --color-primary: #0062ff;
@@ -203,8 +203,32 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 html {
-  height: auto;
+  font-size: 17px;
+  height: 100%;
+  width: 100%;
+  overflow-x: clip;
+}
+
+button, a, input, textarea, select {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+input, textarea, select {
+  min-height: auto;
+}
+
+#root {
   min-height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-x: clip;
+}
+
+* {
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 body {
@@ -215,16 +239,18 @@ body {
   margin: 0;
   width: 100%;
   min-height: 100%;
+  overflow-x: clip;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
   background-color: var(--color-surface-container-low);
   color: var(--color-on-surface);
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-#root {
-  min-height: 100vh;
+.overflow-y-auto,
+.overflow-y-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 button, a, [role="button"] {
@@ -325,6 +351,51 @@ button, a, [role="button"] {
 @keyframes swipe-hint {
   0%, 100% { opacity: 0.3; transform: translateX(0); }
   50% { opacity: 0.7; transform: translateX(4px); }
+}
+
+.page-enter {
+  animation: pageEnter 0.25s ease-out;
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.like-pop {
+  animation: likePop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes likePop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+.swipe-hint {
+  animation: swipeHint 2s ease-in-out infinite;
+}
+@keyframes swipeHint {
+  0%, 100% { transform: translateX(0); opacity: 1; }
+  50%       { transform: translateX(6px); opacity: 0.6; }
+}
+
+.sheet-enter {
+  animation: sheetEnter 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes sheetEnter {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.badge-bounce {
+  animation: badgeBounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes badgeBounce {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+
+.animate-scaleIn {
+  animation: scaleUp 0.22s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
 }
 
 .always-dark { background-color: #0a0a0a !important; }

@@ -1,4 +1,11 @@
 import { Capacitor } from '@capacitor/core';
+import { supabase } from './supabase';
+
+export type PermState = 'granted' | 'denied' | 'prompt';
+
+function isNative(): boolean {
+  return Capacitor.isNativePlatform();
+}
 
 async function loadNativeModule(name: string): Promise<any> {
   try {
@@ -8,54 +15,78 @@ async function loadNativeModule(name: string): Promise<any> {
   }
 }
 
-export async function requestMicPermission(): Promise<boolean> {
-  if (Capacitor.isNativePlatform()) {
+export async function checkPermission(type: 'microphone' | 'camera'): Promise<PermState> {
+  if (isNative()) {
     try {
-      const mod = await loadNativeModule('@capacitor/microphone');
-      if (!mod) return false;
-      const status = await mod.Microphone.requestPermissions();
-      return status.microphone === 'granted';
-    } catch {
-      return false;
-    }
+      if (type === 'microphone') {
+        const mod = await loadNativeModule('@capacitor/microphone');
+        if (!mod) return 'prompt';
+        const s = await mod.Microphone.checkPermissions();
+        return s.microphone as PermState;
+      } else {
+        const mod = await loadNativeModule('@capacitor/camera');
+        if (!mod) return 'prompt';
+        const s = await mod.Camera.checkPermissions();
+        return s.camera as PermState;
+      }
+    } catch { return 'prompt'; }
   }
   try {
+    const s = await navigator.permissions.query({ name: type as PermissionName });
+    return s.state as PermState;
+  } catch { return 'prompt'; }
+}
+
+export async function requestMicPermission(): Promise<boolean> {
+  const current = await checkPermission('microphone');
+  if (current === 'denied') return false;
+  if (current === 'granted') return true;
+  try {
+    if (isNative()) {
+      const mod = await loadNativeModule('@capacitor/microphone');
+      if (!mod) return false;
+      const r = await mod.Microphone.requestPermissions();
+      const granted = r.microphone === 'granted';
+      await (supabase.rpc as any)('save_permission_state', { p_mic: granted ? 'granted' : 'denied' });
+      return granted;
+    }
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach((t) => t.stop());
+    stream.getTracks().forEach(t => t.stop());
+    await (supabase.rpc as any)('save_permission_state', { p_mic: 'granted' });
     return true;
   } catch {
+    await (supabase.rpc as any)('save_permission_state', { p_mic: 'denied' });
     return false;
   }
 }
 
-export async function requestCameraPermission(): Promise<boolean> {
-  if (Capacitor.isNativePlatform()) {
-    try {
+export async function requestCamPermission(): Promise<boolean> {
+  const current = await checkPermission('camera');
+  if (current === 'denied') return false;
+  if (current === 'granted') return true;
+  try {
+    if (isNative()) {
       const mod = await loadNativeModule('@capacitor/camera');
       if (!mod) return false;
-      const status = await mod.Camera.requestPermissions();
-      return status.camera === 'granted';
-    } catch {
-      return false;
+      const r = await mod.Camera.requestPermissions();
+      const granted = r.camera === 'granted';
+      await (supabase.rpc as any)('save_permission_state', { p_camera: granted ? 'granted' : 'denied' });
+      return granted;
     }
-  }
-  try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    stream.getTracks().forEach((t) => t.stop());
+    stream.getTracks().forEach(t => t.stop());
+    await (supabase.rpc as any)('save_permission_state', { p_camera: 'granted' });
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 export async function requestCallPermissions(isVideo: boolean): Promise<boolean> {
-  if (Capacitor.isNativePlatform()) {
+  if (isNative()) {
     try {
       const micMod = await loadNativeModule('@capacitor/microphone');
       if (!micMod) return false;
       const micStatus = await micMod.Microphone.requestPermissions();
       if (micStatus.microphone !== 'granted') return false;
-
       if (isVideo) {
         const camMod = await loadNativeModule('@capacitor/camera');
         if (!camMod) return false;
@@ -63,21 +94,14 @@ export async function requestCallPermissions(isVideo: boolean): Promise<boolean>
         return camStatus.camera === 'granted';
       }
       return true;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }
   try {
-    const constraints: MediaStreamConstraints = {
-      audio: true,
-      video: isVideo,
-    };
+    const constraints: MediaStreamConstraints = { audio: true, video: isVideo };
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    stream.getTracks().forEach((t) => t.stop());
+    stream.getTracks().forEach(t => t.stop());
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 export function getPermissionDeniedMessage(type: 'camera' | 'microphone'): string {
@@ -85,57 +109,4 @@ export function getPermissionDeniedMessage(type: 'camera' | 'microphone'): strin
     return 'Camera access denied. Please enable it in your browser settings.';
   }
   return 'Microphone access denied. Please enable it in your browser settings.';
-}
-
-export async function checkExistingPermission(type: 'camera' | 'microphone'): Promise<PermissionState | null> {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      if (type === 'camera') {
-        const mod = await loadNativeModule('@capacitor/camera');
-        if (!mod) return null;
-        const status = await mod.Camera.checkPermissions();
-        return status.camera as PermissionState;
-      } else {
-        const mod = await loadNativeModule('@capacitor/microphone');
-        if (!mod) return null;
-        const status = await mod.Microphone.checkPermissions();
-        return status.microphone as PermissionState;
-      }
-    } catch {
-      return null;
-    }
-  }
-  try {
-    const name = type === 'camera' ? 'camera' : 'microphone';
-    const status = await navigator.permissions.query({ name: name as PermissionName });
-    return status.state;
-  } catch {
-    return null;
-  }
-}
-
-export async function checkPermission(type: 'microphone' | 'camera'): Promise<PermissionState> {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      if (type === 'camera') {
-        const mod = await loadNativeModule('@capacitor/camera');
-        if (!mod) return 'prompt';
-        const status = await mod.Camera.checkPermissions();
-        return status.camera as PermissionState;
-      } else {
-        const mod = await loadNativeModule('@capacitor/microphone');
-        if (!mod) return 'prompt';
-        const status = await mod.Microphone.checkPermissions();
-        return status.microphone as PermissionState;
-      }
-    } catch {
-      return 'prompt';
-    }
-  }
-  try {
-    const result = await navigator.permissions.query({ name: type as PermissionName });
-    return result.state;
-  } catch {
-    return 'prompt';
-  }
 }

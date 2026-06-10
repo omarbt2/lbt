@@ -58,15 +58,17 @@ function resolveProfile(raw: any, fallbackUserId?: string): {
 }
 
 export function formatTimeLabel(created_at: string): string {
-  const diffMs = Date.now() - new Date(created_at).getTime();
+  const date = new Date(created_at);
+  const diffMs = Date.now() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
   const diffHr  = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHr  / 24);
-  if (diffSec < 60)  return 'Just now';
-  if (diffMin < 60)  return `${diffMin}m ago`;
-  if (diffHr  < 24)  return `${diffHr}h ago`;
-  return `${diffDay}d ago`;
+  if (diffSec < 60)  return 'now';
+  if (diffMin < 60)  return `${diffMin}m`;
+  if (diffHr  < 24)  return `${diffHr}h`;
+  if (diffDay < 7)   return `${diffDay}d`;
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: diffDay > 365 ? 'numeric' : undefined });
 }
 
 export async function getPosts(
@@ -381,6 +383,8 @@ export async function createPost(postData: {
   media_urls?: string[];
   media_type?: 'image' | 'video' | 'carousel';
   tags?: string[];
+  close_friends_only?: boolean;
+  collab_user_id?: string | null;
 }): Promise<Post> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
@@ -405,14 +409,12 @@ export async function createPost(postData: {
       likes_count: 0,
       comments_count: 0,
       shares_count: 0,
-    })
+    } as any)
     .select('*, profiles(*)')
     .single();
 
-  if (error || !data) {
-    console.error('createPost insert error:', error);
-    throw error || new Error('Failed to create post. Check that your profile exists and all required fields are set.');
-  }
+  if (error) throw new Error(error.message || 'Failed to create post');
+  if (!data) throw new Error('Failed to create post');
 
   let profile = data.profiles as any;
   if (!profile) {

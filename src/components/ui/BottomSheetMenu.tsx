@@ -64,7 +64,7 @@ export default function BottomSheetMenu({ isOpen, onClose, items, header }: Bott
               {header && (
                 <div className="flex items-center gap-3 px-2 mb-4">
                   {header.avatar && (
-                    <img src={header.avatar || getDefaultAvatar(header.name || '')} alt="" className="w-10 h-10 rounded-full object-cover" />
+                    <img src={header.avatar || getDefaultAvatar(header.name || '')} alt={`${header.name}'s avatar`} className="w-10 h-10 rounded-full object-cover" />
                   )}
                   <div>
                     <p className="text-xs font-bold text-on-surface">{header.name}</p>

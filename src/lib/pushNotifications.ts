@@ -10,33 +10,35 @@ export function setNavigate(fn: (path: string) => void) {
 export async function initPushNotifications(userId: string) {
   if (!Capacitor.isNativePlatform()) return;
 
-  const permission = await PushNotifications.requestPermissions();
-  if (permission.receive !== 'granted') return;
+  try {
+    const permission = await PushNotifications.requestPermissions();
+    if (permission.receive !== 'granted') return;
 
-  await PushNotifications.register();
+    await PushNotifications.register();
 
-  PushNotifications.addListener('registration', async (token) => {
-    await (supabase.from as any)('push_tokens').upsert({
-      user_id: userId,
-      token: token.value,
-      platform: Capacitor.getPlatform(),
-      is_active: true,
-    }, { onConflict: 'user_id,platform' });
-  });
+    PushNotifications.addListener('registration', async (token) => {
+      await (supabase.from as any)('push_tokens').upsert({
+        user_id: userId,
+        token: token.value,
+        platform: Capacitor.getPlatform(),
+        is_active: true,
+      }, { onConflict: 'user_id,platform' });
+    });
 
-  PushNotifications.addListener('pushNotificationReceived', (notification) => {
-    console.log('Push received:', notification);
-  });
+    PushNotifications.addListener('pushNotificationReceived', () => {});
 
-  PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-    const data = action.notification.data;
-    const path = data.type === 'message' ? '/messages'
-      : data.type === 'call' ? '/calls'
-      : data.type === 'like' || data.type === 'comment' ? `/post/${data.post_id}`
-      : '/notifications';
+    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      const data = action.notification.data;
+      const path = data.type === 'message' ? '/messages'
+        : data.type === 'call' ? '/calls'
+        : data.type === 'like' || data.type === 'comment' ? `/post/${data.post_id}`
+        : '/notifications';
 
-    if (navigateRef) {
-      navigateRef(path);
-    }
-  });
+      if (navigateRef) {
+        navigateRef(path);
+      }
+    });
+  } catch (err) {
+    console.error('Push notification init error:', err);
+  }
 }

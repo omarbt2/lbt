@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Image as ImageIcon,
-  Film,
+
   Tag,
   Send,
   Loader,
@@ -22,8 +23,8 @@ import { supabase } from '../lib/supabase';
 
 interface CreatePostProps {
   currentUser: User;
-  onPostCreated: (post: Post) => void;
-  onNavigateToFeed: () => void;
+  onPostCreated: (post: Post) => Promise<void>;
+  onNavigateToFeed: (postId?: string) => void;
   type?: 'post' | 'reel';
 }
 
@@ -33,12 +34,14 @@ export default function CreatePostView({
   onNavigateToFeed,
   type = 'post',
 }: CreatePostProps) {
+  const navigate = useNavigate();
   const { uploadFile, isUploading } = useStorage();
   const [isPublishing, setIsPublishing] = useState(false);
 
   const [caption, setCaption] = useState('');
   const [audience, setAudience] = useState<'everyone' | 'followers'>('everyone');
   const [showAudienceMenu, setShowAudienceMenu] = useState(false);
+  const [closeFriendsOnly, setCloseFriendsOnly] = useState(false);
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -49,6 +52,13 @@ export default function CreatePostView({
   const [taggedUsers, setTaggedUsers] = useState<User[]>([]);
   const [isTagSearching, setIsTagSearching] = useState(false);
   const [showTagPanel, setShowTagPanel] = useState(false);
+
+  const [collabSearchQuery, setCollabSearchQuery] = useState('');
+  const [collabSearchResults, setCollabSearchResults] = useState<User[]>([]);
+  const [collabUser, setCollabUser] = useState<User | null>(null);
+  const [isCollabSearching, setIsCollabSearching] = useState(false);
+  const [showCollabPanel, setShowCollabPanel] = useState(false);
+  const collabSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -112,6 +122,26 @@ export default function CreatePostView({
     }, 300);
   }, [taggedUsers]);
 
+  const handleCollabSearch = useCallback((query: string) => {
+    setCollabSearchQuery(query);
+    if (collabSearchTimer.current) clearTimeout(collabSearchTimer.current);
+    if (!query.trim()) {
+      setCollabSearchResults([]);
+      return;
+    }
+    collabSearchTimer.current = setTimeout(async () => {
+      setIsCollabSearching(true);
+      try {
+        const results = await searchProfiles(query);
+        setCollabSearchResults(results.filter((u) => u.id !== currentUser.id));
+      } catch {
+        setCollabSearchResults([]);
+      } finally {
+        setIsCollabSearching(false);
+      }
+    }, 300);
+  }, [currentUser.id]);
+
   const addTaggedUser = (user: User) => {
     if (!taggedUsers.some((t) => t.id === user.id)) {
       setTaggedUsers((prev) => [...prev, user]);
@@ -136,17 +166,21 @@ export default function CreatePostView({
           throw new Error('Upload returned empty URL. Check Supabase Storage bucket.');
         }
 
-        const { error: insertError } = await (supabase as any).from('reels').insert({
+        const { error: insertError } = await supabase.from('reels').insert({
           user_id: currentUser.id,
           video_url: videoUrl,
           thumbnail_url: null,
-          caption: caption.trim(),
+          caption: caption.trim() || '',
           audio_name: 'Original Audio',
-          duration: 0,
+          duration_sec: 0,
         });
 
-        if (insertError) throw insertError;
-        onPostCreated({} as Post);
+        if (insertError) {
+          console.error('Reel insert error:', insertError);
+          setPublishError(insertError.message || 'Failed to publish reel');
+          return;
+        }
+        await onPostCreated({} as Post);
         onNavigateToFeed();
         return;
       }
@@ -167,13 +201,14 @@ export default function CreatePostView({
         media_urls: finalMediaUrl ? [finalMediaUrl] : [],
         media_type: mediaType as 'image' | 'video' | 'carousel',
         tags: caption.match(/#[a-zA-Z0-9]+/g) || [],
-      });
+        close_friends_only: closeFriendsOnly,
+        collab_user_id: collabUser?.id || null,
+      } as any);
 
       if (!p || !p.id) throw new Error('createPost returned invalid data');
-      onPostCreated(p);
-      onNavigateToFeed();
+      await onPostCreated(p);
+      navigate('/post/' + p.id);
     } catch (err: any) {
-      console.error('Failed to publish:', err);
       setPublishError(err?.message || 'Failed to publish. Please try again.');
     } finally {
       setIsPublishing(false);
@@ -189,7 +224,7 @@ export default function CreatePostView({
             {isReelMode ? 'New Reel' : 'New Post'}
           </h2>
           <button
-            onClick={onNavigateToFeed}
+            onClick={() => onNavigateToFeed()}
             className="text-sm font-semibold text-on-surface-variant hover:text-on-surface transition-colors"
           >
             Cancel
@@ -258,8 +293,24 @@ export default function CreatePostView({
             onChange={(e) => setCaption(e.target.value)}
             placeholder="What's on your mind?"
             rows={5}
+            aria-label="Post caption"
             className="w-full bg-transparent border-none outline-none resize-none text-sm text-on-surface placeholder:text-on-surface-variant leading-relaxed"
           />
+        </div>
+
+        {/* ── Close Friends toggle ── */}
+        <div className="px-5 pb-2 flex items-center gap-2">
+          <span className="text-xs font-semibold text-on-surface-variant">Audience:</span>
+          <button
+            onClick={() => setCloseFriendsOnly(a => !a)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+              closeFriendsOnly
+                ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                : 'bg-surface-container-highest text-on-surface-variant border border-outline-variant/20'
+            }`}
+          >
+            {closeFriendsOnly ? '🟢 Close Friends' : '🌍 Everyone'}
+          </button>
         </div>
 
         {/* ── Media preview (if selected) ── */}
@@ -352,6 +403,50 @@ export default function CreatePostView({
           </div>
         )}
 
+        {/* ── Collab search panel ── */}
+        {showCollabPanel && (
+          <div className="px-5 pb-3 border-t border-outline-variant/30 pt-3">
+            <div className="flex items-center gap-2 bg-surface-container dark:bg-surface-container-high rounded-xl px-3 py-2">
+              <Search className="w-4 h-4 text-outline shrink-0" />
+              <input
+                type="text"
+                value={collabSearchQuery}
+                onChange={(e) => handleCollabSearch(e.target.value)}
+                placeholder="Search collaborator..."
+                className="flex-1 bg-transparent border-none outline-none text-sm text-on-surface placeholder:text-on-surface-variant"
+                autoFocus
+              />
+              {isCollabSearching && <Loader className="w-4 h-4 animate-spin text-outline" />}
+            </div>
+            {collabUser && (
+              <div className="mt-2 flex items-center gap-2 bg-primary/10 rounded-xl px-3 py-2">
+                <Avatar src={collabUser.avatar} userId={collabUser.id} name={collabUser.name} size="sm" className="bg-surface-container" />
+                <span className="text-xs font-semibold text-primary flex-1 truncate">{collabUser.name}</span>
+                <button onClick={() => setCollabUser(null)} className="text-primary hover:text-error transition-colors">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+            {collabSearchResults.length > 0 && (
+              <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-outline-variant/30">
+                {collabSearchResults.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => { setCollabUser(user); setCollabSearchQuery(''); setCollabSearchResults([]); }}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 hover:bg-surface-container dark:hover:bg-surface-container-high transition-colors text-left"
+                  >
+                    <Avatar src={user.avatar} userId={user.id} name={user.name} size="sm" className="bg-surface-container" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-on-surface truncate">{user.name}</p>
+                      <p className="text-xs text-on-surface-variant truncate">@{user.username}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Bottom toolbar ── */}
         <div className="border-t border-outline-variant/30 px-5 py-3">
           <div className="flex items-center gap-1">
@@ -400,6 +495,19 @@ export default function CreatePostView({
             >
               <Tag className="w-4 h-4" />
               <span className="hidden sm:inline">Tag People</span>
+            </button>
+
+            {/* Collab */}
+            <button
+              onClick={() => setShowCollabPanel((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                showCollabPanel
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-on-surface-variant hover:bg-surface-container dark:hover:bg-surface-container-high'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Collab</span>
             </button>
           </div>
 

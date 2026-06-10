@@ -45,7 +45,7 @@ export async function getCallHistory(limit = 20, offset = 0) {
   if (!user) return [];
 
   const { data, error } = await (supabase as any)
-    .from('call_history')
+    .from('calls')
     .select(`
       *,
       caller:caller_id(id, username, display_name, avatar_url),

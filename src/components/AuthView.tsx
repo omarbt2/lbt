@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, User, CheckCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import AetherLogo from './AetherLogo';
+import LbtLogo from './LbtLogo';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 
@@ -154,7 +154,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
       <main className="w-full max-w-md z-10">
         
         <div className="text-center mb-8 flex flex-col items-center gap-2">
-          <AetherLogo size="lg" />
+          <LbtLogo size="lg" />
           <h1 className="text-3xl font-extrabold tracking-tighter text-primary">LBT</h1>
           <p className="text-xs text-outline font-semibold tracking-widest uppercase">Connect · Create · Collaborate</p>
         </div>

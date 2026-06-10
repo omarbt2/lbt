@@ -55,6 +55,7 @@ export default function SettingsView({
     { id: 3, type: 'pc', name: 'Windows (Chrome)', loc: 'Los Angeles, CA', time: 'May 24' }
   ]);
   const [showDeletionConfirm, setShowDeletionConfirm] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const [notifLikes, setNotifLikes] = useState(true);
   const [notifComments, setNotifComments] = useState(true);
@@ -308,32 +309,68 @@ export default function SettingsView({
             </div>
 
             <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden">
-              <div className="p-4 border-b border-outline-variant/10">
+              <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between">
                 <h3 className="text-xs font-bold text-on-surface">Two-Factor Authentication</h3>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${sms2FA || app2FA ? 'bg-primary/10 text-primary' : 'bg-outline-variant/20 text-outline'}`}>
+                  {sms2FA || app2FA ? 'ENABLED' : 'DISABLED'}
+                </span>
               </div>
-              <div onClick={() => setSms2FA(!sms2FA)}
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
+              <div className="px-4 pt-3 pb-1 text-[11px] text-on-surface-variant">
+                Two-factor authentication adds an extra layer of security. You will be asked for a verification code when signing in.
+              </div>
+              <div onClick={() => setSms2FA(v => !v)}
+                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-surface-container/30 transition-all border-t border-outline-variant/10">
                 <div className="flex items-center gap-3">
                   <Phone className="w-4 h-4 text-primary" />
                   <div>
                     <span className="text-xs font-bold text-on-surface block">SMS Verification</span>
-                    <span className="text-[10px] text-outline">Codes to {phonePrefix} {phoneNum.slice(0, 4)}***</span>
+                    <span className="text-[10px] text-outline">Codes sent via text message</span>
                   </div>
                 </div>
-                <div className={`w-10 h-5.5 rounded-full p-0.5 transition-all ${sms2FA ? 'bg-primary' : 'bg-outline-variant'}`}>
-                  <div className={`w-4.5 h-4.5 bg-white rounded-full shadow transition-all ${sms2FA ? 'translate-x-[18px]' : ''}`} />
+                <div className={`w-10 h-6 rounded-full p-0.5 transition-all flex items-center ${sms2FA ? 'bg-primary' : 'bg-outline-variant'}`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${sms2FA ? 'translate-x-4' : ''}`} />
                 </div>
               </div>
-              <div onClick={() => setApp2FA(!app2FA)}
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all border-t border-outline-variant/10">
+              {sms2FA && (
+                <div className="px-4 pb-3">
+                  <div className="flex gap-2 items-center bg-primary/5 border border-primary/20 rounded-xl px-3 py-2">
+                    <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+                    <span className="text-[11px] text-primary">SMS 2FA is active. Codes will be sent to your registered phone number.</span>
+                  </div>
+                </div>
+              )}
+              <div onClick={() => setApp2FA(v => !v)}
+                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-surface-container/30 transition-all border-t border-outline-variant/10">
                 <div className="flex items-center gap-3">
                   <ShieldCheck className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-bold text-on-surface">Authenticator App</span>
+                  <div>
+                    <span className="text-xs font-bold text-on-surface block">Authenticator App</span>
+                    <span className="text-[10px] text-outline">Google Authenticator, Authy, etc.</span>
+                  </div>
                 </div>
-                <div className={`w-10 h-5.5 rounded-full p-0.5 transition-all ${app2FA ? 'bg-primary' : 'bg-outline-variant'}`}>
-                  <div className={`w-4.5 h-4.5 bg-white rounded-full shadow transition-all ${app2FA ? 'translate-x-[18px]' : ''}`} />
+                <div className={`w-10 h-6 rounded-full p-0.5 transition-all flex items-center ${app2FA ? 'bg-primary' : 'bg-outline-variant'}`}>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${app2FA ? 'translate-x-4' : ''}`} />
                 </div>
               </div>
+              {app2FA && (
+                <div className="px-4 pb-4 space-y-3">
+                  <p className="text-[11px] text-on-surface-variant text-center pt-1">Open your authenticator app and scan the QR code, then enter the 6-digit code to verify.</p>
+                  <div className="bg-white rounded-xl p-4 flex items-center justify-center">
+                    <div className="w-28 h-28 grid grid-cols-7 gap-px">
+                      {[1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,0,1,1,1,0,1,1,0,1,0,1,0,1,1,0,1,1,1,0,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,0].map((v,i) => (
+                        <div key={i} className={`rounded-sm ${v ? 'bg-gray-900' : 'bg-transparent'}`} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {Array.from({length:6}).map((_,i) => (
+                      <input key={i} type="text" maxLength={1} inputMode="numeric"
+                        className="flex-1 bg-surface-container border border-outline-variant/30 rounded-lg text-center text-sm font-bold text-on-surface py-2 outline-none focus:border-primary" />
+                    ))}
+                  </div>
+                  <button className="w-full py-2.5 bg-primary text-white text-xs font-bold rounded-xl">Verify & Enable</button>
+                </div>
+              )}
             </div>
 
             <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden">
@@ -734,11 +771,37 @@ export default function SettingsView({
 
       {/* Danger zone */}
       <section className="pt-1">
-        <button onClick={onLogout}
+        <button onClick={() => setShowLogoutConfirm(true)}
           className="w-full bg-error/5 hover:bg-error/10 border border-error/20 text-error font-extrabold text-xs py-3 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-98">
           <LogOut className="w-4 h-4" /> Log Out
         </button>
       </section>
+
+      {/* Logout confirmation modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)}>
+          <div
+            className="w-full max-w-md bg-surface-container rounded-t-3xl p-6 flex flex-col gap-4 mb-0"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto" />
+            <h3 className="text-base font-bold text-on-surface text-center">Log Out?</h3>
+            <p className="text-sm text-on-surface-variant text-center">Are you sure you want to log out of your account?</p>
+            <button
+              onClick={() => { setShowLogoutConfirm(false); onLogout(); }}
+              className="w-full py-3 rounded-2xl bg-error text-white font-bold text-sm"
+            >
+              Log Out
+            </button>
+            <button
+              onClick={() => setShowLogoutConfirm(false)}
+              className="w-full py-3 rounded-2xl border border-outline-variant/30 text-on-surface font-semibold text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -55,7 +55,9 @@ export function useStorage() {
     const { data: { user } } = await supabase.auth.getUser();
     const uid = user?.id ?? 'anon';
 
-    const filePath = `${uid}/${Date.now()}_${file.name}`;
+    const filePath = folder
+      ? `${folder}/${Date.now()}_${file.name}`
+      : `${uid}/${Date.now()}_${file.name}`;
 
     const { error: uploadError } = await supabase.storage
       .from(bucketName)

@@ -1,4 +1,3 @@
-import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { Story } from '../../types';
 import { mapProfileToUser } from '../../store/authStore';
@@ -35,23 +34,9 @@ export async function getActiveStories(): Promise<StoryGroup[]> {
 
   const viewedSet = new Set((viewedRows || []).map((v: any) => v.story_id));
 
-  const closeFriendIds = new Set<string>();
-  const { data: closeFriendsRows } = await (supabase as any)
-    .from('close_friends')
-    .select('user_id')
-    .eq('friend_id', user.id);
-  if (closeFriendsRows) {
-    closeFriendsRows.forEach((r: any) => closeFriendIds.add(r.user_id));
-  }
-
   const grouped = new Map<string, StoryGroup>();
 
   for (const s of storiesData) {
-    const sAny = s as any;
-    if (sAny.close_friends_only && s.user_id !== user.id && !closeFriendIds.has(s.user_id)) {
-      continue;
-    }
-
     const profile = mapProfileToUser(s.profiles as any);
     const isViewed = viewedSet.has(s.id);
 
@@ -61,7 +46,7 @@ export async function getActiveStories(): Promise<StoryGroup[]> {
       isUnread: !isViewed,
       avatar: s.media_url,
       media_url: s.media_url,
-      media_type: s.media_type === 'video' ? 'video' : 'image',
+      media_type: (s.media_type as 'image' | 'video' | 'text' | 'poll') || 'image',
       caption: s.caption || undefined,
       expires_at: s.expires_at,
       views_count: s.views_count,
@@ -131,7 +116,7 @@ export async function getStoryViewers(storyId: string): Promise<{ id: string; us
 
 export async function createStory(
   mediaUrl: string,
-  options?: { mediaType?: 'image' | 'video'; caption?: string; closeFriendsOnly?: boolean }
+  options?: { mediaType?: 'image' | 'video'; caption?: string; audience?: 'public' | 'close_friends' }
 ): Promise<Story> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
@@ -144,16 +129,10 @@ export async function createStory(
       media_type: options?.mediaType || 'image',
       caption: options?.caption || null,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      audience: options?.audience || 'public',
     } as any)
     .select('*, profiles(*)')
     .single();
-
-  if (options?.closeFriendsOnly && data) {
-    await (supabase as any)
-      .from('stories')
-      .update({ close_friends_only: true })
-      .eq('id', data.id);
-  }
 
   if (error || !data) throw error || new Error('Failed to create story');
 

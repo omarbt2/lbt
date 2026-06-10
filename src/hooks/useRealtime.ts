@@ -178,6 +178,95 @@ export function useRealtimeCalls(
   }, [userId, onIncomingCall]);
 }
 
+export function useRealtimeFeed(
+  userId: string | null,
+  onFeedChange: () => void
+) {
+  const handlerRef = useRef(onFeedChange);
+  handlerRef.current = onFeedChange;
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`feed_changes_${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'posts' },
+        () => handlerRef.current()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'likes' },
+        () => handlerRef.current()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'comments' },
+        () => handlerRef.current()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'saved_posts', filter: `user_id=eq.${userId}` },
+        () => handlerRef.current()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'follows', filter: `follower_id=eq.${userId}` },
+        () => handlerRef.current()
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]);
+}
+
+export interface UseRealtimeSocialCallbacks {
+  onPostsChange?: (payload: any) => void;
+  onLikesChange?: (payload: any) => void;
+  onFollowsChange?: (payload: any) => void;
+}
+
+export function useRealtimeSocial(callbacks: UseRealtimeSocialCallbacks) {
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
+
+  useEffect(() => {
+    const postsChannel = supabase
+      .channel('posts-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'posts' },
+        (payload) => callbacksRef.current.onPostsChange?.(payload)
+      )
+      .subscribe();
+
+    const likesChannel = supabase
+      .channel('likes-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'likes' },
+        (payload) => callbacksRef.current.onLikesChange?.(payload)
+      )
+      .subscribe();
+
+    const followsChannel = supabase
+      .channel('follows-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'follows' },
+        (payload) => callbacksRef.current.onFollowsChange?.(payload)
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(postsChannel);
+      supabase.removeChannel(likesChannel);
+      supabase.removeChannel(followsChannel);
+    };
+  }, []);
+}
+
 export function useRealtimeNotifications(
   recipientId: string | null,
   onNewNotification: (notification: any) => void

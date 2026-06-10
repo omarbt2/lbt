@@ -16,29 +16,29 @@ export async function getProfile(id: string): Promise<User | null> {
   return mapProfileToUser(data);
 }
 
-// BUG #1 FIX: explicitly save to display_name
 export async function updateProfile(data: {
   display_name?: string;
   name?: string;
+  username?: string;
   bio?: string;
   avatar_url?: string;
   cover_url?: string;
   website?: string;
   phone?: string;
+  dob?: string | null;
+  gender?: string | null;
   is_private?: boolean;
 }): Promise<User> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
   const updatePayload: Database['public']['Tables']['profiles']['Update'] = { ...data };
-  // Keep name columns in sync
-  if (data.display_name) {
-    updatePayload.name = data.display_name;
-    updatePayload.full_name = data.display_name;
-  }
-  if (data.name && !data.display_name) {
-    updatePayload.display_name = data.name;
-    updatePayload.full_name = data.name;
+
+  const resolvedName = data.display_name || data.name;
+  if (resolvedName) {
+    updatePayload.display_name = resolvedName;
+    updatePayload.name = resolvedName;
+    updatePayload.full_name = resolvedName;
   }
 
   const { data: updated, error } = await supabase

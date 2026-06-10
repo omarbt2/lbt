@@ -6,6 +6,7 @@ import { getDefaultAvatar } from '../lib/defaultAvatars';
 
 // Auth listener guard - ensure only ONE listener ever exists
 let authListenerUnsubscribe: (() => void) | null = null;
+let refreshIntervalId: ReturnType<typeof setInterval> | null = null;
 let isInitialized = false;
 
 export interface AuthState {
@@ -52,9 +53,6 @@ export const useAuthStore = create<AuthState>()((set) => ({
     isInitialized = true;
 
     set({ isLoading: true });
-    const timeout = setTimeout(() => {
-      set({ isLoading: false });
-    }, 5000);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -67,7 +65,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
         if (profile) {
           set({ session, currentUser: mapProfileToUser(profile as any) });
         } else {
-          set({ session: null, currentUser: null });
+          set({ session, currentUser: null });
         }
       } else {
         set({ session: null, currentUser: null });
@@ -76,7 +74,6 @@ export const useAuthStore = create<AuthState>()((set) => ({
       console.error('Session initialization error:', err);
       set({ session: null, currentUser: null });
     } finally {
-      clearTimeout(timeout);
       set({ isLoading: false });
     }
 
@@ -97,6 +94,19 @@ export const useAuthStore = create<AuthState>()((set) => ({
       }
     });
     authListenerUnsubscribe = () => subscription.unsubscribe();
+
+    // Token refresh check every 5 minutes
+    if (refreshIntervalId) clearInterval(refreshIntervalId);
+    refreshIntervalId = setInterval(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          set({ currentUser: null, session: null });
+        }
+      } catch {
+        set({ currentUser: null, session: null });
+      }
+    }, 5 * 60 * 1000);
   },
 
   login: async (emailOrUsername, password) => {
@@ -208,6 +218,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
       console.error('Sign out error:', err);
     } finally {
       if (authListenerUnsubscribe) { authListenerUnsubscribe(); authListenerUnsubscribe = null; }
+      if (refreshIntervalId) { clearInterval(refreshIntervalId); refreshIntervalId = null; }
       isInitialized = false;
       set({ session: null, currentUser: null, isLoading: false, pendingVerification: false, pendingEmail: null });
     }

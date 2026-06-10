@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { User, Post } from '../types';
-import { Grid, Film, Tag, Users, Check, Search, MessageSquare, ArrowLeft, QrCode, Share2, Copy, Camera, Settings, Lock, MoreVertical, Link, Ban, Flag, Edit3, BarChart3 } from 'lucide-react';
+import { Grid, Film, Tag, Users, Check, Search, MessageSquare, ArrowLeft, QrCode, Share2, Copy, Camera, Settings, Lock, MoreVertical, Link, Ban, Flag, Edit3, BarChart3, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { followUser, unfollowUser, isFollowing as checkIsFollowing } from '../lib/api/follows';
 import { blockUser, isBlocked as checkIsBlocked } from '../lib/api/blocks';
 import { getProfilePosts } from '../lib/api/profiles';
@@ -33,6 +34,7 @@ export default function ProfileView({
   onEditProfile,
   onNavigateToInsights,
 }: ProfileViewProps) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'posts' | 'reels' | 'tagged'>('posts');
   const [isFollowing, setIsFollowing] = useState(!!user.isFollowing);
   const [followLoading, setFollowLoading] = useState(false);
@@ -42,6 +44,8 @@ export default function ProfileView({
   const [isBlockedUser, setIsBlockedUser] = useState(false);
 
   const [profilePosts, setProfilePosts] = useState<Post[]>([]);
+  const [profileReels, setProfileReels] = useState<any[]>([]);
+  const [reelsLoading, setReelsLoading] = useState(false);
   const [postsLoading, setPostsLoading] = useState(false);
   const [postsOffset, setPostsOffset] = useState(0);
   const [hasMorePosts, setHasMorePosts] = useState(true);
@@ -82,6 +86,21 @@ export default function ProfileView({
       .catch(console.error)
       .finally(() => setPostsLoading(false));
   }, [user.id, canViewPosts]);
+
+  useEffect(() => {
+    if (!user?.id || !canViewPosts) return;
+    setReelsLoading(true);
+    supabase
+      .from('reels')
+      .select('id, video_url, thumbnail_url, likes_count, views_count, caption')
+      .eq('user_id', user.id)
+      .eq('is_archived', false)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setProfileReels(data || []);
+        setReelsLoading(false);
+      });
+  }, [user?.id, canViewPosts]);
 
   const loadMorePosts = useCallback(async () => {
     if (postsLoading || !hasMorePosts) return;
@@ -336,6 +355,22 @@ export default function ProfileView({
         </div>
       </div>
 
+      {/* NAME & USERNAME — directly below avatar */}
+      <div className="flex flex-col items-center mt-3 px-4 gap-0.5">
+        <h1 className="text-lg font-semibold text-white leading-tight">
+          {user.name}
+        </h1>
+        <span className="text-sm text-gray-400">@{user.username}</span>
+        {(user as any).status_emoji && (
+          <div className="flex items-center gap-1.5 mt-1 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1 border border-white/10">
+            <span className="text-sm">{(user as any).status_emoji}</span>
+            {(user as any).status_text && (
+              <span className="text-[11px] font-medium text-white/80">{(user as any).status_text}</span>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* STATS ROW */}
       <div className="flex justify-center gap-8 mt-4 px-4">
         <motion.div
@@ -471,6 +506,27 @@ export default function ProfileView({
 
       {/* POSTS GRID — 3-column, 1px gap */}
       <section className="mt-1 grid grid-cols-3 gap-px pb-12" id="profile_grids">
+        {!canViewPosts && (
+          <div className="col-span-3 flex flex-col items-center justify-center py-16 gap-4">
+            <div className="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center">
+              <Lock className="w-7 h-7 text-outline" />
+            </div>
+            <p className="text-sm font-bold text-on-surface">This account is private</p>
+            <p className="text-xs text-outline text-center px-8">Follow this account to see their photos and reels</p>
+            {followRequestStatus === 'pending' ? (
+              <span className="px-5 py-2 rounded-full border border-primary/40 text-primary text-xs font-semibold">
+                Request Sent
+              </span>
+            ) : (
+              <button
+                onClick={handleFollowToggle}
+                className="px-6 py-2 rounded-full bg-primary text-white text-xs font-bold"
+              >
+                Follow
+              </button>
+            )}
+          </div>
+        )}
         {activeTab === 'posts' && profilePosts.map((post, index) => (
           <motion.div
             key={post.id}
@@ -497,15 +553,69 @@ export default function ProfileView({
           </motion.div>
         ))}
 
-        {activeTab === 'reels' && profilePosts.filter(p => p.mediaType === 'video').map((post) => (
-          <div
-            key={post.id}
-            onClick={() => onPostSelect(post.id)}
-            className="aspect-square overflow-hidden bg-surface-container-highest cursor-pointer hover:opacity-85 transition-opacity"
-          >
-            <img src={post.imageUrl} alt="Reel" className="w-full h-full object-cover" loading="lazy" />
-          </div>
-        ))}
+        {activeTab === 'reels' && (
+          reelsLoading ? (
+            <div className="col-span-3 py-8 flex justify-center">
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              {isOwnProfile && (
+                <div
+                  className="aspect-square bg-surface-container-highest border-2 border-dashed border-outline-variant/40 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/60 transition-colors"
+                  onClick={() => document.getElementById('reel-upload-input')?.click()}
+                >
+                  <Plus className="w-8 h-8 text-outline" />
+                  <span className="text-[10px] text-outline font-semibold text-center">New Reel</span>
+                  <input
+                    id="reel-upload-input"
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const ext = file.name.split('.').pop();
+                      const path = `reels/${user.id}/${Date.now()}.${ext}`;
+                      const { error } = await supabase.storage.from('reels').upload(path, file);
+                      if (error) { console.error(error); return; }
+                      const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(path);
+                      await supabase.from('reels').insert({
+                        user_id: user.id,
+                        video_url: publicUrl,
+                        is_public: true,
+                        is_archived: false,
+                      });
+                      const { data } = await supabase.from('reels').select('id,video_url,thumbnail_url,likes_count,views_count,caption').eq('user_id', user.id).eq('is_archived', false).order('created_at', { ascending: false });
+                      setProfileReels(data || []);
+                    }}
+                  />
+                </div>
+              )}
+              {profileReels.length === 0 ? (
+                <div className="col-span-3 py-8 text-center text-xs text-outline">No reels yet</div>
+              ) : (
+                profileReels.map((reel) => (
+                  <div
+                    key={reel.id}
+                    onClick={() => navigate('/reels?id=' + reel.id)}
+                    className="aspect-square overflow-hidden bg-surface-container-highest cursor-pointer hover:opacity-85 transition-opacity relative"
+                  >
+                    {reel.thumbnail_url ? (
+                      <img src={reel.thumbnail_url} alt="Reel" className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <video src={reel.video_url} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+                    )}
+                    <div className="absolute bottom-1 left-1 flex items-center gap-1 bg-black/50 rounded-full px-1.5 py-0.5">
+                      <Film className="w-3 h-3 text-white" />
+                      <span className="text-[9px] text-white font-bold">{reel.views_count ?? 0}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </>
+          )
+        )}
 
         {activeTab === 'tagged' && (
           <div className="aspect-square bg-surface-container-highest flex items-center justify-center">

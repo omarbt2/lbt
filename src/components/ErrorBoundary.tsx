@@ -28,34 +28,35 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
     if (this.state.hasError) {
       return (
         <div style={{
-          minHeight: '40vh',
+          minHeight: '50vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'transparent',
-          color: '#f8fafc',
-          fontFamily: 'system-ui, sans-serif',
           padding: '2rem',
           textAlign: 'center',
+          fontFamily: 'system-ui, sans-serif',
         }}>
-          <div>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '0.75rem' }}>
+          <div style={{ maxWidth: 320 }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⚠️</div>
+            <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem', color: '#f1f5f9' }}>
               {this.props.fallbackTitle || 'Something went wrong'}
             </h2>
-            <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '1rem', maxWidth: '400px' }}>
-              {this.state.error?.message || 'An unexpected error occurred.'}
+            <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+              {this.state.error?.message?.includes('useContext')
+                ? 'A module loading error occurred. Please try again.'
+                : this.state.error?.message || 'An unexpected error occurred.'}
             </p>
             <button
-              onClick={() => { this.setState({ hasError: false, error: null }); }}
+              onClick={() => this.setState({ hasError: false, error: null })}
               style={{
-                padding: '0.5rem 1.25rem',
-                borderRadius: '0.75rem',
+                padding: '0.6rem 1.5rem',
+                borderRadius: '1rem',
                 background: '#2563eb',
                 color: '#fff',
                 border: 'none',
-                fontWeight: 600,
+                fontWeight: 700,
                 cursor: 'pointer',
-                fontSize: '0.75rem',
+                fontSize: '0.8rem',
               }}
             >
               Try Again

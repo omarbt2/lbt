@@ -20,8 +20,6 @@ export function usePosts(userId?: string) {
 
   const PAGE = 8;
 
-  const LOCAL_STORAGE_KEY = `posts_cache_${userId || 'feed'}`;
-
   const fetchItems = useCallback(async (currentOffset: number, append = false) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -39,16 +37,6 @@ export function usePosts(userId?: string) {
     }
 
     try {
-      if (currentOffset === 0 && !append) {
-        try {
-          const cachedStr = localStorage.getItem(LOCAL_STORAGE_KEY);
-          if (cachedStr) {
-            const cachedPosts = JSON.parse(cachedStr) as Post[];
-            if (cachedPosts.length > 0) setPosts(cachedPosts);
-          }
-        } catch { /* ignore parse errors */ }
-      }
-
       const data = await getPosts(PAGE, currentOffset, userId);
       if (data.length < PAGE) setHasMore(false);
       else setHasMore(true);
@@ -56,9 +44,6 @@ export function usePosts(userId?: string) {
 
       if (!append) {
         postsCache.set(cacheKey, { data, timestamp: Date.now() });
-        try {
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
-        } catch { /* storage full, ignore */ }
       }
     } catch (err: any) {
       setError(err);
@@ -67,7 +52,7 @@ export function usePosts(userId?: string) {
       isFetchingRef.current = false;
       initialLoadDone.current = true;
     }
-  }, [userId, LOCAL_STORAGE_KEY]);
+  }, [userId]);
 
   useEffect(() => { fetchItems(0, false); }, [fetchItems]);
 
@@ -98,6 +83,7 @@ export function usePosts(userId?: string) {
   const refresh = useCallback(async () => {
     setOffset(0); setHasMore(true);
     postsCache.clear();
+    isFetchingRef.current = false;
     await fetchItems(0, false);
   }, [fetchItems]);
 

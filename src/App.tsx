@@ -3,7 +3,6 @@ import { useNavigate, useLocation, Outlet, Routes, Route } from 'react-router-do
 import { motion, AnimatePresence } from 'motion/react';
 import { Post, Story, Notification, User } from './types';
 import { OutletContextType } from './types/context';
-import AetherLogo from './components/AetherLogo';
 import CreatePostView from './components/CreatePostView';
 import AddStoryView from './components/AddStoryView';
 import StoryViewer from './components/StoryViewer';
@@ -45,7 +44,7 @@ import ReportModal from './components/ReportModal';
 import {
   Home as HomeIcon, Compass, Plus, Film, MessageCircle, BarChart3, Bell, User as UserIcon,
   Settings as SettingsIcon, LogOut, Bookmark, Moon, Sun,
-  Copy, Flag, Ban, Trash2, Edit3, ImageIcon
+  Copy, Flag, Ban, Trash2, Edit3, ImageIcon, Zap, WifiOff, Repeat2, X
 } from 'lucide-react';
 
 function LoadingSpinner() {
@@ -157,6 +156,28 @@ function AppLayout() {
     loadInitialNotifications();
   }, [currentUser?.id]);
 
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const fetchUnread = async () => {
+      const { data } = await supabase.rpc('get_unread_messages_count', {
+        p_user_id: currentUser.id,
+      });
+      setUnreadMessages(data ?? 0);
+    };
+    fetchUnread();
+    const channel = supabase
+      .channel('unread-messages')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+      }, () => fetchUnread())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser?.id]);
+
   const [incomingCallData, setIncomingCallData] = useState<{
     callerId: string;
     callerName: string;
@@ -223,6 +244,8 @@ function AppLayout() {
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [createPostType, setCreatePostType] = useState<'post' | 'reel'>('post');
   const [showCreateMenu, setShowCreateMenu] = useState(false);
+  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [noteText, setNoteText] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   const [postMenuPostId, setPostMenuPostId] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -234,6 +257,14 @@ function AppLayout() {
   const [headerVisible, setHeaderVisible] = useState(true);
   const [navVisible, setNavVisible] = useState(true);
   const lastScrollY = useRef(0);
+
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [postInsights, setPostInsights] = useState<any>(null);
+  const [showInsightsModal, setShowInsightsModal] = useState(false);
+  const [showRepostModal, setShowRepostModal] = useState(false);
+  const [repostTargetPost, setRepostTargetPost] = useState<any>(null);
+  const [repostCaption, setRepostCaption] = useState('');
+  const [isReposting, setIsReposting] = useState(false);
 
   const isReelsPage = location.pathname === '/reels' || location.pathname.startsWith('/reels');
 
@@ -257,6 +288,17 @@ function AppLayout() {
     const nextIdx = deltaX < 0 ? Math.min(currentIdx + 1, TAB_ORDER.length - 1) : Math.max(currentIdx - 1, 0);
     if (nextIdx !== currentIdx) navigate(TAB_ORDER[nextIdx]);
   }, [location.pathname, navigate]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -284,7 +326,12 @@ function AppLayout() {
 
   const handleNewNotification = useCallback((newNotif: Notification) => {
     setLiveNotifications((prev) => [newNotif, ...prev]);
-    triggerToast(`${newNotif.text}`, 'info');
+    const msg =
+      newNotif.type === 'like' ? '❤️ Someone liked your post' :
+      newNotif.type === 'comment' ? '💬 Someone commented on your post' :
+      newNotif.type === 'follow' ? '👤 Someone followed you' :
+      `${newNotif.text}`;
+    triggerToast(msg, 'info');
     showLocalNotification(
       'LBT Social',
       newNotif.text ?? 'New notification',
@@ -365,6 +412,61 @@ function AppLayout() {
     }
   };
 
+  const handleSharePost = async (postId: string) => {
+    const url = `${window.location.origin}?post=${postId}`;
+    try {
+      await (supabase.from('saved_posts' as any) as any).insert({ post_id: postId, user_id: currentUser.id });
+    } catch (_) {}
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Check this post on LBT', url });
+        return;
+      } catch (_) {}
+    }
+    await navigator.clipboard.writeText(url).catch(() => {});
+    triggerToast('Link copied! 📋');
+  };
+
+  const handleRepost = async () => {
+    if (!repostTargetPost || !currentUser?.id) return;
+    setIsReposting(true);
+    try {
+      const { error } = await (supabase.from('posts') as any).insert({
+        user_id: currentUser.id,
+        caption: repostCaption.trim() || '',
+        category: 'General',
+        media_urls: repostTargetPost.imageUrl ? [repostTargetPost.imageUrl] : [],
+        media_type: repostTargetPost.mediaType || 'image',
+        tags: [],
+        likes_count: 0,
+        comments_count: 0,
+        shares_count: 0,
+        repost_of: repostTargetPost.id,
+        is_repost: true,
+      });
+      if (error) throw error;
+      setShowRepostModal(false);
+      setRepostTargetPost(null);
+      setRepostCaption('');
+      await refresh();
+      triggerToast('Reposted! 🔁');
+    } catch (e) {
+      console.error('Repost failed:', e);
+      triggerToast('Failed to repost', 'error');
+    } finally {
+      setIsReposting(false);
+    }
+  };
+
+  const fetchInsights = async (postId: string) => {
+    try {
+      const { data } = await (supabase.rpc as any)('get_post_insights', { p_post_id: postId });
+      return data;
+    } catch (_) {
+      return null;
+    }
+  };
+
   const handleMarkAllNotificationsAsRead = async () => {
     try {
       if (currentUser?.id) {
@@ -411,7 +513,21 @@ function AppLayout() {
   ]);
 
   return (
-    <div className="min-h-screen font-sans bg-surface-container-low text-on-surface transition-colors duration-300">
+    <div className="min-h-screen w-full overflow-x-clip font-sans bg-surface-container-low text-on-surface transition-colors duration-300">
+      <AnimatePresence>
+        {!isOnline && (
+          <motion.div
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -50, opacity: 0 }}
+            className="fixed top-0 left-0 right-0 z-[100] bg-zinc-900 border-b border-white/10 px-4 py-2 flex items-center justify-center gap-2"
+          >
+            <WifiOff className="w-4 h-4 text-red-400" />
+            <span className="text-xs font-bold text-white">You're offline — some features may be unavailable</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {toast && (
         <div className={`fixed top-6 right-6 z-50 animate-slideIn border rounded-2xl px-5 py-3 shadow-2xl flex items-center gap-2.5 text-xs font-semibold ${
           toast.type === 'error'
@@ -492,9 +608,25 @@ function AppLayout() {
                 setPostMenuPostId(null);
                 triggerToast('Post archived');
               }},
-              { icon: <IconShare />, label: 'Copy Link', onClick: async () => {
-                await navigator.clipboard.writeText(`${window.location.origin}?post=${menuPost.id}`);
-                triggerToast('Link copied!');
+              { icon: <BarChart3 className="w-5 h-5" />, label: 'Insights', onClick: async () => {
+                const insights = await fetchInsights(menuPost.id);
+                setPostInsights(insights);
+                setShowInsightsModal(true);
+                setPostMenuPostId(null);
+              }},
+              { icon: <IconShare />, label: 'Share Post', onClick: async () => {
+                await handleSharePost(menuPost.id);
+                setPostMenuPostId(null);
+              }},
+              { icon: <Repeat2 className="w-5 h-5" />, label: 'Repost', onClick: async () => {
+                try {
+                  await (supabase.from('post_shares') as any).insert({
+                    user_id: currentUser.id,
+                    post_id: menuPost.id,
+                    share_type: 'repost'
+                  });
+                  triggerToast('Reposted!');
+                } catch (_) {}
                 setPostMenuPostId(null);
               }},
               { icon: <IconTrash />, label: 'Delete Post', destructive: true, onClick: async () => {
@@ -504,26 +636,36 @@ function AppLayout() {
               }},
             ]
           : [
-              { icon: <IconSave />, label: menuPost.hasBookmarked ? 'Unsave' : 'Save Post', onClick: async () => {
-                const uid = currentUser.id;
-                if (menuPost.hasBookmarked) {
-                  await supabase.from('saved_posts').delete().eq('post_id', menuPost.id).eq('user_id', uid);
-                } else {
-                  await supabase.from('saved_posts').insert({ post_id: menuPost.id, user_id: uid });
-                }
-                setPostMenuPostId(null);
-                triggerToast(menuPost.hasBookmarked ? 'Removed from saved' : 'Saved!');
-              }},
-              { icon: <IconShare />, label: 'Copy Link', onClick: async () => {
-                await navigator.clipboard.writeText(`${window.location.origin}?post=${menuPost.id}`);
-                triggerToast('Link copied!');
+              { icon: <IconShare />, label: 'Share Post', onClick: async () => {
+                await handleSharePost(menuPost.id);
                 setPostMenuPostId(null);
               }},
-              { icon: <IconFlag />, label: 'Report Post', onClick: () => {
+              { icon: <Repeat2 className="w-5 h-5" />, label: 'Repost', onClick: async () => {
+                try {
+                  await (supabase.from('post_shares') as any).insert({
+                    user_id: currentUser.id,
+                    post_id: menuPost.id,
+                    share_type: 'repost'
+                  });
+                  triggerToast('Reposted!');
+                } catch (_) {}
+                setPostMenuPostId(null);
+              }},
+              { icon: <IconFlag />, label: 'Report', onClick: () => {
                 setReportTarget({ id: menuPost.id, type: 'post' });
                 setShowReportModal(true);
                 setPostMenuPostId(null);
               }, destructive: true },
+              { icon: <Ban className="w-5 h-5" />, label: 'Block User', destructive: true, onClick: async () => {
+                try {
+                  await supabase.from('user_blocks').insert({
+                    blocker_id: currentUser.id,
+                    blocked_id: menuPost.user.id,
+                  });
+                  triggerToast('User blocked');
+                } catch (_) {}
+                setPostMenuPostId(null);
+              }},
             ];
         return (
           <BottomSheetMenu
@@ -594,7 +736,10 @@ function AppLayout() {
         <CreatePostView
           currentUser={currentUser}
           onPostCreated={handlePostCreated}
-          onNavigateToFeed={() => setShowCreatePost(false)}
+          onNavigateToFeed={(postId?: string) => {
+            setShowCreatePost(false);
+            if (postId) navigate('/post/' + postId);
+          }}
           type={createPostType}
         />
       )}
@@ -635,7 +780,6 @@ function AppLayout() {
           onClick={() => navigate('/')}
           className="flex items-center gap-2 cursor-pointer"
         >
-          <AetherLogo size="sm" />
           <span className="font-display font-extrabold text-[15px] tracking-widest text-on-surface">LBT SOCIAL</span>
         </div>
 
@@ -673,11 +817,10 @@ function AppLayout() {
         </div>
       </header>
 
-      <div className="flex max-w-7xl mx-auto w-full relative min-h-screen">
-        <aside className="hidden md:flex flex-col h-screen sticky top-0 w-16 lg:w-64 border-r border-outline-variant/20 bg-surface p-3 lg:p-6 justify-between select-none shrink-0 overflow-hidden z-30" id="desktop_sidebar">
+      <div className="flex max-w-7xl mx-auto w-full relative h-dvh overflow-x-clip">
+        <aside className="hidden md:flex flex-col h-screen sticky top-0 w-16 lg:w-64 border-r border-outline-variant/20 bg-surface p-3 lg:p-6 justify-between select-none shrink-0 overflow-clip z-30" id="desktop_sidebar">
           <div className="flex flex-col gap-8">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-              <AetherLogo size="md" />
               <div>
                 <h1 className="text-lg font-black tracking-tight text-primary">LBT</h1>
                 <p className="text-[9px] font-bold text-outline uppercase tracking-wider leading-none">Studio Platform</p>
@@ -691,7 +834,7 @@ function AppLayout() {
                 { path: '/reels', icon: <Film className="w-5 h-5 shrink-0" />, label: 'Cinematic Reels' },
                 { path: '/messages', icon: <MessageCircle className="w-5 h-5 shrink-0" />, label: 'Messaging DM' },
                 { path: '/insights', icon: <BarChart3 className="w-5 h-5 shrink-0" />, label: 'Insights & Graph' },
-                { path: '/notifications', icon: <Bell className="w-5 h-5 shrink-0" />, label: 'Notifications', badge: liveNotifications.some((n) => n.isUnread) },
+                { path: '/notifications', icon: <Bell className="w-5 h-5 shrink-0" />, label: 'Notifications', badge: liveNotifications.filter(n => n.isUnread).length > 0, badgeCount: liveNotifications.filter(n => n.isUnread).length },
                 { path: '/bookmarks', icon: <Bookmark className="w-5 h-5 shrink-0" />, label: 'Saved Posts' },
                 { path: '/profile/me', icon: <UserIcon className="w-5 h-5 shrink-0" />, label: 'My Profile' },
                 { path: '/settings', icon: <SettingsIcon className="w-5 h-5 shrink-0" />, label: 'Settings' },
@@ -706,7 +849,9 @@ function AppLayout() {
                     {item.icon}
                     <span className="hidden lg:block text-sm">{item.label}</span>
                     {item.badge && (
-                      <span className="absolute top-3.5 right-4 w-2 h-2 rounded-full bg-error" />
+                      <span className="absolute top-2.5 right-3 w-4 h-4 bg-red-500 rounded-full text-[8px] font-bold text-white flex items-center justify-center">
+                        {item.badgeCount > 9 ? '9+' : item.badgeCount}
+                      </span>
                     )}
                   </button>
                 );
@@ -747,7 +892,7 @@ function AppLayout() {
           </div>
         </aside>
 
-        <section className="flex-1 px-0 pb-20 pt-16 md:pt-0 md:pb-6 md:px-6 no-scrollbar" onTouchStart={handleSwipeStart} onTouchEnd={handleSwipeEnd}>
+        <section className="flex-1 overflow-y-auto overflow-x-clip w-full px-0 pb-20 pt-16 md:pt-0 md:pb-6 md:px-6 no-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }} onTouchStart={handleSwipeStart} onTouchEnd={handleSwipeEnd}>
           {(() => {
             const isFullWidth = location.pathname === '/reels' || location.pathname === '/explore' || location.pathname === '/messages';
             return (
@@ -768,7 +913,7 @@ function AppLayout() {
         </section>
       </div>
 
-      <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 z-40 bg-surface-container-lowest dark:bg-surface-container-low backdrop-blur-xl shadow-2xl flex justify-around items-center px-2 pb-[env(safe-area-inset-bottom)] select-none transition-transform duration-300 ease-in-out ${!navVisible || isReelsPage ? 'translate-y-full' : 'translate-y-0'}`}>
+      <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 z-40 w-full max-w-screen-sm mx-auto bg-surface-container-lowest dark:bg-surface-container-low backdrop-blur-xl shadow-2xl flex justify-around items-center px-2 pb-[env(safe-area-inset-bottom)] select-none transition-transform duration-300 ease-in-out ${!navVisible || isReelsPage ? 'translate-y-full' : 'translate-y-0'}`}>
         <button
           onClick={() => navigate('/')}
           className={`flex flex-col items-center justify-center rounded-xl w-12 h-12 relative transition-all duration-200 ${
@@ -807,44 +952,63 @@ function AppLayout() {
           )}
         </button>
 
-        <div className="relative">
+        <div className="relative flex items-center justify-center">
           <button
             onClick={() => setShowCreateMenu((v) => !v)}
-            className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg -mt-4 active:scale-95 transition-all duration-200"
+            className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-xl -mt-6 active:scale-95 transition-all duration-200 ring-4 ring-surface-container-lowest"
             title="Create"
           >
-            <Plus className="text-white w-7 h-7" />
+            <motion.div animate={{ rotate: showCreateMenu ? 45 : 0 }} transition={{ duration: 0.2 }}>
+              <Plus className="text-white w-7 h-7" />
+            </motion.div>
           </button>
 
-          {showCreateMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowCreateMenu(false)} />
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-surface-container-lowest dark:bg-surface-container-high rounded-2xl shadow-2xl border border-outline-variant/30 z-50 overflow-hidden min-w-[160px] py-1 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                <button
-                  onClick={() => {
-                    setCreatePostType('post');
-                    setShowCreateMenu(false);
-                    setShowCreatePost(true);
-                  }}
-                  className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-on-surface hover:bg-surface-container transition-colors"
+          <AnimatePresence>
+            {showCreateMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowCreateMenu(false)} />
+
+                {/* Post — top-left */}
+                <motion.button
+                  initial={{ opacity: 0, x: 0, y: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, x: -75, y: -70, scale: 1 }}
+                  exit={{ opacity: 0, x: 0, y: 0, scale: 0.5 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 28, delay: 0 }}
+                  onClick={() => { setCreatePostType('post'); setShowCreateMenu(false); setShowCreatePost(true); }}
+                  className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-14 rounded-full bg-zinc-900 border border-white/10 shadow-2xl flex flex-col items-center justify-center gap-0.5 z-50"
                 >
-                  <ImageIcon className="w-5 h-5 text-primary" />
-                  Post
-                </button>
-                <button
-                  onClick={() => {
-                    setCreatePostType('reel');
-                    setShowCreateMenu(false);
-                    setShowCreatePost(true);
-                  }}
-                  className="flex items-center gap-3 w-full px-4 py-3 text-sm font-semibold text-on-surface hover:bg-surface-container transition-colors"
+                  <ImageIcon className="w-6 h-6 text-white" />
+                  <span className="text-[9px] font-bold text-white/70">Post</span>
+                </motion.button>
+
+                {/* Reel — top-center */}
+                <motion.button
+                  initial={{ opacity: 0, x: 0, y: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, x: 0, y: -90, scale: 1 }}
+                  exit={{ opacity: 0, x: 0, y: 0, scale: 0.5 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 28, delay: 0.05 }}
+                  onClick={() => { setCreatePostType('reel'); setShowCreateMenu(false); setShowCreatePost(true); }}
+                  className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-14 rounded-full bg-zinc-900 border border-white/10 shadow-2xl flex flex-col items-center justify-center gap-0.5 z-50"
                 >
-                  <Film className="w-5 h-5 text-purple-500" />
-                  Reel
-                </button>
-              </div>
-            </>
-          )}
+                  <Film className="w-6 h-6 text-purple-400" />
+                  <span className="text-[9px] font-bold text-white/70">Reel</span>
+                </motion.button>
+
+                {/* Note — top-right */}
+                <motion.button
+                  initial={{ opacity: 0, x: 0, y: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, x: 75, y: -70, scale: 1 }}
+                  exit={{ opacity: 0, x: 0, y: 0, scale: 0.5 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 28, delay: 0.1 }}
+                  onClick={() => { setShowCreateMenu(false); setShowNoteInput(true); }}
+                  className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-14 rounded-full bg-zinc-900 border border-white/10 shadow-2xl flex flex-col items-center justify-center gap-0.5 z-50"
+                >
+                  <Zap className="w-6 h-6 text-yellow-400" />
+                  <span className="text-[9px] font-bold text-white/70">Note</span>
+                </motion.button>
+              </>
+            )}
+          </AnimatePresence>
         </div>
 
         <button
@@ -875,7 +1039,14 @@ function AppLayout() {
           }`}
           title="Messages"
         >
-          <MessageCircle className={`w-6 h-6 ${isActive('/messages') ? 'fill-primary' : ''}`} />
+          <div className="relative">
+            <MessageCircle className={`w-6 h-6 ${isActive('/messages') ? 'fill-primary' : ''}`} />
+            {unreadMessages > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white leading-none">
+                {unreadMessages > 9 ? '9+' : unreadMessages}
+              </span>
+            )}
+          </div>
           {isActive('/messages') && (
             <motion.div
               layoutId="nav-active-dot"
@@ -886,6 +1057,65 @@ function AppLayout() {
         </button>
       </nav>
 
+      {/* Note input modal */}
+      <AnimatePresence>
+        {showNoteInput && (
+          <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="w-full max-w-md bg-surface-container rounded-t-3xl p-6 flex flex-col gap-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto" />
+              <h3 className="text-base font-bold text-on-surface text-center">New Note ⚡</h3>
+              <p className="text-xs text-on-surface-variant text-center">Share what's on your mind — visible for 24h</p>
+              <textarea
+                value={noteText}
+                onChange={e => setNoteText(e.target.value)}
+                maxLength={60}
+                rows={3}
+                placeholder="What's on your mind?"
+                className="w-full bg-surface-container-highest border border-outline-variant/30 rounded-2xl p-4 text-sm text-on-surface resize-none outline-none focus:border-primary"
+                autoFocus
+              />
+              <div className="text-right text-xs text-outline">{noteText.length}/60</div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowNoteInput(false); setNoteText(''); }}
+                  className="flex-1 py-3 rounded-2xl border border-outline-variant/30 text-on-surface font-semibold text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={!noteText.trim()}
+                  onClick={async () => {
+                    if (!noteText.trim() || !currentUser?.id) return;
+                    try {
+                      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+                      await supabase.from('notes').insert({
+                        user_id: currentUser.id,
+                        content: noteText.trim(),
+                        expires_at: expiresAt,
+                      });
+                      setShowNoteInput(false);
+                      setNoteText('');
+                    } catch (e) {
+                      console.error('Note error:', e);
+                    }
+                  }}
+                  className="flex-1 py-3 rounded-2xl bg-primary text-white font-bold text-sm disabled:opacity-50"
+                >
+                  Post Note
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {reportTarget && (
         <ReportModal
           isOpen={showReportModal}
@@ -895,12 +1125,108 @@ function AppLayout() {
           reporterId={currentUser.id}
         />
       )}
+
+      <AnimatePresence>
+        {showInsightsModal && postInsights && (
+          <div className="fixed inset-0 z-[60] flex items-end bg-black/60">
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              className="w-full bg-surface-container rounded-t-3xl p-6 space-y-4"
+            >
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto" />
+              <h3 className="text-base font-bold text-on-surface text-center">Post Insights</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Likes', value: postInsights.likes, icon: '❤️' },
+                  { label: 'Comments', value: postInsights.comments, icon: '💬' },
+                  { label: 'Shares', value: postInsights.shares, icon: '↗️' },
+                  { label: 'Views', value: postInsights.views, icon: '👁️' },
+                  { label: 'Saves', value: postInsights.saves, icon: '🔖' },
+                  { label: 'Reach', value: postInsights.reach, icon: '📡' },
+                ].map(stat => (
+                  <div key={stat.label} className="bg-surface-container-highest rounded-2xl p-3 text-center">
+                    <div className="text-xl">{stat.icon}</div>
+                    <div className="text-lg font-black text-on-surface">{stat.value ?? 0}</div>
+                    <div className="text-[10px] text-outline font-semibold">{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setShowInsightsModal(false)} className="w-full py-3 rounded-2xl border border-outline-variant/30 text-sm font-semibold text-on-surface">Close</button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* REPOST MODAL */}
+      <AnimatePresence>
+        {showRepostModal && repostTargetPost && (
+          <div className="fixed inset-0 z-[60] flex items-end bg-black/60" onClick={() => setShowRepostModal(false)}>
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="w-full max-w-md bg-surface-container rounded-t-3xl p-6 space-y-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto" />
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-on-surface flex items-center gap-2">
+                  <Repeat2 className="w-5 h-5 text-primary" /> Repost
+                </h3>
+                <button onClick={() => setShowRepostModal(false)} className="text-on-surface-variant hover:text-on-surface">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="bg-surface-container-highest rounded-2xl p-4 border border-outline-variant/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <img src={repostTargetPost.user?.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                  <span className="text-xs font-bold text-on-surface">{repostTargetPost.user?.name}</span>
+                </div>
+                {repostTargetPost.imageUrl && (
+                  <img src={repostTargetPost.imageUrl} alt="" className="w-full aspect-video object-cover rounded-xl mb-2" />
+                )}
+                <p className="text-xs text-on-surface-variant line-clamp-2">{repostTargetPost.caption}</p>
+              </div>
+              <textarea
+                value={repostCaption}
+                onChange={e => setRepostCaption(e.target.value)}
+                rows={3}
+                maxLength={2200}
+                placeholder="Add a caption (optional)"
+                className="w-full bg-surface-container-highest rounded-2xl px-4 py-3 text-xs text-on-surface outline-none resize-none border border-outline-variant/30 focus:border-primary"
+                autoFocus
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRepostModal(false)}
+                  className="flex-1 py-3 rounded-2xl border border-outline-variant/30 text-on-surface font-semibold text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRepost}
+                  disabled={isReposting}
+                  className="flex-1 py-3 rounded-2xl bg-primary text-white font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isReposting ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Repeat2 className="w-4 h-4" />
+                      Repost
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 export default function App() {
-  const { isLoading, initialize } = useAuthStore();
+  const { initialize } = useAuthStore();
   const [onboardingComplete, setOnboardingComplete] = useState(() => {
     return localStorage.getItem('lbt_onboarding_complete') === 'true';
   });
@@ -953,10 +1279,6 @@ export default function App() {
     localStorage.setItem('lbt_onboarding_complete', 'true');
     setOnboardingComplete(true);
   };
-
-  if (isLoading) {
-    return <LoadingSpinner />;
-  }
 
   if (!onboardingComplete) {
     return <OnboardingView onComplete={handleOnboardingComplete} />;

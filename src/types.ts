@@ -47,8 +47,9 @@ export interface Story {
   isUnread: boolean;
   avatar: string;
   media_url?: string;
-  media_type?: 'image' | 'video';
+  media_type?: 'image' | 'video' | 'text' | 'poll';
   caption?: string;
+  bg_color?: string;
   expires_at?: string;
   views_count?: number;
   created_at?: string;
@@ -123,7 +124,11 @@ export interface Note {
   content: string;
   expires_at: string;
   created_at: string;
-  user?: User;
+  profiles: {
+    username: string;
+    display_name: string;
+    avatar_url: string;
+  };
 }
 
 export interface CallHistory {

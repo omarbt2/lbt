@@ -1,7 +1,7 @@
 const sharp = require('sharp');
 const path = require('path');
 
-const SOURCE = path.join(__dirname, '..', 'src', 'assets', 'lbt-logo.png');
+const SOURCE = path.join(__dirname, '..', 'src', 'assets', 'logo.png');
 
 const ANDROID_DENSITIES = [
   { dir: 'mipmap-mdpi',    iconSize: 48,  fgSize: 108 },

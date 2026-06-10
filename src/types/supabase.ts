@@ -604,6 +604,159 @@ export interface Database {
           }
         ]
       }
+      reels: {
+        Row: {
+          id: string
+          user_id: string
+          video_url: string
+          thumbnail_url: string | null
+          caption: string
+          audio_name: string
+          duration_sec: number
+          likes_count: number
+          comments_count: number
+          views_count: number
+          shares_count: number
+          is_archived: boolean
+          is_public: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          video_url: string
+          thumbnail_url?: string | null
+          caption?: string
+          audio_name?: string
+          duration_sec?: number
+          likes_count?: number
+          comments_count?: number
+          views_count?: number
+          shares_count?: number
+          is_archived?: boolean
+          is_public?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          video_url?: string
+          thumbnail_url?: string | null
+          caption?: string
+          audio_name?: string
+          duration_sec?: number
+          likes_count?: number
+          comments_count?: number
+          views_count?: number
+          shares_count?: number
+          is_archived?: boolean
+          is_public?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reels_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      reel_likes: {
+        Row: {
+          id: string
+          reel_id: string
+          user_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          reel_id: string
+          user_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          reel_id?: string
+          user_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reel_likes_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      reel_views: {
+        Row: {
+          id: string
+          reel_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          id?: string
+          reel_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          id?: string
+          reel_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reel_views_reel_id_fkey"
+            columns: ["reel_id"]
+            isOneToOne: false
+            referencedRelation: "reels"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      user_blocks: {
+        Row: {
+          id: string
+          blocker_id: string
+          blocked_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          blocker_id: string
+          blocked_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          blocker_id?: string
+          blocked_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {}
     Functions: {

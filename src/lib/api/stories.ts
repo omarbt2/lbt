@@ -82,10 +82,7 @@ export async function recordStoryView(storyId: string): Promise<void> {
   if (insertError?.code === '23505') return;
   if (insertError) throw insertError;
 
-  const { error: rpcError } = await (supabase.rpc as any)('increment_story_views', { p_story_id: storyId });
-  if (rpcError) {
-    console.error('Story view was recorded but the aggregate counter could not be updated:', rpcError);
-  }
+  // The story_views INSERT trigger updates the aggregate exactly once.
 }
 
 export async function getStoryViewers(storyId: string): Promise<{ id: string; username: string; avatar_url: string | null; display_name: string | null }[]> {

@@ -111,8 +111,6 @@ async function ensureProfileForAuthUser(authUser: SupabaseAuthUser) {
       display_name: displayName,
       avatar_url: getDefaultAvatar(authUser.id),
       bio: 'LBT member.',
-      followers_count: 0,
-      following_count: 0,
     });
     if (!insertError) {
       const { data: created, error: createdError } = await supabase

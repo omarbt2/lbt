@@ -1,0 +1,253 @@
+/* From Uiverse.io by iamriishav - https://uiverse.io/iamriishav/nice-ladybug-64
+ * MIT License, Copyright (c) iamriishav (Rishav Kumar)
+ * Facebook-style form adapted to LBT's React auth screens and existing color identity.
+ */
+.lbt-auth-card {
+  width: min(100%, 396px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 9px;
+  background: #fff;
+  color: #1c1e21;
+  box-shadow: 0 2px 12px rgba(0,0,0,.12), 0 0 1px rgba(0,0,0,.08);
+  font-family: inherit;
+}
+
+.lbt-auth-card .lbt-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+}
+
+.lbt-auth-card .lbt-auth-form > div:has(> label),
+.lbt-auth-card .lbt-auth-form > div:has(> div > input) {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.lbt-auth-card .lbt-auth-form label {
+  color: #606770;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lbt-auth-card .lbt-auth-form input,
+.lbt-auth-card .lbt-auth-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 50px;
+  margin: 0;
+  padding: 13px 14px;
+  border: 1px solid #dddfe2;
+  border-radius: 6px;
+  outline: none;
+  background: #fff;
+  color: #1c1e21;
+  box-shadow: inset 0 1px 1px rgba(0,0,0,.08), 0 .5px .5px rgba(0,0,0,.05);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 20px;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.lbt-auth-card .lbt-auth-form input::placeholder,
+.lbt-auth-card .lbt-auth-input::placeholder {
+  color: #90949c;
+}
+
+.lbt-auth-card .lbt-auth-form input:focus,
+.lbt-auth-card .lbt-auth-input:focus {
+  border-color: #1877f2;
+  box-shadow: 0 0 0 2px rgba(24,119,242,.16);
+}
+
+.lbt-auth-card .lbt-auth-form > div > div:has(> input) {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lbt-auth-card .lbt-auth-form > div > div:has(> input) > svg:first-child {
+  display: none;
+}
+
+.lbt-auth-card .lbt-auth-form > div > div:has(> input) > input {
+  padding-left: 14px;
+}
+
+.lbt-auth-card .lbt-auth-form > div > div:has(> input) > button {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  margin: 0;
+  padding: 7px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: #f0f2f5;
+}
+
+.lbt-auth-login-button {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 50px;
+  margin-top: 2px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 6px;
+  background: #1877f2;
+  color: #fff;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.1;
+  cursor: pointer;
+  transition: background .16s ease, transform .16s ease, opacity .16s ease;
+}
+
+.lbt-auth-login-button:hover:not(:disabled) { background: #166fe5; }
+.lbt-auth-login-button:active:not(:disabled) { transform: scale(.99); }
+.lbt-auth-login-button:disabled { opacity: .58; cursor: wait; }
+
+.lbt-auth-forgot {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 8px 0 14px;
+  border: 0;
+  background: transparent;
+  color: #1877f2;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+
+.lbt-auth-forgot:hover,
+.lbt-auth-back-link:hover { text-decoration: underline; }
+
+.lbt-auth-divider {
+  width: 100%;
+  height: 1px;
+  margin: 3px 0 9px;
+  background: #dadde1;
+}
+
+.lbt-auth-create-button {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: auto;
+  min-width: 190px;
+  min-height: 48px;
+  margin: 4px auto 0;
+  padding: 13px 18px;
+  border: 0;
+  border-radius: 6px;
+  background: #42b72a;
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: background .16s ease, transform .16s ease, opacity .16s ease;
+}
+
+.lbt-auth-create-button:hover:not(:disabled) { background: #36a420; }
+.lbt-auth-create-button:active:not(:disabled) { transform: scale(.99); }
+.lbt-auth-create-button:disabled { opacity: .58; cursor: wait; }
+
+.lbt-auth-card .text-center.mb-6 h2,
+.lbt-auth-card .text-center.mb-5 h2 {
+  color: #1c1e21;
+}
+
+.lbt-auth-card .text-center.mb-6 p,
+.lbt-auth-card .text-center.mb-5 p {
+  color: #606770;
+  line-height: 1.5;
+}
+
+.lbt-auth-card .text-on-surface-variant,
+.lbt-auth-card .text-outline { color: #606770; }
+
+.lbt-auth-card .lbt-auth-success {
+  padding: 11px 12px;
+  border: 1px solid rgba(24,119,242,.16);
+  border-radius: 6px;
+  background: #e7f3ff;
+  color: #1c1e21;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.lbt-auth-card .lbt-auth-error {
+  margin-bottom: 10px;
+  padding: 11px 12px;
+  border: 1px solid rgba(220,53,69,.18);
+  border-radius: 6px;
+  background: #fff1f0;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.lbt-auth-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 2px 0 8px;
+  border: 0;
+  background: transparent;
+  color: #1877f2;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lbt-auth-card .flex.justify-between.text-xs.font-bold {
+  color: #606770;
+}
+
+.lbt-auth-card .bg-surface-container {
+  background: #e4e6eb;
+}
+
+.lbt-auth-card .text-primary { color: #1877f2; }
+
+.lbt-auth-card .bg-primary {
+  background: #1877f2;
+}
+
+.lbt-auth-card .bg-primary:hover { background: #166fe5; }
+
+.lbt-auth-card .bg-error { background: #e53935; }
+
+@media (max-width: 480px) {
+  .lbt-auth-card {
+    width: 100%;
+    padding: 18px 16px;
+    border-radius: 9px;
+  }
+
+  .lbt-auth-login-button { min-height: 48px; font-size: 17px; }
+  .lbt-auth-create-button { min-height: 46px; font-size: 15px; }
+}

@@ -286,6 +286,8 @@ export default function AddStoryView({ onClose, onStoryAdded }: AddStoryProps) {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       recordingAudioRef.current?.getTracks().forEach(track => track.stop());
       recordingStreamRef.current?.getTracks().forEach(track => track.stop());
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (recordingFrameRef.current !== null) cancelAnimationFrame(recordingFrameRef.current);
       stopCamera();
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     };

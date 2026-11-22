@@ -202,6 +202,27 @@ CREATE POLICY close_friends_select_related
   FOR SELECT TO authenticated
   USING (user_id = (SELECT auth.uid()));
 
+CREATE OR REPLACE FUNCTION public.lbt_can_add_close_friend(p_friend_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+  SELECT auth.uid() IS NOT NULL
+    AND p_friend_id <> auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM public.follows f
+      WHERE f.follower_id = p_friend_id
+        AND f.following_id = auth.uid()
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.user_blocks b
+      WHERE (b.blocker_id = auth.uid() AND b.blocked_id = p_friend_id)
+         OR (b.blocker_id = p_friend_id AND b.blocked_id = auth.uid())
+    );
+$;
+
 CREATE POLICY close_friends_insert_followers
   ON public.close_friends
   FOR INSERT TO authenticated

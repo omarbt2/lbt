@@ -6,35 +6,15 @@ import { formatTimeLabel } from './posts';
 export async function getOrCreateConversation(targetUserId: string): Promise<string> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
+  if (!targetUserId || targetUserId === user.id) throw new Error('Invalid conversation target');
 
-  const { data: existing } = await supabase
-    .from('conversations')
-    .select('id')
-    .or(
-      `and(participant1.eq.${user.id},participant2.eq.${targetUserId}),` +
-      `and(participant1.eq.${targetUserId},participant2.eq.${user.id}),` +
-      `and(user1_id.eq.${user.id},user2_id.eq.${targetUserId}),` +
-      `and(user1_id.eq.${targetUserId},user2_id.eq.${user.id})`
-    )
-    .maybeSingle();
+  const { data, error } = await (supabase.rpc as any)('get_or_create_conversation', {
+    p_other_user_id: targetUserId,
+  });
 
-  if (existing?.id) return existing.id;
-
-  const { data: created, error } = await supabase
-    .from('conversations')
-    .insert({
-      participant1: user.id,
-      participant2: targetUserId,
-      user1_id: user.id,
-      user2_id: targetUserId,
-    })
-    .select('id')
-    .single();
-
-  if (error || !created) throw error || new Error('Failed to create conversation');
-  return created.id;
+  if (error || !data) throw error || new Error('Failed to create conversation');
+  return data as string;
 }
-
 export const getOrCreateChat = getOrCreateConversation;
 
 function mapRowToMessage(m: any): Message {

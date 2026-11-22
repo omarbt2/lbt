@@ -1,126 +1,412 @@
 -- LBT: enforce post/story audience and close-friends visibility.
--- Idempotent schema changes; safe to apply after the existing 2026-06 migrations.
+-- This migration is written against the existing schema inspected on the
+-- linked project. It does not delete user content or modify Auth users.
 
--- These columns are used by the current client but were missing from the
--- historical migrations. Add them before setting defaults or creating policies.
+-- ---------------------------------------------------------------------------
+-- 1. Schema used by the current client
+-- ---------------------------------------------------------------------------
+
 ALTER TABLE public.posts
-  ADD COLUMN IF NOT EXISTS visibility text NOT NULL DEFAULT 'public',
-  ADD COLUMN IF NOT EXISTS close_friends_only boolean NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS visibility text;
+
+UPDATE public.posts
+SET visibility = 'public'
+WHERE visibility IS NULL
+   OR visibility NOT IN ('public', 'followers', 'private');
+
+ALTER TABLE public.posts
+  ALTER COLUMN visibility SET DEFAULT 'public',
+  ALTER COLUMN visibility SET NOT NULL;
+
+ALTER TABLE public.posts
+  ADD COLUMN IF NOT EXISTS close_friends_only boolean;
+
+UPDATE public.posts
+SET close_friends_only = false
+WHERE close_friends_only IS NULL;
+
+ALTER TABLE public.posts
+  ALTER COLUMN close_friends_only SET DEFAULT false,
+  ALTER COLUMN close_friends_only SET NOT NULL;
+
+-- These columns already exist in the inspected project. The statements also
+-- make the migration safe on installations where one of them is still absent.
+ALTER TABLE public.stories
+  ADD COLUMN IF NOT EXISTS audience text,
+  ADD COLUMN IF NOT EXISTS close_friends_only boolean;
+
+UPDATE public.stories
+SET audience = 'public'
+WHERE audience IS NULL;
+
+UPDATE public.stories
+SET close_friends_only = false
+WHERE close_friends_only IS NULL;
 
 ALTER TABLE public.stories
-  ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'public',
-  ADD COLUMN IF NOT EXISTS close_friends_only boolean NOT NULL DEFAULT false;
+  ALTER COLUMN audience SET DEFAULT 'public',
+  ALTER COLUMN audience SET NOT NULL,
+  ALTER COLUMN close_friends_only SET DEFAULT false,
+  ALTER COLUMN close_friends_only SET NOT NULL;
+
+-- The live profiles table has who_can_mention, while the current client reads
+-- and writes allow_mentions. Copy the old preference only when adding the
+-- replacement column; do not overwrite a preference on a later re-run.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'profiles'
+      AND column_name = 'allow_mentions'
+  ) THEN
+    ALTER TABLE public.profiles
+      ADD COLUMN allow_mentions text NOT NULL DEFAULT 'everyone';
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'profiles'
+        AND column_name = 'who_can_mention'
+    ) THEN
+      EXECUTE $copy$
+        UPDATE public.profiles
+        SET allow_mentions = CASE
+          WHEN lower(btrim(who_can_mention::text)) IN ('everyone', 'followers', 'nobody')
+            THEN lower(btrim(who_can_mention::text))
+          ELSE 'everyone'
+        END
+      $copy$;
+    END IF;
+  END IF;
+END
+$$;
+
+UPDATE public.profiles
+SET allow_mentions = 'everyone'
+WHERE allow_mentions IS NULL
+   OR allow_mentions NOT IN ('everyone', 'followers', 'nobody');
 
 ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS allow_mentions text NOT NULL DEFAULT 'everyone';
+  ALTER COLUMN allow_mentions SET DEFAULT 'everyone',
+  ALTER COLUMN allow_mentions SET NOT NULL;
 
+-- close_friends already exists in the live project, but it has no constraints
+-- there. Keep its existing id column and add the missing integrity guarantees.
 CREATE TABLE IF NOT EXISTS public.close_friends (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   friend_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (user_id, friend_id),
+  CONSTRAINT close_friends_pair_key UNIQUE (user_id, friend_id),
   CONSTRAINT close_friends_not_self CHECK (user_id <> friend_id)
 );
 
+ALTER TABLE public.close_friends
+  ADD COLUMN IF NOT EXISTS id uuid,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz;
+
+UPDATE public.close_friends
+SET id = gen_random_uuid()
+WHERE id IS NULL;
+
+UPDATE public.close_friends
+SET created_at = now()
+WHERE created_at IS NULL;
+
+ALTER TABLE public.close_friends
+  ALTER COLUMN id SET DEFAULT gen_random_uuid(),
+  ALTER COLUMN id SET NOT NULL,
+  ALTER COLUMN user_id SET NOT NULL,
+  ALTER COLUMN friend_id SET NOT NULL,
+  ALTER COLUMN created_at SET DEFAULT now(),
+  ALTER COLUMN created_at SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.close_friends'::regclass
+      AND contype = 'p'
+  ) THEN
+    ALTER TABLE public.close_friends
+      ADD CONSTRAINT close_friends_pkey PRIMARY KEY (id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.close_friends'::regclass
+      AND conname = 'close_friends_pair_key'
+  ) THEN
+    ALTER TABLE public.close_friends
+      ADD CONSTRAINT close_friends_pair_key UNIQUE (user_id, friend_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.close_friends'::regclass
+      AND conname = 'close_friends_not_self'
+  ) THEN
+    ALTER TABLE public.close_friends
+      ADD CONSTRAINT close_friends_not_self CHECK (user_id <> friend_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.close_friends'::regclass
+      AND conname = 'close_friends_user_id_fkey'
+  ) THEN
+    ALTER TABLE public.close_friends
+      ADD CONSTRAINT close_friends_user_id_fkey
+      FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.close_friends'::regclass
+      AND conname = 'close_friends_friend_id_fkey'
+  ) THEN
+    ALTER TABLE public.close_friends
+      ADD CONSTRAINT close_friends_friend_id_fkey
+      FOREIGN KEY (friend_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+  END IF;
+END
+$$;
+
+CREATE INDEX IF NOT EXISTS close_friends_friend_idx
+  ON public.close_friends(friend_id);
+
+-- ---------------------------------------------------------------------------
+-- 2. close_friends RLS
+-- PostgreSQL combines permissive policies with OR. Remove the old ALL policy
+-- and its companion policies before creating the narrower rules.
+-- ---------------------------------------------------------------------------
+
 ALTER TABLE public.close_friends ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS cf_own ON public.close_friends;
+DROP POLICY IF EXISTS cf_insert ON public.close_friends;
+DROP POLICY IF EXISTS cf_delete ON public.close_friends;
+DROP POLICY IF EXISTS cf_select ON public.close_friends;
 DROP POLICY IF EXISTS close_friends_select_own ON public.close_friends;
 DROP POLICY IF EXISTS close_friends_insert_own ON public.close_friends;
 DROP POLICY IF EXISTS close_friends_delete_own ON public.close_friends;
+DROP POLICY IF EXISTS close_friends_select_related ON public.close_friends;
+DROP POLICY IF EXISTS close_friends_insert_followers ON public.close_friends;
+DROP POLICY IF EXISTS close_friends_delete_owner ON public.close_friends;
 
-CREATE POLICY close_friends_select_own ON public.close_friends
-  FOR SELECT TO authenticated USING ((select auth.uid()) = user_id);
-CREATE POLICY close_friends_insert_own ON public.close_friends
+CREATE POLICY close_friends_select_related
+  ON public.close_friends
+  FOR SELECT TO authenticated
+  USING (
+    user_id = (SELECT auth.uid())
+    OR friend_id = (SELECT auth.uid())
+  );
+
+CREATE POLICY close_friends_insert_followers
+  ON public.close_friends
   FOR INSERT TO authenticated
   WITH CHECK (
-    (select auth.uid()) = user_id
+    user_id = (SELECT auth.uid())
+    AND friend_id <> (SELECT auth.uid())
     AND EXISTS (
-      SELECT 1 FROM public.follows f
-      WHERE f.follower_id = friend_id AND f.following_id = user_id
+      SELECT 1
+      FROM public.follows f
+      WHERE f.follower_id = friend_id
+        AND f.following_id = user_id
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.user_blocks b
+      WHERE (b.blocker_id = user_id AND b.blocked_id = friend_id)
+         OR (b.blocker_id = friend_id AND b.blocked_id = user_id)
     )
   );
-CREATE POLICY close_friends_delete_own ON public.close_friends
-  FOR DELETE TO authenticated USING ((select auth.uid()) = user_id);
 
-GRANT SELECT, INSERT, DELETE ON public.close_friends TO authenticated;
-CREATE INDEX IF NOT EXISTS close_friends_friend_idx ON public.close_friends(friend_id);
+CREATE POLICY close_friends_delete_owner
+  ON public.close_friends
+  FOR DELETE TO authenticated
+  USING (user_id = (SELECT auth.uid()));
 
--- Replace the previous broad read policies: permissive policies are ORed by
--- PostgreSQL, so the known earlier policies must be removed explicitly.
-DROP POLICY IF EXISTS "Public read stories" ON public.stories;
+REVOKE ALL ON TABLE public.close_friends FROM anon, PUBLIC;
+GRANT SELECT, INSERT, DELETE ON TABLE public.close_friends TO authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 3. Stories visibility
+-- Remove the actual legacy stories_select policy seen on the live database.
+-- Leaving it in place would OR its conditions with the new policy.
+-- ---------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS stories_select ON public.stories;
 DROP POLICY IF EXISTS stories_select_auth ON public.stories;
-CREATE POLICY stories_select_auth ON public.stories
+DROP POLICY IF EXISTS stories_select_anon ON public.stories;
+DROP POLICY IF EXISTS stories_select_authenticated ON public.stories;
+DROP POLICY IF EXISTS "Public read stories" ON public.stories;
+
+CREATE POLICY stories_select_authenticated
+  ON public.stories
   FOR SELECT TO authenticated
   USING (
     expires_at > now()
     AND (
-      user_id = (select auth.uid())
+      user_id = (SELECT auth.uid())
       OR (
-        COALESCE(audience, 'public') = 'public'
-        AND COALESCE(close_friends_only, false) = false
-      )
-      OR (
-        (COALESCE(audience, 'public') = 'close_friends' OR COALESCE(close_friends_only, false))
-        AND EXISTS (
-          SELECT 1 FROM public.close_friends cf
-          WHERE cf.user_id = stories.user_id
-            AND cf.friend_id = (select auth.uid())
+        NOT EXISTS (
+          SELECT 1
+          FROM public.user_blocks b
+          WHERE (b.blocker_id = stories.user_id AND b.blocked_id = (SELECT auth.uid()))
+             OR (b.blocker_id = (SELECT auth.uid()) AND b.blocked_id = stories.user_id)
         )
-      )
-    )
-  );
-
-DROP POLICY IF EXISTS posts_select_auth ON public.posts;
-DROP POLICY IF EXISTS posts_select_anon ON public.posts;
-CREATE POLICY posts_select_auth ON public.posts
-  FOR SELECT TO authenticated
-  USING (
-    NOT EXISTS (
-      SELECT 1 FROM public.user_blocks b
-      WHERE (b.blocker_id = posts.user_id AND b.blocked_id = (select auth.uid()))
-         OR (b.blocker_id = (select auth.uid()) AND b.blocked_id = posts.user_id)
-    )
-    AND (
-      posts.user_id = (select auth.uid())
-      OR (
-        COALESCE(posts.visibility, 'public') = 'public'
-        AND COALESCE(posts.close_friends_only, false) = false
         AND (
-          NOT COALESCE((SELECT pr.is_private FROM public.profiles pr WHERE pr.id = posts.user_id), false)
-          OR EXISTS (
-            SELECT 1 FROM public.follows f
-            WHERE f.follower_id = (select auth.uid()) AND f.following_id = posts.user_id
+          (
+            COALESCE(audience, 'public') = 'public'
+            AND COALESCE(close_friends_only, false) = false
+            AND (
+              NOT COALESCE(
+                (SELECT pr.is_private FROM public.profiles pr WHERE pr.id = stories.user_id),
+                false
+              )
+              OR EXISTS (
+                SELECT 1
+                FROM public.follows f
+                WHERE f.follower_id = (SELECT auth.uid())
+                  AND f.following_id = stories.user_id
+              )
+            )
+          )
+          OR (
+            COALESCE(audience, 'public') = 'followers'
+            AND COALESCE(close_friends_only, false) = false
+            AND EXISTS (
+              SELECT 1
+              FROM public.follows f
+              WHERE f.follower_id = (SELECT auth.uid())
+                AND f.following_id = stories.user_id
+            )
+          )
+          OR (
+            (
+              COALESCE(audience, 'public') = 'close_friends'
+              OR COALESCE(close_friends_only, false) = true
+            )
+            AND EXISTS (
+              SELECT 1
+              FROM public.close_friends cf
+              WHERE cf.user_id = stories.user_id
+                AND cf.friend_id = (SELECT auth.uid())
+            )
+            AND (
+              NOT COALESCE(
+                (SELECT pr.is_private FROM public.profiles pr WHERE pr.id = stories.user_id),
+                false
+              )
+              OR EXISTS (
+                SELECT 1
+                FROM public.follows f
+                WHERE f.follower_id = (SELECT auth.uid())
+                  AND f.following_id = stories.user_id
+              )
+            )
           )
         )
       )
-      OR (
-        COALESCE(posts.visibility, 'public') = 'followers'
-        AND COALESCE(posts.close_friends_only, false) = false
-        AND EXISTS (
-          SELECT 1 FROM public.follows f
-          WHERE f.follower_id = (select auth.uid()) AND f.following_id = posts.user_id
-        )
+    )
+  );
+
+-- ---------------------------------------------------------------------------
+-- 4. Posts visibility
+-- Remove both live SELECT policies, including the unrestricted anon policy.
+-- Anonymous access is retained only for public posts on public accounts.
+-- ---------------------------------------------------------------------------
+
+DROP POLICY IF EXISTS posts_select_auth ON public.posts;
+DROP POLICY IF EXISTS posts_select_anon ON public.posts;
+DROP POLICY IF EXISTS posts_select_authenticated ON public.posts;
+
+CREATE POLICY posts_select_authenticated
+  ON public.posts
+  FOR SELECT TO authenticated
+  USING (
+    user_id = (SELECT auth.uid())
+    OR (
+      NOT EXISTS (
+        SELECT 1
+        FROM public.user_blocks b
+        WHERE (b.blocker_id = posts.user_id AND b.blocked_id = (SELECT auth.uid()))
+           OR (b.blocker_id = (SELECT auth.uid()) AND b.blocked_id = posts.user_id)
       )
-      OR (
-        COALESCE(posts.close_friends_only, false)
-        AND EXISTS (
-          SELECT 1 FROM public.close_friends cf
-          WHERE cf.user_id = posts.user_id AND cf.friend_id = (select auth.uid())
+      AND (
+        (
+          COALESCE(visibility, 'public') = 'public'
+          AND COALESCE(close_friends_only, false) = false
+          AND (
+            NOT COALESCE(
+              (SELECT pr.is_private FROM public.profiles pr WHERE pr.id = posts.user_id),
+              false
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM public.follows f
+              WHERE f.follower_id = (SELECT auth.uid())
+                AND f.following_id = posts.user_id
+            )
+          )
+        )
+        OR (
+          COALESCE(visibility, 'public') = 'followers'
+          AND COALESCE(close_friends_only, false) = false
+          AND EXISTS (
+            SELECT 1
+            FROM public.follows f
+            WHERE f.follower_id = (SELECT auth.uid())
+              AND f.following_id = posts.user_id
+          )
+        )
+        OR (
+          COALESCE(close_friends_only, false) = true
+          AND EXISTS (
+            SELECT 1
+            FROM public.close_friends cf
+            WHERE cf.user_id = posts.user_id
+              AND cf.friend_id = (SELECT auth.uid())
+          )
+          AND (
+            NOT COALESCE(
+              (SELECT pr.is_private FROM public.profiles pr WHERE pr.id = posts.user_id),
+              false
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM public.follows f
+              WHERE f.follower_id = (SELECT auth.uid())
+                AND f.following_id = posts.user_id
+            )
+          )
         )
       )
     )
   );
 
-CREATE POLICY posts_select_anon ON public.posts
+CREATE POLICY posts_select_anon
+  ON public.posts
   FOR SELECT TO anon
   USING (
     COALESCE(visibility, 'public') = 'public'
     AND COALESCE(close_friends_only, false) = false
-    AND NOT COALESCE((SELECT pr.is_private FROM public.profiles pr WHERE pr.id = posts.user_id), false)
+    AND NOT COALESCE(
+      (SELECT pr.is_private FROM public.profiles pr WHERE pr.id = posts.user_id),
+      false
+    )
   );
 
--- get_feed is SECURITY DEFINER, so it must apply the same audience checks
--- itself instead of relying on table RLS.
-DROP FUNCTION IF EXISTS public.get_feed(uuid, integer, integer);
+-- ---------------------------------------------------------------------------
+-- 5. Feed RPC
+-- Keep the existing return signature (the client depends on these exact
+-- columns). CREATE OR REPLACE avoids dropping a function that may be depended
+-- on by other database objects.
+-- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.get_feed(
   p_user_id uuid,
@@ -138,7 +424,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF auth.uid() IS NULL OR p_user_id <> auth.uid() THEN
+  IF auth.uid() IS NULL OR p_user_id IS DISTINCT FROM auth.uid() THEN
     RAISE EXCEPTION 'Not authorized to read this feed';
   END IF;
 
@@ -154,8 +440,14 @@ BEGIN
       'followers_count', COALESCE(pr.followers_count, 0),
       'following_count', COALESCE(pr.following_count, 0)
     ),
-    EXISTS (SELECT 1 FROM public.likes l WHERE l.post_id = p.id AND l.user_id = p_user_id),
-    EXISTS (SELECT 1 FROM public.saved_posts sp WHERE sp.post_id = p.id AND sp.user_id = p_user_id),
+    EXISTS (
+      SELECT 1 FROM public.likes l
+      WHERE l.post_id = p.id AND l.user_id = p_user_id
+    ),
+    EXISTS (
+      SELECT 1 FROM public.saved_posts sp
+      WHERE sp.post_id = p.id AND sp.user_id = p_user_id
+    ),
     COALESCE((
       SELECT jsonb_agg(
         jsonb_build_object(
@@ -170,19 +462,26 @@ BEGIN
         ) ORDER BY c.created_at ASC
       )
       FROM (
-        SELECT * FROM public.comments WHERE post_id = p.id
-        ORDER BY created_at ASC LIMIT 3
+        SELECT *
+        FROM public.comments
+        WHERE post_id = p.id
+        ORDER BY created_at ASC
+        LIMIT 3
       ) c
       JOIN public.profiles cpr ON cpr.id = c.user_id
     ), '[]'::jsonb)
   FROM public.posts p
   JOIN public.profiles pr ON pr.id = p.user_id
   WHERE p.user_id IN (
-    SELECT following_id FROM public.follows WHERE follower_id = p_user_id
-    UNION ALL SELECT p_user_id
+    SELECT f.following_id
+    FROM public.follows f
+    WHERE f.follower_id = p_user_id
+    UNION
+    SELECT p_user_id
   )
   AND NOT EXISTS (
-    SELECT 1 FROM public.user_blocks b
+    SELECT 1
+    FROM public.user_blocks b
     WHERE (b.blocker_id = p.user_id AND b.blocked_id = p_user_id)
        OR (b.blocker_id = p_user_id AND b.blocked_id = p.user_id)
   )
@@ -194,8 +493,10 @@ BEGIN
       AND (
         NOT COALESCE(pr.is_private, false)
         OR EXISTS (
-          SELECT 1 FROM public.follows f
-          WHERE f.follower_id = p_user_id AND f.following_id = p.user_id
+          SELECT 1
+          FROM public.follows f
+          WHERE f.follower_id = p_user_id
+            AND f.following_id = p.user_id
         )
       )
     )
@@ -203,15 +504,28 @@ BEGIN
       COALESCE(p.visibility, 'public') = 'followers'
       AND COALESCE(p.close_friends_only, false) = false
       AND EXISTS (
-        SELECT 1 FROM public.follows f
-        WHERE f.follower_id = p_user_id AND f.following_id = p.user_id
+        SELECT 1
+        FROM public.follows f
+        WHERE f.follower_id = p_user_id
+          AND f.following_id = p.user_id
       )
     )
     OR (
-      COALESCE(p.close_friends_only, false)
+      COALESCE(p.close_friends_only, false) = true
       AND EXISTS (
-        SELECT 1 FROM public.close_friends cf
-        WHERE cf.user_id = p.user_id AND cf.friend_id = p_user_id
+        SELECT 1
+        FROM public.close_friends cf
+        WHERE cf.user_id = p.user_id
+          AND cf.friend_id = p_user_id
+      )
+      AND (
+        NOT COALESCE(pr.is_private, false)
+        OR EXISTS (
+          SELECT 1
+          FROM public.follows f
+          WHERE f.follower_id = p_user_id
+            AND f.following_id = p.user_id
+        )
       )
     )
   )

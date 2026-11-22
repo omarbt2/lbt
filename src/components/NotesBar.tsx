@@ -44,6 +44,12 @@ export default function NotesBar({ currentUser, onOpenNoteModal }: NotesBarProps
   useEffect(() => { fetchNotes(); }, []);
 
   useEffect(() => {
+    const handleNotesUpdated = () => { void fetchNotes(); };
+    window.addEventListener('lbt:notes-updated', handleNotesUpdated);
+    return () => window.removeEventListener('lbt:notes-updated', handleNotesUpdated);
+  }, []);
+
+  useEffect(() => {
     const interval = setInterval(fetchNotes, 30000);
     return () => clearInterval(interval);
   }, []);

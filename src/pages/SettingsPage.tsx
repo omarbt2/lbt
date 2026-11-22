@@ -63,8 +63,8 @@ export default function SettingsPage() {
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [phonePrefix, setPhonePrefix] = useState('+1');
   const [phoneNum, setPhoneNum] = useState(currentUser.phone || '');
-  const [dob, setDob] = useState('');
-  const [gender, setGender] = useState('');
+  const [dob, setDob] = useState(currentUser.date_of_birth || currentUser.dob || '');
+  const [gender, setGender] = useState(currentUser.gender || '');
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
 
   // --- Security state ---

@@ -12,7 +12,8 @@ Branch: `fix/lbt-social-ux-and-reel-interactions`
 - Added Explore search results for people, caption matches, and hashtag matches. Search now queries the posts table directly rather than the legacy `explore_feed` view.
 - Persisted post audience settings (`public` / `followers`) and close-friends flags to the database.
 - Made story view recording idempotent: repeated viewing by the same account no longer increments the aggregate view count repeatedly.
-- Added a database migration for the missing `close_friends` table and RLS policies for stories/posts, including the SECURITY DEFINER feed RPC.
+- Fixed the signup/login profile lifecycle: accounts created while email confirmation is enabled now receive their missing `profiles` row after first verified sign-in; login and auth-session restoration also repair a missing profile.
+- Added a database migration for the missing audience/close-friends columns, close-friends table and RLS policies for stories/posts, including the SECURITY DEFINER feed RPC. The migration was re-reviewed against the historical SQL files and updated to add missing columns before use and drop/recreate `get_feed` where its return shape changes. It is still unapplied and must be checked against the actual remote migration history before deployment.
 - Consolidated the settings entry point so Personal Information opens the dedicated Edit Profile page.
 - Persisted appearance/media preferences locally, applied autoplay/data-saver choices to feed and reel playback, and connected language/text-size settings to the app i18n provider.
 - Fixed privacy preference rollback when database updates fail and aligned the mention-audience setting with its actual three-state values.

@@ -77,6 +77,7 @@ function MessageBubble({
         onMouseLeave={onLongPressEnd}
         onTouchStart={() => onLongPressStart(m.id)}
         onTouchEnd={onLongPressEnd}
+        onTouchCancel={onLongPressEnd}
       >
         {!isMe && (
           <Avatar

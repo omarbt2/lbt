@@ -107,17 +107,9 @@ export async function getChats(): Promise<Chat[]> {
 
   if (convError || !convData || convData.length === 0) return [];
 
-  const { data: lastMsgs } = await supabase.rpc('get_last_messages', {
-    conv_ids: convData.map((c: any) => c.id),
-  });
-
-  const lastMsgByConv = new Map<string, any>();
-  if (lastMsgs) {
-    for (const m of lastMsgs) {
-      lastMsgByConv.set(m.conversation_id, m);
-    }
-  }
-
+  // Unread badges are counted from visible messages in MessagesPage and the
+  // app shell. Avoid the legacy counter/RPC here: expired rows can remain until
+  // the scheduled cleanup runs, and must never reappear as unread previews.
   return convData.map((conv: any) => {
     const normalizeProfile = (p: any) => Array.isArray(p) ? p[0] : p;
     const profiles = [
@@ -128,8 +120,7 @@ export async function getChats(): Promise<Chat[]> {
     ].filter(Boolean);
     const otherProfile = profiles.find((p: any) => p.id !== user.id) || profiles[0] || null;
 
-    const lastMsg = lastMsgByConv.get(conv.id);
-    const unreadCount = lastMsg && lastMsg.sender_id !== user.id && !lastMsg.is_read ? 1 : 0;
+    const unreadCount = 0;
 
     return {
       id: conv.id,

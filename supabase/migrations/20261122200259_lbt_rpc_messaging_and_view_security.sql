@@ -146,10 +146,6 @@ WITH CHECK (
 );
 CREATE POLICY mr_delete ON public.message_reactions FOR DELETE TO authenticated
 USING (user_id=(SELECT auth.uid()));
-CREATE POLICY mr_update ON public.message_reactions FOR UPDATE TO authenticated
-USING (user_id=(SELECT auth.uid()))
-WITH CHECK (user_id=(SELECT auth.uid()));
-
 DROP POLICY IF EXISTS pr_select ON public.post_reactions;
 DROP POLICY IF EXISTS pr_insert ON public.post_reactions;
 DROP POLICY IF EXISTS pr_delete ON public.post_reactions;
@@ -359,12 +355,12 @@ BEGIN
   IF auth.uid() IS NULL OR (p_user_id IS NOT NULL AND p_user_id<>auth.uid()) THEN
     RAISE EXCEPTION 'Not authorized to search for another user';
   END IF;
-  safe_q := '%'||replace(replace(replace(q,E'\\',E'\\\\'),'% ',E'\\% '),'_ ',E'\\_ ')||'%';
+  safe_q := '%' || replace(replace(replace(q, E'\\', E'\\\\'), '%', E'\\%'), '_', E'\\_') || '%';
 
   SELECT json_agg(row_to_json(r)) INTO v_profiles FROM (
     SELECT pr.id,pr.username,pr.display_name,pr.full_name,pr.avatar_url,pr.is_verified,pr.followers_count,pr.is_private
     FROM public.profiles pr
-    WHERE (pr.username ILIKE safe_q OR pr.full_name ILIKE safe_q OR COALESCE(pr.display_name,'') ILIKE safe_q)
+    WHERE (pr.username ILIKE safe_q ESCAPE E'\\' OR pr.full_name ILIKE safe_q ESCAPE E'\\' OR COALESCE(pr.display_name,'') ILIKE safe_q ESCAPE E'\\')
       AND pr.id<>auth.uid() AND NOT private.lbt_is_blocked_from(pr.id)
     LIMIT 10
   ) r;
@@ -372,7 +368,7 @@ BEGIN
   SELECT json_agg(row_to_json(r)) INTO v_posts FROM (
     SELECT p.id,p.caption,p.media_urls,p.media_type,p.likes_count,p.created_at,pr.username,pr.avatar_url
     FROM public.posts p JOIN public.profiles pr ON pr.id=p.user_id
-    WHERE p.caption ILIKE safe_q AND p.visibility='public'
+    WHERE p.caption ILIKE safe_q ESCAPE E'\\' AND p.visibility='public'
       AND COALESCE(p.close_friends_only,false)=false
       AND COALESCE(pr.is_private,false)=false
       AND COALESCE(p.is_archived,false)=false
@@ -382,7 +378,7 @@ BEGIN
 
   SELECT json_agg(row_to_json(r)) INTO v_hashtags FROM (
     SELECT h.id,h.name,h.posts_count FROM public.hashtags h
-    WHERE h.name ILIKE safe_q ORDER BY h.posts_count DESC LIMIT 10
+    WHERE h.name ILIKE safe_q ESCAPE E'\\' ORDER BY h.posts_count DESC LIMIT 10
   ) r;
 
   RETURN json_build_object('profiles',COALESCE(v_profiles,'[]'::json),'posts',COALESCE(v_posts,'[]'::json),'hashtags',COALESCE(v_hashtags,'[]'::json));

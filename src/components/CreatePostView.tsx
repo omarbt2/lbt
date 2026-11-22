@@ -228,6 +228,7 @@ export default function CreatePostView({
         media_type: mediaType as 'image' | 'video' | 'carousel',
         tags: caption.match(/#[a-zA-Z0-9]+/g) || [],
         close_friends_only: closeFriendsOnly,
+        visibility: audience === 'followers' ? 'followers' : 'public',
         collab_user_id: collabUser?.id || null,
       } as any);
 

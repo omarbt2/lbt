@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Image as ImageIcon,
@@ -62,6 +62,7 @@ export default function CreatePostView({
 
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
   const tagSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isReelMode = type === 'reel';
@@ -78,9 +79,28 @@ export default function CreatePostView({
   };
 
   const loadFile = (file: File) => {
+    const validImage = file.type.startsWith('image/');
+    const validVideo = file.type.startsWith('video/');
+    if ((isReelMode && !validVideo) || (!isReelMode && !validImage && !validVideo)) {
+      setPublishError(isReelMode ? 'Choose a video file to create a reel.' : 'Choose an image or video file.');
+      return;
+    }
+    const maxBytes = validVideo ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setPublishError(validVideo ? 'Videos must be smaller than 100 MB.' : 'Images must be smaller than 25 MB.');
+      return;
+    }
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    const url = URL.createObjectURL(file);
+    previewUrlRef.current = url;
     setSelectedFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    setImagePreview(url);
+    setPublishError(null);
   };
+
+  useEffect(() => () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+  }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -97,6 +117,8 @@ export default function CreatePostView({
   };
 
   const removeMedia = () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = null;
     setSelectedFile(null);
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';

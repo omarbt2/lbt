@@ -493,7 +493,7 @@ BEGIN
       SELECT 1
       FROM public.user_blocks ub
       WHERE (ub.blocker_id = p_user_id AND ub.blocked_id = p.user_id)
-         OR (ub.blocker_id = p.user_id AND ub.blocked_id = p.user_id)
+         OR (ub.blocker_id = p.user_id AND ub.blocked_id = p_user_id)
     )
     AND NOT EXISTS (
       SELECT 1

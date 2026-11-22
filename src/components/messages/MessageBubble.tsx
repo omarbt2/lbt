@@ -72,12 +72,10 @@ function MessageBubble({
       <div
         className={`flex gap-3 max-w-[80%] ${isMe ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
         onContextMenu={(e) => onContextMenu(e, m.id)}
-        onMouseDown={() => onLongPressStart(m.id)}
-        onMouseUp={onLongPressEnd}
-        onMouseLeave={onLongPressEnd}
-        onTouchStart={() => onLongPressStart(m.id)}
-        onTouchEnd={onLongPressEnd}
-        onTouchCancel={onLongPressEnd}
+        onPointerDown={() => onLongPressStart(m.id)}
+        onPointerUp={onLongPressEnd}
+        onPointerLeave={onLongPressEnd}
+        onPointerCancel={onLongPressEnd}
       >
         {!isMe && (
           <Avatar

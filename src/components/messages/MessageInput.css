@@ -69,7 +69,10 @@
   background: color-mix(in srgb, var(--color-surface-container, #e9e9e9) 78%, transparent);
   color: var(--color-on-surface, #242321);
   box-shadow: 0 5px 20px rgba(0,0,0,.035);
-  font: 500 14px/20px inherit;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
   transition: border-color .2s ease, background .2s ease, box-shadow .2s ease, padding .2s ease;
 }
 
@@ -248,7 +251,8 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #c96f52) 10%, transparent);
 }
 
-.lbt-comment-composer textarea {
+.lbt-comment-composer textarea,
+.lbt-comment-composer input {
   width: 100%;
   min-height: 44px;
   max-height: 120px;
@@ -263,7 +267,8 @@
   box-shadow: none;
 }
 
-.lbt-comment-composer textarea::placeholder {
+.lbt-comment-composer textarea::placeholder,
+.lbt-comment-composer input::placeholder {
   color: var(--color-outline, #95918b);
 }
 
@@ -296,4 +301,26 @@
   .lbt-chat-composer .container-upload-files { gap: 0; }
   .lbt-chat-composer .upload-file { width: 27px; padding: 4px; }
   .lbt-chat-composer .input-text { padding-left: 96px; }
+}
+
+.lbt-comment-composer input {
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-on-surface, #242321);
+  font-size: 13px;
+  line-height: 20px;
+  box-shadow: none;
+}
+.lbt-reel-comment-composer {
+  background: rgba(255,255,255,.09);
+  border-color: rgba(255,255,255,.16);
+}
+.lbt-reel-comment-composer input {
+  color: #fff;
+}
+.lbt-reel-comment-composer input::placeholder {
+  color: rgba(255,255,255,.58);
 }

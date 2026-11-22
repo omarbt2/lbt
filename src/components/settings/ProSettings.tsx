@@ -1,7 +1,7 @@
 import React from 'react';
 import { LockKeyhole, Sparkles } from 'lucide-react';
 
-export default function ProSettings() {
+export default function ProSettings(_props: Record<string, any>) {
   return (
     <section className="space-y-4 animate-fadeIn">
       <div className="rounded-3xl border border-outline-variant/20 bg-surface-container-lowest p-5">

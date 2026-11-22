@@ -24,7 +24,7 @@ Branch: `fix/lbt-social-ux-and-reel-interactions`
 ## Important environment limitations
 
 - The Supabase MCP connection currently returns no projects. The new SQL migration is committed to this branch but has **not** been applied to the live database and has not been run against a development database.
-- No GitHub Actions workflow is configured for this branch/repository commit; there are no CI runs to report.
+- Added `.github/workflows/quality.yml` to run locked dependency installation, TypeScript checking, the production web/server build, Capacitor Android sync, and a debug APK build on pushes and pull requests. The workflow has been committed, but its first run has not yet been confirmed; do not treat the checks as passed until GitHub reports green results.
 - A local dependency install, TypeScript check, Vite production build, Android Gradle build, and real-device tests have not been executed from this environment.
 - Camera capabilities (4K/1080p availability, optical zoom, torch, microphone, MediaRecorder codecs, and recording quality) vary by device/WebView. The implementation uses browser APIs with capability fallbacks; it is not a replacement for the native Snapchat camera pipeline.
 - Text overlays are composited into captured still photos and camera-recorded videos. Text placed over a video selected from the gallery is a preview/editor overlay only; video transcoding/burning that overlay into imported video is not implemented yet.

@@ -398,6 +398,7 @@ export async function createPost(postData: {
   media_type?: 'image' | 'video' | 'carousel';
   tags?: string[];
   close_friends_only?: boolean;
+  visibility?: 'public' | 'followers';
   collab_user_id?: string | null;
 }): Promise<Post> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -421,7 +422,7 @@ export async function createPost(postData: {
       media_type: mediaType,
       tags: postData.tags || [],
       close_friends_only: postData.close_friends_only ?? false,
-      visibility: 'public',
+      visibility: postData.visibility || 'public',
       likes_count: 0,
       comments_count: 0,
       shares_count: 0,

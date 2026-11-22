@@ -139,8 +139,9 @@ export default function SettingsPage() {
   const handleLanguageChange = (next: string) => {
     const supported = ['en', 'fr', 'ar', 'es'] as const;
     if (!supported.includes(next as any)) return;
-    setLanguage(next);
-    setLocale(next as typeof locale);
+    const selectedLocale = next as typeof locale;
+    setLanguage(selectedLocale);
+    setLocale(selectedLocale);
   };
 
   const handleTextSizeChange = (next: 'small' | 'medium' | 'large') => {

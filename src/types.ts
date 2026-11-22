@@ -7,6 +7,9 @@ export interface User {
   cover_url?: string | null;
   website?: string | null;
   phone?: string | null;
+  dob?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
   is_private?: boolean;
   is_verified?: boolean;
   posts_count?: number;

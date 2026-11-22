@@ -105,9 +105,12 @@ export default function NotesBar({ currentUser, onOpenNoteModal }: NotesBarProps
         )}
 
         {otherNotes.map(note => (
-          <div
+          <button
+            type="button"
             key={note.id}
-            className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer"
+            className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer text-left"
+            aria-expanded={expandedNote === note.id}
+            aria-label={`Show note from ${note.profiles?.display_name || note.profiles?.username || 'user'}`}
             onClick={() => setExpandedNote(expandedNote === note.id ? null : note.id)}
           >
             <div className="relative">
@@ -123,19 +126,21 @@ export default function NotesBar({ currentUser, onOpenNoteModal }: NotesBarProps
               <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center shadow-sm z-20">
                 <Zap className="w-2.5 h-2.5 text-white" fill="currentColor" />
               </div>
-              <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-30">
-                <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl px-3 py-2 text-[11px] max-w-[110px] text-center shadow-lg font-semibold text-on-surface">
-                  {note.content}
+              {expandedNote === note.id && (
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full z-30 pointer-events-none">
+                  <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl px-3 py-2 text-[11px] max-w-[150px] min-w-[110px] text-center shadow-lg font-semibold text-on-surface whitespace-normal break-words">
+                    {note.content}
+                  </div>
+                  <div className="flex justify-center -mt-0.5">
+                    <div className="w-2 h-2 bg-surface-container-lowest border-r border-b border-outline-variant/30 rotate-45 -mt-1" />
+                  </div>
                 </div>
-                <div className="flex justify-center -mt-0.5">
-                  <div className="w-2 h-2 bg-surface-container-lowest border-r border-b border-outline-variant/30 rotate-45 -mt-1" />
-                </div>
-              </div>
+              )}
             </div>
             <span className="text-[9px] text-on-surface-variant font-medium truncate max-w-[56px]">
               {note.profiles?.display_name?.split(' ')[0] || note.profiles?.username?.split('_')[0] || 'User'}
             </span>
-          </div>
+          </button>
         ))}
 
         {!currentUser && notes.length === 0 && (

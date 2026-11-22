@@ -21,7 +21,7 @@ export function useRealtimeMessages(
         },
         async (payload) => {
           const incoming = payload.new as any;
-          if (incoming.message_type === 'call') return;
+          if (incoming.message_type === 'call' || incoming.message_type === 'video') return;
           if (incoming.expires_at && new Date(incoming.expires_at).getTime() <= Date.now()) return;
 
           const { data: profile } = await supabase

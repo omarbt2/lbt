@@ -10,6 +10,7 @@ import GifPicker from '../components/ui/GifPicker';
 import type { GifResult } from '../components/ui/GifPicker';
 import ReportModal from '../components/ReportModal';
 import { Avatar } from '../components/ui/Avatar';
+import '../components/messages/MessageInput.css';
 import { supabase } from '../lib/supabase';
 
 function LoadingSpinner() {
@@ -387,7 +388,7 @@ export default function PostDetailPage() {
             className="shrink-0 shadow-sm"
           />
 
-          <div className="flex-1 relative flex items-end bg-surface-container rounded-2xl border border-outline-variant/30 focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-surface-container-lowest dark:focus-within:bg-surface-container-high transition-all overflow-hidden">
+          <div className="lbt-comment-composer">
             <textarea
               ref={textareaRef}
               value={commentText}
@@ -396,7 +397,7 @@ export default function PostDetailPage() {
               placeholder="Add your thought..."
               rows={1}
               style={{ minHeight: '44px', maxHeight: '120px' }}
-              className="w-full bg-transparent border-none focus:ring-0 resize-none py-3 pl-4 pr-12 text-xs text-on-surface placeholder:text-outline-variant outline-none"
+              className="lbt-comment-composer-field"
             />
             <button
               onClick={() => setCommentText((prev) => `${prev} ✨`)}

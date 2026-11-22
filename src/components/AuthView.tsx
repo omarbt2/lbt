@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, User, CheckCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LbtLogo from './LbtLogo';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
+import './AuthView.css';
 
 interface AuthViewProps {
   onLoginSuccess: () => void;
@@ -15,7 +16,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
   const pendingVerification = useAuthStore((state) => state.pendingVerification);
   const pendingEmail = useAuthStore((state) => state.pendingEmail);
 
-  const [screen, setScreen] = useState<'login' | 'signup' | 'reset'>('login');
+  const [screen, setScreen] = useState<'login' | 'signup' | 'reset' | 'update-password'>(() => new URLSearchParams(window.location.search).get('mode') === 'recovery' ? 'update-password' : 'login');
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,6 +34,22 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
   const [pwdStrength, setPwdStrength] = useState(1);
 
   const [resetEmail, setResetEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setErrorNotice(null);
+        setAuthNotice(null);
+        setScreen('update-password');
+      }
+    });
+    if (new URLSearchParams(window.location.search).get('mode') === 'recovery') {
+      setScreen('update-password');
+    }
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handlePasswordChange = (val: string) => {
     setSignUpPassword(val);
@@ -89,31 +106,45 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
     setAuthNotice(null);
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail);
+      const redirectTo = `${window.location.origin}/auth?mode=recovery`;
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), { redirectTo });
       if (error) throw error;
-      setAuthNotice('A password reset link was dispatched to your email address!');
-      setScreen('login');
+      setAuthNotice('Password reset email sent. Open the link in that email to choose a new password.');
     } catch (err: any) {
-      setErrorNotice(err?.message || 'Failed to trigger reset email.');
+      setErrorNotice(err?.message || 'Failed to send the password reset email.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin }
-    });
-    if (error) setErrorNotice(error.message);
-  };
-
-  const handleAppleLogin = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: { redirectTo: window.location.origin }
-    });
-    if (error) setErrorNotice(error.message);
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorNotice(null);
+    setAuthNotice(null);
+    if (newPassword.length < 8) {
+      setErrorNotice('Your new password must contain at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setErrorNotice("The passwords don't match.");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      await supabase.auth.signOut();
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setPassword('');
+      setScreen('login');
+      setAuthNotice('Your password has been updated. Sign in with your new password.');
+      window.history.replaceState({}, document.title, '/auth');
+    } catch (err: any) {
+      setErrorNotice(err?.message || 'Could not update your password. Please request a new reset link.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (pendingVerification) {
@@ -167,7 +198,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -16, scale: 0.97 }}
             transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-            className="bg-surface-container-lowest/75 backdrop-blur-xl border border-outline-variant/30 rounded-3xl p-6 shadow-[0_12px_40px_rgba(0,0,0,0.04)]"
+            className="lbt-auth-card"
           >
             <div className="text-center mb-6">
               <h2 className="text-xl font-bold text-on-surface">Welcome Back</h2>
@@ -197,7 +228,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
             )}
             </AnimatePresence>
 
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <form onSubmit={handleLoginSubmit} className="lbt-auth-form">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface-variant block pl-1" htmlFor="login_email">
                   Email Address
@@ -221,10 +252,10 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
                   <label className="text-xs font-bold text-on-surface-variant" htmlFor="login_password">Password</label>
                   <button
                     type="button"
-                    onClick={() => setScreen('reset')}
-                    className="text-[10px] font-bold text-primary hover:underline"
+                    onClick={() => { setResetEmail(email); setErrorNotice(null); setAuthNotice(null); setScreen('reset'); }}
+                    className="lbt-auth-forgot" id="forgotPassword"
                   >
-                    Forgot Password?
+                    Forgotten password?
                   </button>
                 </div>
                 <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl flex items-center px-3.5 py-2.5 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
@@ -251,51 +282,26 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-primary hover:bg-on-primary-fixed-variant text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-primary/20 active:translate-y-0 disabled:opacity-50 press-scale"
+                className="lbt-auth-login-button" id="loginBtn"
               >
-                {isSubmitting ? 'Authenticating...' : 'Sign In'}
+                {isSubmitting ? 'Logging in...' : 'Log In'}
               </button>
             </form>
 
-            <div className="flex flex-col gap-3 mt-4">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-px bg-outline-variant/40" />
-                <span className="text-xs text-on-surface-variant">or continue with</span>
-                <div className="flex-1 h-px bg-outline-variant/40" />
-              </div>
-              <button onClick={handleGoogleLogin}
-                className="flex items-center justify-center gap-3 w-full py-3 border border-outline-variant/30 rounded-2xl hover:bg-surface-container transition-colors">
-                <svg viewBox="0 0 24 24" className="w-5 h-5">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <span className="text-sm font-medium text-on-surface">Continue with Google</span>
-              </button>
-              <button onClick={handleAppleLogin}
-                className="flex items-center justify-center gap-3 w-full py-3 bg-on-surface rounded-2xl hover:bg-on-surface/90 transition-colors">
-                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white">
-                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                </svg>
-                <span className="text-sm font-medium text-white">Continue with Apple</span>
-              </button>
-            </div>
-
-            <div className="mt-6 text-center">
-              <p className="text-xs text-on-surface-variant font-medium">
-                Don't have an account?{' '}
-                <button
-                  onClick={() => {
-                    setScreen('signup');
-                    setStep(1);
-                  }}
-                  className="font-bold text-primary hover:underline ml-1"
-                >
-                  Sign Up
-                </button>
-              </p>
-            </div>
+            <div className="lbt-auth-divider" />
+            <button
+              type="button"
+              id="createAccountBtn"
+              className="lbt-auth-create-button"
+              onClick={() => {
+                setErrorNotice(null);
+                setAuthNotice(null);
+                setScreen('signup');
+                setStep(1);
+              }}
+            >
+              Create new account
+            </button>
           </motion.div>
         )}
 
@@ -337,7 +343,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
             )}
             </AnimatePresence>
 
-            <form onSubmit={handleSignUpSubmit} className="space-y-4">
+            <form onSubmit={handleSignUpSubmit} className="lbt-auth-form">
               {step === 1 ? (
                 <>
                   <div className="text-center mb-4">
@@ -392,7 +398,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full bg-primary hover:bg-on-primary-fixed-variant text-white font-bold py-3 rounded-xl transition-all shadow-md flex justify-center items-center gap-1.5 mt-2 disabled:opacity-50 press-scale"
+                    className="lbt-auth-login-button"
                   >
                     {isSubmitting ? 'Processing...' : <>Continue <ArrowRight className="w-4.5 h-4.5" /></>}
                   </button>
@@ -451,9 +457,9 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full bg-primary hover:bg-on-primary-fixed-variant text-white font-bold py-3 rounded-xl transition-all shadow-md mt-4 disabled:opacity-50 press-scale"
+                    className="lbt-auth-create-button"
                   >
-                    {isSubmitting ? 'Signing Up...' : 'Complete Registration'}
+                    {isSubmitting ? 'Creating account...' : 'Create new account'}
                   </button>
                 </>
               )}
@@ -491,7 +497,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
 
             <div className="text-center mb-6">
               <h2 className="text-xl font-bold text-on-surface">Reset Password</h2>
-              <p className="text-xs text-on-surface-variant mt-1">Enter your registered email address below. We'll send you a password reset link instantly.</p>
+              <p className="text-xs text-on-surface-variant mt-1">Enter the email address linked to your LBT account. We'll send you a secure reset link.</p>
             </div>
 
             <AnimatePresence>
@@ -510,7 +516,8 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
             )}
             </AnimatePresence>
 
-            <form onSubmit={handleResetSubmit} className="space-y-4">
+            <form onSubmit={handleResetSubmit} className="lbt-auth-form">
+              {authNotice && <div className="lbt-auth-success" role="status">{authNotice}</div>}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface" htmlFor="reset_email">Email Address</label>
                 <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl flex items-center px-3.5 py-2.5 shadow-sm">
@@ -530,9 +537,58 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-primary hover:bg-on-primary-fixed-variant text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-primary/10 mt-2 disabled:opacity-50 press-scale"
+                className="lbt-auth-login-button"
               >
-                {isSubmitting ? 'Sending Request...' : 'Send Reset Link'}
+                {isSubmitting ? 'Searching...' : 'Send reset link'}
+              </button>
+            </form>
+          </motion.div>
+        )}
+
+        {screen === 'update-password' && (
+          <motion.div
+            key="update-password"
+            initial={{ opacity: 0, y: 24, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.97 }}
+            transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+            className="lbt-auth-card"
+          >
+            <button
+              type="button"
+              onClick={() => setScreen('login')}
+              className="lbt-auth-back-link"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to login
+            </button>
+            <div className="text-center mb-5">
+              <h2 className="text-xl font-bold text-on-surface">Choose a new password</h2>
+              <p className="text-xs text-on-surface-variant mt-1">Use at least 8 characters to secure your LBT account.</p>
+            </div>
+            {errorNotice && <div className="lbt-auth-error" role="alert">{errorNotice}</div>}
+            <form onSubmit={handleUpdatePassword} className="lbt-auth-form">
+              <input
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="New password"
+                className="lbt-auth-input"
+              />
+              <input
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                placeholder="Confirm new password"
+                className="lbt-auth-input"
+              />
+              <button type="submit" disabled={isSubmitting} className="lbt-auth-login-button">
+                {isSubmitting ? 'Updating...' : 'Save new password'}
               </button>
             </form>
           </motion.div>

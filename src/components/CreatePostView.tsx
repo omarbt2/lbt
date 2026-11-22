@@ -69,13 +69,14 @@ export default function CreatePostView({
   const isImageFile = !isReelMode;
 
   const canPublish =
-    isPublishing || isUploading
+    isPublishing || isUploading || (isReelMode && !(selectedFile && selectedFile.type.startsWith('video/')))
       ? false
       : caption.trim().length > 0 || selectedFile !== null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) loadFile(file);
+    e.target.value = '';
   };
 
   const loadFile = (file: File) => {
@@ -219,7 +220,7 @@ export default function CreatePostView({
         }
       }
 
-      const mediaType = selectedFile && selectedFile.type.startsWith('video/') ? 'video' : (finalMediaUrl ? 'image' : 'text');
+      const mediaType = selectedFile && selectedFile.type.startsWith('video/') ? 'video' : 'image';
 
       const p = await createPost({
         caption: caption.trim(),

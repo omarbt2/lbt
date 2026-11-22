@@ -168,8 +168,10 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
             setActiveIdx(idx);
             video.currentTime = 0;
             video.muted = isMutedRef.current;
-            if (!video.src || video.readyState < 2) video.load();
-            video.play().catch(() => {});
+            if (localStorage.getItem('lbt_data_saver') !== 'true' && (!video.src || video.readyState < 2)) video.load();
+            const shouldAutoplay = localStorage.getItem('lbt_auto_play') !== 'false' && localStorage.getItem('lbt_data_saver') !== 'true';
+            if (shouldAutoplay) video.play().catch(() => {});
+            else video.pause();
           } else {
             video.pause();
           }
@@ -446,7 +448,7 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
                   className="w-full h-full object-contain bg-black"
                   loop
                   playsInline
-                  preload="metadata"
+                  preload={localStorage.getItem('lbt_data_saver') === 'true' ? 'none' : 'metadata'}
                   muted={isMuted}
                   onLoadedData={() => setLoadedStates(prev => ({ ...prev, [idx]: true }))}
                   onClick={(e) => {

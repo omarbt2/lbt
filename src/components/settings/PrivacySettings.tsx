@@ -96,6 +96,21 @@ export default function PrivacySettings({
   const [mutedList, setMutedList] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(false);
 
+  const togglePrivateAccount = async () => {
+    const next = !privateAccount;
+    setPrivateAccount(next);
+    try { await updateProfileField('is_private', next); } catch { setPrivateAccount(!next); }
+  };
+  const toggleActivityStatus = async () => {
+    const next = !hideActivity;
+    setHideActivity(next);
+    try { await updateProfileField('hide_activity', next); } catch { setHideActivity(!next); }
+  };
+  const changeMentionAudience = async (next: string) => {
+    const previous = allowMentions;
+    setAllowMentions(next);
+    try { await updateProfileField('allow_mentions', next); } catch { setAllowMentions(previous); }
+  };
   const openBlocked = async () => {
     setActiveSheet('blocked');
     setLoadingList(true);
@@ -121,7 +136,7 @@ export default function PrivacySettings({
   return (
     <div className="space-y-4 animate-fadeIn">
       <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden">
-        <div onClick={() => { setPrivateAccount(!privateAccount); updateProfileField('is_private', !privateAccount); }}
+        <div onClick={togglePrivateAccount}
           className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
           <div className="flex items-center gap-3">
             <Lock className="w-4 h-4 text-primary" />
@@ -130,9 +145,9 @@ export default function PrivacySettings({
               <span className="text-[10px] text-outline">Only followers can see your posts</span>
             </div>
           </div>
-          <Toggle enabled={privateAccount} onToggle={() => { setPrivateAccount(!privateAccount); updateProfileField('is_private', !privateAccount); }} />
+          <Toggle enabled={privateAccount} onToggle={togglePrivateAccount} />
         </div>
-        <div onClick={() => { setHideActivity(!hideActivity); updateProfileField('hide_activity', !hideActivity); }}
+        <div onClick={toggleActivityStatus}
           className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all border-t border-outline-variant/10">
           <div className="flex items-center gap-3">
             <EyeOff className="w-4 h-4 text-on-surface-variant" />
@@ -141,7 +156,7 @@ export default function PrivacySettings({
               <span className="text-[10px] text-outline">Others won't see when you're online</span>
             </div>
           </div>
-          <Toggle enabled={hideActivity} onToggle={() => { setHideActivity(!hideActivity); updateProfileField('hide_activity', !hideActivity); }} />
+          <Toggle enabled={hideActivity} onToggle={toggleActivityStatus} />
         </div>
       </div>
 
@@ -150,7 +165,7 @@ export default function PrivacySettings({
           <h3 className="text-xs font-bold text-on-surface">Who Can Mention You</h3>
         </div>
         {['everyone', 'followers', 'nobody'].map((opt) => (
-          <div key={opt} onClick={() => { setAllowMentions(opt); updateProfileField('allow_mentions', opt); }}
+          <div key={opt} onClick={() => void changeMentionAudience(opt)}
             className={`flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all ${opt !== 'nobody' ? 'border-t border-outline-variant/10' : ''}`}>
             <span className="text-xs font-bold text-on-surface capitalize">{opt}</span>
             {allowMentions === opt && <Check className="w-4 h-4 text-primary" />}

@@ -202,6 +202,13 @@ CREATE POLICY close_friends_select_related
   FOR SELECT TO authenticated
   USING (user_id = (SELECT auth.uid()));
 
+-- Keep helper RPCs in a non-exposed schema so authenticated clients cannot
+-- call them directly to probe arbitrary users' relationships. Ensure the
+-- private schema is not added to PostgREST's exposed schemas.
+CREATE SCHEMA IF NOT EXISTS private;
+REVOKE ALL ON SCHEMA private FROM PUBLIC, anon;
+GRANT USAGE ON SCHEMA private TO authenticated;
+
 CREATE OR REPLACE FUNCTION private.lbt_can_add_close_friend(p_friend_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
@@ -239,13 +246,6 @@ CREATE POLICY close_friends_delete_owner
 
 REVOKE ALL ON TABLE public.close_friends FROM anon, PUBLIC;
 GRANT SELECT, INSERT, DELETE ON TABLE public.close_friends TO authenticated;
-
--- Keep helper RPCs in a non-exposed schema so authenticated clients cannot
--- call them directly to probe arbitrary users' relationships. Ensure the
--- private schema is not added to PostgREST's exposed schemas.
-CREATE SCHEMA IF NOT EXISTS private;
-REVOKE ALL ON SCHEMA private FROM PUBLIC, anon;
-GRANT USAGE ON SCHEMA private TO authenticated;
 
 -- RLS policies cannot reliably inspect other users' follow/block rows because
 -- those tables have their own RLS. These narrowly scoped SECURITY DEFINER

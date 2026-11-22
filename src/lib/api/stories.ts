@@ -75,25 +75,16 @@ export async function recordStoryView(storyId: string): Promise<void> {
 
   const { error: insertError } = await supabase
     .from('story_views')
-    .upsert({ story_id: storyId, viewer_id: user.id }, { onConflict: 'story_id,viewer_id', ignoreDuplicates: true });
+    .insert({ story_id: storyId, viewer_id: user.id });
 
-  if (insertError) {
-    console.error('recordStoryView insert error:', insertError);
-  }
+  // A viewer counts once per story. Do not increment the aggregate on a
+  // duplicate view; the unique (story_id, viewer_id) constraint enforces this.
+  if (insertError?.code === '23505') return;
+  if (insertError) throw insertError;
 
   const { error: rpcError } = await (supabase.rpc as any)('increment_story_views', { p_story_id: storyId });
   if (rpcError) {
-    const { data } = await supabase
-      .from('stories')
-      .select('views_count')
-      .eq('id', storyId)
-      .maybeSingle();
-    if (data) {
-      await supabase
-        .from('stories')
-        .update({ views_count: (data.views_count || 0) + 1 })
-        .eq('id', storyId);
-    }
+    console.error('Story view was recorded but the aggregate counter could not be updated:', rpcError);
   }
 }
 

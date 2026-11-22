@@ -1,6 +1,14 @@
 -- LBT: enforce post/story audience and close-friends visibility.
 -- Idempotent schema changes; safe to apply after the existing 2026-06 migrations.
 
+ALTER TABLE public.posts
+  ALTER COLUMN visibility SET DEFAULT 'public',
+  ALTER COLUMN close_friends_only SET DEFAULT false;
+
+ALTER TABLE public.stories
+  ALTER COLUMN audience SET DEFAULT 'public',
+  ALTER COLUMN close_friends_only SET DEFAULT false;
+
 -- The UI stores a three-state mention audience, not a boolean.
 ALTER TABLE public.profiles
   ALTER COLUMN allow_mentions TYPE text

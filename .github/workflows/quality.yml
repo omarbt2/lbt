@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+# The Supabase publishable key is intended for client-side apps.
+# Never put a service_role or secret key in this workflow.
+env:
+  VITE_SUPABASE_URL: https://nopnxlhknrrsttouevxd.supabase.co
+  VITE_SUPABASE_ANON_KEY: sb_publishable_0KwbT8dKkAqhFTXMwXw_9w_KSwIIi6C
+
 concurrency:
   group: lbt-quality-${{ github.ref }}
   cancel-in-progress: true

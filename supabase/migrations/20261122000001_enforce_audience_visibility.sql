@@ -296,24 +296,6 @@ SELECT auth.uid() IS NOT NULL AND EXISTS (
   );
 $$;
 
-CREATE OR REPLACE FUNCTION private.lbt_can_add_close_friend(p_friend_id uuid)
-RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, public
-AS $$
-SELECT auth.uid() IS NOT NULL
-    AND p_friend_id <> auth.uid()
-    AND EXISTS (
-      SELECT 1 FROM public.follows f
-      WHERE f.follower_id = p_friend_id AND f.following_id = auth.uid()
-    )
-    AND NOT EXISTS (
-      SELECT 1 FROM public.user_blocks b
-      WHERE (b.blocker_id = auth.uid() AND b.blocked_id = p_friend_id)
-         OR (b.blocker_id = p_friend_id AND b.blocked_id = auth.uid())
-    );
-$$;
-
 REVOKE ALL ON FUNCTION private.lbt_is_blocked_from(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION private.lbt_profile_is_private(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION private.lbt_follows_owner(uuid) FROM PUBLIC, anon;
@@ -368,12 +350,7 @@ CREATE POLICY stories_select_authenticated
             AND private.lbt_is_close_friend_of(stories.user_id)
             AND (
               NOT private.lbt_profile_is_private(stories.user_id)
-              OR EXISTS (
-                SELECT 1
-                FROM public.follows f
-                WHERE f.follower_id = (SELECT auth.uid())
-                  AND f.following_id = stories.user_id
-              )
+              OR private.lbt_follows_owner(stories.user_id)
             )
           )
         )
@@ -419,12 +396,7 @@ CREATE POLICY posts_select_authenticated
           AND private.lbt_is_close_friend_of(posts.user_id)
           AND (
             NOT private.lbt_profile_is_private(posts.user_id)
-            OR EXISTS (
-              SELECT 1
-              FROM public.follows f
-              WHERE f.follower_id = (SELECT auth.uid())
-                AND f.following_id = posts.user_id
-            )
+            OR private.lbt_follows_owner(posts.user_id)
           )
         )
       )

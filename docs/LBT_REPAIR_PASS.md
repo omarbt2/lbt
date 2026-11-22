@@ -14,7 +14,8 @@ Branch: `fix/lbt-social-ux-and-reel-interactions`
 - Made story view recording idempotent: repeated viewing by the same account no longer increments the aggregate view count repeatedly.
 - Added a database migration for the missing `close_friends` table and RLS policies for stories/posts, including the SECURITY DEFINER feed RPC.
 - Consolidated the settings entry point so Personal Information opens the dedicated Edit Profile page.
-- Persisted appearance/media preferences locally and connected language/text-size settings to the app i18n provider.
+- Persisted appearance/media preferences locally, applied autoplay/data-saver choices to feed and reel playback, and connected language/text-size settings to the app i18n provider.
+- Fixed privacy preference rollback when database updates fail and aligned the mention-audience setting with its actual three-state values.
 - Removed the fake Pro card-payment success path and replaced it with a clear unavailable state.
 - Removed fake 2FA switches and the misleading account-delete action that only logged the user out.
 - Fixed PWA manifest icon paths and made the in-app loading/login logo consistent with the LBT brand asset.

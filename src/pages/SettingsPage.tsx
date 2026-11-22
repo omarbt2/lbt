@@ -248,16 +248,16 @@ export default function SettingsPage() {
     if (!editName.trim() || !editUsername.trim()) { setSaveFeedback('Name and username required!'); return; }
     try {
       const { updateProfile } = await import('../lib/api/profiles');
-      await updateProfile({
+      const updatedUser = await updateProfile({
         display_name: editName.trim(),
         username: editUsername.toLowerCase().trim(),
         avatar_url: editPic || undefined,
         bio: editBio.trim(),
-        phone: phoneNum ? `${phonePrefix} ${phoneNum}` : undefined,
-        dob: dob || undefined,
-        gender: gender || undefined,
+        phone: phoneNum ? `${phonePrefix} ${phoneNum}` : null,
+        dob: dob || null,
+        gender: gender || null,
       });
-      await useAuthStore.getState().initialize();
+      useAuthStore.setState({ currentUser: updatedUser });
     } catch (err) {
       setSaveFeedback('Failed to save profile.'); return;
     }

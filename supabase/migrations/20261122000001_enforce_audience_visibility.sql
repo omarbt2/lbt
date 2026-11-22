@@ -81,6 +81,7 @@ CREATE POLICY posts_select_auth ON public.posts
       )
       OR (
         COALESCE(posts.visibility, 'public') = 'followers'
+        AND COALESCE(posts.close_friends_only, false) = false
         AND EXISTS (
           SELECT 1 FROM public.follows f
           WHERE f.follower_id = (select auth.uid()) AND f.following_id = posts.user_id
@@ -185,6 +186,7 @@ BEGIN
     )
     OR (
       COALESCE(p.visibility, 'public') = 'followers'
+      AND COALESCE(p.close_friends_only, false) = false
       AND EXISTS (
         SELECT 1 FROM public.follows f
         WHERE f.follower_id = p_user_id AND f.following_id = p.user_id

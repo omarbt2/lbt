@@ -593,7 +593,6 @@ export default function ProfileView({
                         user_id: user.id,
                         video_url: publicUrl,
                         is_public: true,
-                        is_archived: false,
                       });
                       const { data } = await supabase.from('reels').select('id,video_url,thumbnail_url,likes_count,views_count,caption').eq('user_id', user.id).eq('is_archived', false).order('created_at', { ascending: false });
                       setProfileReels(data || []);

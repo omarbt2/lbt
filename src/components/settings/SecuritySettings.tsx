@@ -1,7 +1,5 @@
 import React from 'react';
-import {
-  Phone, ShieldCheck, Laptop, Smartphone, AlertTriangle
-} from 'lucide-react';
+import { ShieldCheck, Laptop, Smartphone, AlertTriangle, LockKeyhole } from 'lucide-react';
 
 interface SecuritySettingsProps {
   currentPass: string;
@@ -18,7 +16,7 @@ interface SecuritySettingsProps {
   setApp2FA: (v: boolean) => void;
   phonePrefix: string;
   phoneNum: string;
-  activeDevices: { id: string; device: string; location: string; time: string; isCurrent: boolean; }[];
+  activeDevices: { id: string; device: string; location: string; time: string; isCurrent: boolean }[];
   showDeletionConfirm: boolean;
   setShowDeletionConfirm: (v: boolean) => void;
   onLogout: () => void;
@@ -26,110 +24,62 @@ interface SecuritySettingsProps {
 
 export default function SecuritySettings({
   currentPass, setCurrentPass, newPass, setNewPass, confirmPass, setConfirmPass,
-  passFeedback, handleUpdatePassword, sms2FA, setSms2FA, app2FA, setApp2FA,
-  phonePrefix, phoneNum, activeDevices, showDeletionConfirm, setShowDeletionConfirm, onLogout,
+  passFeedback, handleUpdatePassword, activeDevices,
 }: SecuritySettingsProps) {
   return (
     <div className="space-y-4 animate-fadeIn">
-      <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-4 space-y-3">
-        <h3 className="text-xs font-bold text-on-surface">Change Password</h3>
-        {passFeedback && (
-          <div className={`p-3 rounded-xl text-xs font-bold ${passFeedback.success ? 'bg-surface-container-low text-on-surface' : 'bg-error/10 text-error'}`}>
-            {passFeedback.text}
-          </div>
-        )}
-        <form onSubmit={handleUpdatePassword} className="space-y-3">
-          <input type="password" value={currentPass} onChange={(e) => setCurrentPass(e.target.value)}
-            placeholder="Current password" aria-label="Current password" className="w-full bg-surface-container rounded-xl px-3.5 py-2.5 text-xs outline-none border border-outline-variant/20" />
-          <input type="password" value={newPass} onChange={(e) => setNewPass(e.target.value)}
-            placeholder="New password (min 8 chars)" aria-label="New password" className="w-full bg-surface-container rounded-xl px-3.5 py-2.5 text-xs outline-none border border-outline-variant/20" />
-          <input type="password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)}
-            placeholder="Confirm new password" aria-label="Confirm new password" className="w-full bg-surface-container rounded-xl px-3.5 py-2.5 text-xs outline-none border border-outline-variant/20" />
-          <button type="submit" className="w-full bg-primary text-white font-bold text-xs py-2.5 rounded-xl active:scale-95 transition-transform">
-            Update Password
-          </button>
+      <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-4">
+        <h3 className="text-sm font-bold text-on-surface">Change password</h3>
+        <p className="mt-1 text-xs text-on-surface-variant">Use a unique password with at least 8 characters.</p>
+        {passFeedback && <div className={'mt-3 rounded-xl p-3 text-xs font-semibold ' + (passFeedback.success ? 'bg-primary/10 text-primary' : 'bg-error/10 text-error')}>{passFeedback.text}</div>}
+        <form onSubmit={handleUpdatePassword} className="mt-4 space-y-3">
+          <input required autoComplete="current-password" type="password" value={currentPass} onChange={e => setCurrentPass(e.target.value)} placeholder="Current password" aria-label="Current password" className="w-full rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-3 text-sm outline-none focus:border-primary" />
+          <input required minLength={8} autoComplete="new-password" type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="New password" aria-label="New password" className="w-full rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-3 text-sm outline-none focus:border-primary" />
+          <input required minLength={8} autoComplete="new-password" type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} placeholder="Confirm new password" aria-label="Confirm new password" className="w-full rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-3 text-sm outline-none focus:border-primary" />
+          <button type="submit" className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-white transition active:scale-[.98]">Update password</button>
         </form>
-      </div>
+      </section>
 
-      <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden">
-        <div className="p-4 border-b border-outline-variant/10">
-          <h3 className="text-xs font-bold text-on-surface">Two-Factor Authentication</h3>
-        </div>
-        <div onClick={() => setSms2FA(!sms2FA)}
-          className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
-          <div className="flex items-center gap-3">
-            <Phone className="w-4 h-4 text-primary" />
-            <div>
-              <span className="text-xs font-bold text-on-surface block">SMS Verification</span>
-              <span className="text-[10px] text-outline">Codes to {phonePrefix} {phoneNum.slice(0, 4)}***</span>
-              <p className="text-[10px] text-outline mt-0.5">SMS verification will send a code to your registered phone number each time you log in.</p>
-            </div>
-          </div>
-          <div className={`w-10 h-5.5 rounded-full p-0.5 transition-all ${sms2FA ? 'bg-primary' : 'bg-outline-variant'}`}>
-            <div className={`w-4.5 h-4.5 bg-white rounded-full shadow transition-all ${sms2FA ? 'translate-x-[18px]' : ''}`} />
-          </div>
-        </div>
-        <div onClick={() => setApp2FA(!app2FA)}
-          className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all border-t border-outline-variant/10">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="w-4 h-4 text-primary" />
-            <span className="text-xs font-bold text-on-surface">Authenticator App</span>
-          </div>
-          <div className={`w-10 h-5.5 rounded-full p-0.5 transition-all ${app2FA ? 'bg-primary' : 'bg-outline-variant'}`}>
-            <div className={`w-4.5 h-4.5 bg-white rounded-full shadow transition-all ${app2FA ? 'translate-x-[18px]' : ''}`} />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden">
-        <div className="p-4 border-b border-outline-variant/10">
-          <h3 className="text-xs font-bold text-on-surface">Active Devices</h3>
-        </div>
-        {activeDevices.map(dev => (
-          <div key={dev.id} className="flex items-center justify-between p-4 border-b border-outline-variant/5 last:border-0">
-            <div className="flex items-center gap-3">
-              {dev.device.includes('Mobile')
-                ? <Smartphone className="w-4 h-4 text-primary" />
-                : <Laptop className="w-4 h-4 text-primary" />}
-              <div>
-                <span className="text-xs font-bold text-on-surface block">{dev.device}</span>
-                <span className="text-[10px] text-outline">{dev.location} · {dev.time}</span>
-              </div>
-            </div>
-            {dev.isCurrent && (
-              <span className="text-[10px] bg-success/10 text-success px-2 py-0.5 rounded-full font-bold">
-                Current
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-error/5 border border-error/20 rounded-2xl p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-error shrink-0 mt-0.5" />
+      <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-4">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className="h-5 w-5 text-primary" />
           <div>
-            <h4 className="text-xs font-bold text-error">Delete Account</h4>
-            <p className="text-[10px] text-outline mt-0.5">Permanently remove your account and data.</p>
+            <h3 className="text-sm font-bold text-on-surface">Two-factor authentication</h3>
+            <p className="mt-1 text-xs text-on-surface-variant">Additional verification methods are not configured in this version.</p>
           </div>
         </div>
-        {showDeletionConfirm ? (
-          <div className="bg-surface-container-lowest rounded-xl p-3 border border-outline-variant/20 space-y-2">
-            <p className="text-[11px] font-bold text-on-surface text-center">This action is irreversible!</p>
-            <div className="flex gap-2">
-              <button onClick={() => { setShowDeletionConfirm(false); onLogout(); }}
-                className="flex-1 bg-error text-white font-bold text-[10px] py-2 rounded-lg">Delete</button>
-              <button onClick={() => setShowDeletionConfirm(false)}
-                className="flex-1 bg-surface-container text-on-surface-variant font-bold text-[10px] py-2 rounded-lg">Cancel</button>
+        <div className="mt-4 flex items-start gap-2 rounded-xl bg-surface-container-low p-3 text-xs text-on-surface-variant">
+          <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
+          The previous switches did not enable real SMS or authenticator verification, so they have been removed rather than showing a false security status.
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-4">
+        <h3 className="text-sm font-bold text-on-surface">This device</h3>
+        <div className="mt-3 space-y-3">
+          {activeDevices.map(device => (
+            <div key={device.id} className="flex items-center gap-3">
+              {device.device.includes('Mobile') ? <Smartphone className="h-5 w-5 text-primary" /> : <Laptop className="h-5 w-5 text-primary" />}
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-on-surface">{device.device}</p>
+                <p className="text-[10px] text-on-surface-variant">{device.location} · {device.time}</p>
+              </div>
+              <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary">Current</span>
             </div>
+          ))}
+        </div>
+        <p className="mt-3 text-[10px] text-on-surface-variant">Only the current browser session is available here. Other signed-in devices are not yet listed.</p>
+      </section>
+
+      <section className="rounded-2xl border border-error/20 bg-error/5 p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-error" />
+          <div>
+            <h3 className="text-sm font-bold text-error">Account deletion</h3>
+            <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">Permanent account deletion requires a secure server-side workflow. It is not available yet; this screen will not pretend that logging out deletes your account.</p>
           </div>
-        ) : (
-          <button onClick={() => setShowDeletionConfirm(true)}
-            className="text-[10px] font-bold text-error border border-error/20 px-4 py-2 rounded-xl">
-            Delete Account
-          </button>
-        )}
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

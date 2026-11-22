@@ -6,7 +6,6 @@ export interface OutletContextType {
   darkMode: boolean;
   toggleDarkMode: () => void;
   triggerToast: (message: string, type?: 'success' | 'info' | 'error') => void;
-  startCall: (userId: string, type?: 'audio' | 'video') => Promise<void>;
   posts: Post[];
   postsLoading: boolean;
   postsError: Error | null;
@@ -27,4 +26,6 @@ export interface OutletContextType {
   postMenuPostId: string | null;
   setPostMenuPostId: (id: string | null) => void;
   showPermissionDenied: (type: 'camera' | 'microphone') => void;
+  setRepostTargetPost: (post: any) => void;
+  setShowRepostModal: (show: boolean) => void;
 }

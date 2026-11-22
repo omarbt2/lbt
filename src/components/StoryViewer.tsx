@@ -8,7 +8,6 @@ import BottomSheetMenu from './ui/BottomSheetMenu';
 import type { BottomSheetMenuItem } from './ui/BottomSheetMenu';
 import ReportModal from './ReportModal';
 import { Avatar } from './ui/Avatar';
-import { getDefaultAvatar } from '../lib/defaultAvatars';
 import { IconTrash, IconEye, IconFlag } from './ui/MenuIcons';
 
 interface StoryViewerProps {
@@ -45,6 +44,7 @@ export default function StoryViewer({ groups, initialGroupIndex, currentUserId, 
   const [isDragging, setIsDragging] = useState(false);
   const [showStoryMenu, setShowStoryMenu] = useState(false);
   const [flyingEmoji, setFlyingEmoji] = useState<string | null>(null);
+  const [doubleTapHeart, setDoubleTapHeart] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -182,7 +182,9 @@ export default function StoryViewer({ groups, initialGroupIndex, currentUserId, 
   const handleDoubleTap = (e: React.MouseEvent) => {
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
-      // Double tap — could add like animation here
+      setDoubleTapHeart(true);
+      setTimeout(() => setDoubleTapHeart(false), 800);
+      sendReaction(story.id, '❤️');
     }
     lastTapRef.current = now;
   };
@@ -372,6 +374,23 @@ export default function StoryViewer({ groups, initialGroupIndex, currentUserId, 
         )}
       </AnimatePresence>
 
+      {/* Double-tap heart */}
+      <AnimatePresence>
+        {doubleTapHeart && (
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center pointer-events-none z-[70]"
+            initial={{ scale: 0, opacity: 1 }}
+            animate={{ scale: 2.2, opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          >
+            <svg className="w-24 h-24 text-red-500 fill-red-500 drop-shadow-2xl" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Bottom reply bar */}
       <div className="absolute bottom-0 left-0 right-0 z-50 p-4 pb-[calc(env(safe-area-inset-bottom)+16px)]">
         {/* Emoji reaction bar */}
@@ -424,23 +443,24 @@ export default function StoryViewer({ groups, initialGroupIndex, currentUserId, 
               </div>
             </div>
             <div className="overflow-y-auto max-h-[45vh] p-4 space-y-3">
-              {viewers.length === 0 ? (
-                <p className="text-xs text-outline text-center py-6">No views yet</p>
-              ) : (
-                viewers.map(v => (
-                  <div key={v.id} className="flex items-center gap-3">
-                    <img
-                      src={v.avatar_url || getDefaultAvatar(v.id)}
-                      alt={v.username}
-                      className="w-9 h-9 rounded-full object-cover"
-                    />
-                    <div>
-                      <p className="text-xs font-bold text-on-surface">{v.display_name || v.username}</p>
-                      <p className="text-[10px] text-outline">@{v.username}</p>
+                {viewers.length === 0 ? (
+                  <p className="text-xs text-outline text-center py-6">No views yet</p>
+                ) : (
+                  viewers.map(v => (
+                    <div key={v.id} className="flex items-center gap-3">
+                      <Avatar
+                        src={v.avatar_url}
+                        userId={v.id}
+                        name={v.display_name || v.username}
+                        size="md"
+                      />
+                      <div>
+                        <p className="text-xs font-bold text-on-surface">{v.display_name || v.username}</p>
+                        <p className="text-[10px] text-outline">@{v.username}</p>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
             </div>
           </div>
         </div>

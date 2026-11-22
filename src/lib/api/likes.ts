@@ -5,7 +5,7 @@ export async function likePost(postId: string): Promise<number> {
   if (!user) throw new Error('Not authenticated');
 
   try {
-    await supabase.from('likes').insert({ post_id: postId, user_id: user.id });
+    await supabase.from('likes').upsert({ post_id: postId, user_id: user.id }, { onConflict: 'post_id,user_id', ignoreDuplicates: true });
   } catch (err) {
     console.error('likePost insert error:', err);
     throw err;
@@ -45,7 +45,10 @@ export async function savePost(postId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
   try {
-    await supabase.from('saved_posts').insert({ post_id: postId, user_id: user.id });
+    await supabase.from('saved_posts').upsert(
+      { post_id: postId, user_id: user.id },
+      { onConflict: 'post_id,user_id', ignoreDuplicates: true }
+    );
   } catch (err) {
     console.error('savePost error:', err);
     throw err;

@@ -12,17 +12,18 @@ import { Avatar } from '../components/ui/Avatar';
 import { NotificationSkeleton } from '../components/Skeleton';
 import { useState, useEffect } from 'react';
 
-function getNotifText(type: string): string {
+function getNotifText(type: string, actorName?: string): string {
+  const name = actorName || 'Someone';
   switch (type) {
-    case 'like': return 'liked your post';
-    case 'comment': return 'commented on your post';
-    case 'mention': return 'mentioned you in a post';
-    case 'follow': return 'started following you';
-    case 'message': return 'sent you a message';
-    case 'story_view': return 'viewed your story';
-    case 'call': return 'called you';
-    case 'system': return 'sent you a system notification';
-    default: return 'sent you a notification';
+    case 'like':       return `${name} liked your post`;
+    case 'comment':    return `${name} commented on your post`;
+    case 'mention':    return `${name} mentioned you in a post`;
+    case 'follow':     return `${name} started following you`;
+    case 'message':    return `New message from ${name}`;
+    case 'story_view': return `${name} viewed your story`;
+    case 'call':       return `${name} called you`;
+    case 'system':     return 'System notification';
+    default:           return `${name} sent you a notification`;
   }
 }
 
@@ -99,7 +100,7 @@ export default function NotificationsPage() {
             user: n.profiles ? mapProfileToUser(n.profiles) : undefined,
             post_id: n.post_id || undefined,
             postThumbnail: n.posts?.media_urls?.[0] || undefined,
-            text: `${n.profiles?.display_name || n.profiles?.name || 'Someone'} ${getNotifText(n.type)}`,
+            text: getNotifText(n.type, n.profiles?.display_name || n.profiles?.name || n.profiles?.username),
             contentSnippet: n.content || undefined,
             timeLabel: formatTimeLabel(n.created_at),
             isUnread: !n.is_read,
@@ -114,7 +115,7 @@ export default function NotificationsPage() {
           user: n.actor_profile ? mapProfileToUser(n.actor_profile) : (n.profiles ? mapProfileToUser(n.profiles) : undefined),
           post_id: n.post_id || undefined,
           postThumbnail: n.post_media_url || n.posts?.media_urls?.[0] || undefined,
-          text: `${n.actor_name || n.profiles?.display_name || n.profiles?.name || 'Someone'} ${getNotifText(n.type)}`,
+          text: getNotifText(n.type, n.actor_name || n.profiles?.display_name || n.profiles?.name || n.profiles?.username),
           contentSnippet: n.content || undefined,
           timeLabel: formatTimeLabel(n.created_at),
           isUnread: !n.is_read,
@@ -152,7 +153,7 @@ export default function NotificationsPage() {
               user: n.profiles ? mapProfileToUser(n.profiles) : undefined,
               post_id: n.post_id || undefined,
               postThumbnail: undefined,
-              text: `New notification: ${getNotifText(n.type)}`,
+              text: getNotifText(n.type),
               contentSnippet: n.content || undefined,
               timeLabel: 'Just now',
               isUnread: true,
@@ -308,7 +309,11 @@ export default function NotificationsPage() {
           return (
             <div
               key={n.id}
-              onClick={() => n.post_id && onPostSelect(n.post_id)}
+              onClick={() => {
+                if (n.post_id) onPostSelect(n.post_id);
+                else if (n.type === 'follow' && n.user) navigate('/profile/' + n.user.id);
+                else if (n.type === 'message') navigate('/messages');
+              }}
               className={`glass-panel rounded-2xl p-4 flex items-start gap-3 transition-transform hover:-translate-y-0.5 cursor-pointer border shadow-sm relative ${
                 n.isUnread
                   ? 'bg-primary/5 border-primary-fixed-dim/40'

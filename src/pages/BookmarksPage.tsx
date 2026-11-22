@@ -67,9 +67,7 @@ export default function BookmarksPage() {
   const handleDeleteCollection = async (id: string) => {
     if (!window.confirm('Delete this collection? Posts will be moved to All Posts.')) return;
     try {
-      for (const post of posts) {
-        await movePostToCollection(post.id, null);
-      }
+      await Promise.all(posts.map(post => movePostToCollection(post.id, null)));
       await deleteCollection(id);
       if (activeCollectionId === id) {
         setActiveCollectionId(null);

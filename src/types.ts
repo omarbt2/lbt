@@ -13,6 +13,9 @@ export interface User {
   isFollowing?: boolean;
   followersCount?: number;
   followingCount?: number;
+  status_emoji?: string | null;
+  status_text?: string | null;
+  is_online?: boolean | null;
 }
 
 export interface Post {
@@ -91,6 +94,7 @@ export interface Chat {
   user: User;
   unreadCount: number;
   messages: Message[];
+  isMuted?: boolean;
 }
 
 export interface Notification {

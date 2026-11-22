@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { getDefaultAvatar } from '../../lib/defaultAvatars';
 
 export interface BottomSheetMenuItem {
@@ -21,6 +21,8 @@ interface BottomSheetMenuProps {
 }
 
 export default function BottomSheetMenu({ isOpen, onClose, items, header }: BottomSheetMenuProps) {
+  const dragControls = useDragControls();
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
   }, [onClose]);
@@ -49,27 +51,45 @@ export default function BottomSheetMenu({ isOpen, onClose, items, header }: Bott
             onClick={onClose}
           />
           <motion.div
-            className="fixed bottom-0 left-0 right-0 z-50 bg-surface-container-lowest rounded-t-3xl"
+            className="fixed bottom-0 left-0 right-0 z-50 bg-surface-container-lowest rounded-t-3xl max-h-[85vh] flex flex-col"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            transition={{ type: 'spring', damping: 30, stiffness: 350 }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={0.2}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 100 || info.velocity.y > 500) {
+                onClose();
+              }
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-center pt-3 pb-2">
+            <div
+              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing shrink-0"
+              onPointerDown={(e) => dragControls.start(e)}
+            >
               <div className="w-10 h-1 rounded-full bg-outline-variant/50" />
             </div>
 
-            <div className="px-4 pb-6">
+            <div className="px-4 pb-6 overflow-y-auto overscroll-contain">
               {header && (
                 <div className="flex items-center gap-3 px-2 mb-4">
                   {header.avatar && (
-                    <img src={header.avatar || getDefaultAvatar(header.name || '')} alt={`${header.name}'s avatar`} className="w-10 h-10 rounded-full object-cover" />
+                    <img
+                      src={header.avatar || getDefaultAvatar(header.name || '')}
+                      alt={`${header.name}'s avatar`}
+                      className="w-10 h-10 rounded-full object-cover border border-outline-variant/30"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = getDefaultAvatar(header.name || '');
+                      }}
+                    />
                   )}
-                  <div>
-                    <p className="text-xs font-bold text-on-surface">{header.name}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-on-surface truncate">{header.name}</p>
                     {header.subtitle && (
-                      <p className="text-[10px] text-outline">{header.subtitle}</p>
+                      <p className="text-[10px] text-outline truncate">{header.subtitle}</p>
                     )}
                   </div>
                 </div>
@@ -81,7 +101,7 @@ export default function BottomSheetMenu({ isOpen, onClose, items, header }: Bott
                     key={idx}
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05 }}
+                    transition={{ delay: idx * 0.04 }}
                     whileTap={{ scale: 0.97 }}
                     onClick={item.onClick}
                     className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-colors hover:bg-surface-container/50 ${

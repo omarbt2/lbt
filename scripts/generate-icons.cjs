@@ -19,27 +19,40 @@ async function generate() {
   for (const { dir, iconSize, fgSize } of ANDROID_DENSITIES) {
     const resDir = path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'res', dir);
 
-    // ic_launcher.png — square icon on white background
+    // ic_launcher.png — square icon on white background (legacy launchers)
+    // Logo fills ~92% of canvas — minimal padding
+    const flatLogoSize = Math.round(iconSize * 0.92);
+    const flatPadding = Math.round((iconSize - flatLogoSize) / 2);
+    const flatLogoBuffer = await sharp(SOURCE)
+      .resize(flatLogoSize, flatLogoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toBuffer();
+
     tasks.push(
-      sharp(SOURCE)
-        .resize(iconSize, iconSize, { fit: 'contain', background: BG_COLOR })
+      sharp({
+        create: { width: iconSize, height: iconSize, channels: 4, background: BG_COLOR },
+      })
         .png()
+        .composite([{ input: flatLogoBuffer, left: flatPadding, top: flatPadding }])
         .toFile(path.join(resDir, 'ic_launcher.png'))
         .then(() => console.log(`  ${dir}/ic_launcher.png (${iconSize}x${iconSize})`))
     );
 
-    // ic_launcher_round.png — circular crop on white background
+    // ic_launcher_round.png — circular crop, same enlarged logo
     tasks.push(
-      sharp(SOURCE)
-        .resize(iconSize, iconSize, { fit: 'contain', background: BG_COLOR })
+      sharp({
+        create: { width: iconSize, height: iconSize, channels: 4, background: BG_COLOR },
+      })
         .png()
+        .composite([{ input: flatLogoBuffer, left: flatPadding, top: flatPadding }])
         .toFile(path.join(resDir, 'ic_launcher_round.png'))
         .then(() => console.log(`  ${dir}/ic_launcher_round.png (${iconSize}x${iconSize})`))
     );
 
     // ic_launcher_foreground.png — adaptive icon foreground
-    // Logo at ~66% of canvas, centered on transparent background
-    const logoSize = Math.round(fgSize * 0.66);
+    // Adaptive icons get center-cropped by the OS mask (~66% "safe zone"),
+    // so 0.82 here renders visually similar in size to the flat icon above.
+    const logoSize = Math.round(fgSize * 0.82);
     const padding = Math.round((fgSize - logoSize) / 2);
 
     const logoBuffer = await sharp(SOURCE)
@@ -89,6 +102,40 @@ async function generate() {
       .toFile(path.join(webDir, 'apple-touch-icon.png'))
       .then(() => console.log('  public/web/apple-touch-icon.png (180x180)'))
   );
+
+  // Solid white background + monochrome (black silhouette) layers for adaptive icons
+  // These are required by mipmap-anydpi-v26/ic_launcher.xml alongside the foreground
+  for (const { dir, fgSize } of ANDROID_DENSITIES) {
+    const resDir = path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'res', dir);
+
+    tasks.push(
+      sharp({
+        create: { width: fgSize, height: fgSize, channels: 4, background: BG_COLOR },
+      })
+        .png()
+        .toFile(path.join(resDir, 'ic_launcher_background.png'))
+        .then(() => console.log(`  ${dir}/ic_launcher_background.png (${fgSize}x${fgSize}, solid white)`))
+    );
+
+    const logoSize = Math.round(fgSize * 0.82);
+    const padding = Math.round((fgSize - logoSize) / 2);
+
+    const monoBuffer = await sharp(SOURCE)
+      .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .greyscale()
+      .png()
+      .toBuffer();
+
+    tasks.push(
+      sharp({
+        create: { width: fgSize, height: fgSize, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+      })
+        .png()
+        .composite([{ input: monoBuffer, left: padding, top: padding }])
+        .toFile(path.join(resDir, 'ic_launcher_monochrome.png'))
+        .then(() => console.log(`  ${dir}/ic_launcher_monochrome.png (${fgSize}x${fgSize})`))
+    );
+  }
 
   await Promise.all(tasks);
   console.log('\nAll icons generated successfully.');

@@ -3,7 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import { OutletContextType } from '../types/context';
 import { StorySkeleton, PostSkeleton } from '../components/Skeleton';
 import NotesBar from '../components/NotesBar';
-import { MoreVertical, Heart, MessageCircle, Bookmark, Repeat2 } from 'lucide-react';
+import { MoreVertical, Heart, MessageCircle, Bookmark, Repeat2, Sparkles } from 'lucide-react';
 import { QUICK_REACTIONS } from '../lib/api/emojis';
 import { supabase } from '../lib/supabase';
 import { Avatar } from '../components/ui/Avatar';
@@ -24,7 +24,7 @@ function renderCaption(caption: string, navigate: ReturnType<typeof useNavigate>
       return (
         <span
           key={i}
-          className="text-blue-500 cursor-pointer font-semibold hover:underline"
+          className="text-primary cursor-pointer font-semibold hover:underline"
           onClick={(e) => { e.stopPropagation(); navigate(`/hashtag/${part.slice(1)}`); }}
         >
           {part}
@@ -35,7 +35,7 @@ function renderCaption(caption: string, navigate: ReturnType<typeof useNavigate>
       return (
         <span
           key={i}
-          className="text-blue-500 cursor-pointer font-semibold hover:underline"
+          className="text-primary cursor-pointer font-semibold hover:underline"
           onClick={(e) => { e.stopPropagation(); navigate(`/profile/${part.slice(1)}`); }}
         >
           {part}
@@ -52,6 +52,7 @@ export default function HomePage() {
     handleLikeToggle, handleBookmarkToggle, handleAddComment, handleDeletePost,
     currentUser, storyGroups, triggerToast, setShowAddStoryModal, handleViewStory,
     postMenuPostId, setPostMenuPostId,
+    setRepostTargetPost, setShowRepostModal,
   } = useOutletContext<OutletContextType>();
 
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -120,16 +121,26 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    posts.forEach(post => {
-      if (!postReactions[post.id]) {
-        (supabase as any).rpc('get_post_reactions', { p_post_id: post.id })
-          .then(({ data }: { data: any }) => {
-            if (data) setPostReactions(prev => ({ ...prev, [post.id]: data as { emoji: string; count: number; has_reacted: boolean }[] }));
-          })
-          .then(undefined, () => {});
-      }
+    const missingIds = posts
+      .map(p => p.id)
+      .filter(id => !postReactions[id]);
+    
+    if (missingIds.length === 0) return;
+    
+    Promise.all(
+      missingIds.map(id =>
+        (supabase as any).rpc('get_post_reactions', { p_post_id: id })
+          .then(({ data }: { data: any }) => ({ id, data }))
+          .catch(() => ({ id, data: null }))
+      )
+    ).then(results => {
+      const newReactions: Record<string, any[]> = {};
+      results.forEach(({ id, data }) => {
+        if (data) newReactions[id] = data;
+      });
+      setPostReactions(prev => ({ ...prev, ...newReactions }));
     });
-  }, [posts]);
+  }, [posts.map(p => p.id).join(',')]);
 
   // Pull-to-refresh gesture
   const ptrStartY = useRef(0);
@@ -194,7 +205,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <NotesBar />
+      <NotesBar currentUser={{ id: currentUser.id, name: currentUser.name, avatar: currentUser.avatar || '' }} />
 
       <section className="flex flex-col gap-3 py-4 px-1">
         <div className="flex items-center gap-3 px-1">
@@ -239,16 +250,18 @@ export default function HomePage() {
               className="flex flex-col items-center space-y-1.5 shrink-0 cursor-pointer group"
             >
               <div className={`p-[2.5px] rounded-full transition-transform group-hover:scale-105 ${
-                group.hasUnseen
-                  ? 'bg-gradient-to-tr from-primary to-primary shadow-md shadow-primary/10'
-                  : 'bg-outline-variant/40'
+                (group.user as any).is_close_friend
+                  ? 'bg-gradient-to-tr from-green-400 via-emerald-400 to-teal-400 shadow-md shadow-green-400/30 animate-pulse-glow'
+                  : group.hasUnseen
+                    ? 'bg-gradient-to-tr from-primary to-primary shadow-md shadow-primary/10'
+                    : 'bg-outline-variant/40'
               }`}>
                 <Avatar
                   src={group.user.avatar}
                   userId={group.user.id}
                   name={group.user.name}
                   size="lg"
-                  className="w-13 h-13 border-2 border-white"
+                  className="w-12 h-12 border-2 border-white"
                 />
               </div>
               <span className="text-[10px] font-bold text-on-surface-variant w-14 truncate text-center">
@@ -272,7 +285,7 @@ export default function HomePage() {
         {posts.map((post) => (
           <article
             key={post.id}
-            className="bg-surface-container-lowest/90 backdrop-blur-md rounded-2xl border border-white/55 shadow-sm overflow-hidden flex flex-col relative animate-fadeIn"
+            className="bg-surface-container-lowest/90 backdrop-blur-md rounded-2xl border border-white/50 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col relative animate-fadeIn"
           >
             <div className="p-4 flex items-center justify-between">
               <div
@@ -284,22 +297,26 @@ export default function HomePage() {
                   userId={post.user.id}
                   name={post.user.name}
                   size="md"
-                  className="group-hover:scale-105 transition-transform shadow-sm"
+                  className={`group-hover:scale-105 shadow-sm ring-2 ring-transparent active:ring-primary/30 transition-all ${(post.user as any).is_verified ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-surface-container-lowest' : ''}`}
                 />
                 <div>
                   {(post as any).is_repost && (
-                    <div className="flex items-center gap-1 text-[10px] text-primary font-bold mb-0.5">
+                    <div className="flex items-center gap-1 text-[10px] text-secondary font-bold mb-0.5">
                       <Repeat2 className="w-3 h-3" /> Reposted
                     </div>
                   )}
-                  <h3 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">
-                    {post.user.name}
-                  </h3>
-                  <p className="hidden md:block text-[10px] text-outline font-semibold uppercase tracking-wider">
-                    {post.timeLabel} • in <span className="text-primary hover:underline">{post.category}</span>
-                  </p>
-                  <p className="md:hidden text-[9px] text-primary dark:text-on-surface-variant font-bold uppercase tracking-widest mt-0.5 flex items-center gap-1 font-display">
-                    JUST NOW • IN {post.category.toUpperCase()}
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">
+                      {post.user.name}
+                    </h3>
+                    {(post.user as any).is_verified && (
+                      <svg className="w-4 h-4 text-primary shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-on-surface-variant font-medium">
+                    {post.timeLabel} • in <span className="text-primary">{post.category}</span>
                   </p>
                 </div>
               </div>
@@ -314,30 +331,30 @@ export default function HomePage() {
             </div>
 
             <div className="px-4 pb-3">
-              <p className="text-xs text-on-surface font-medium leading-relaxed">{renderCaption(post.caption, navigate)}</p>
+              <p className="text-sm text-on-surface font-medium leading-relaxed">{renderCaption(post.caption, navigate)}</p>
             </div>
 
             {post.imageUrl && (
               <div
                 onClick={() => navigate('/post/' + post.id)}
-                className="w-full relative aspect-square sm:aspect-[4/3] bg-surface-container cursor-pointer overflow-hidden -mx-4 md:mx-0 w-[calc(100%+2rem)] md:w-full rounded-2xl md:rounded-none group shadow-inner"
+                className="w-full relative aspect-square sm:aspect-[4/3] bg-surface-container-lowest cursor-pointer overflow-hidden -mx-4 md:mx-0 w-[calc(100%+2rem)] md:w-full rounded-2xl md:rounded-none group shadow-inner"
               >
                 <img
                   src={post.imageUrl}
                   alt={post.caption ? `Photo by ${post.user.name}: ${post.caption.slice(0, 50)}` : `Photo by ${post.user.name}`}
-                  className="w-full h-full object-contain bg-black group-hover:scale-102 transition-transform duration-500"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <span className="text-white text-xs font-bold bg-black/50 px-4 py-2 rounded-full backdrop-blur-md">
-                    View comment discussion →
+                    View post
                   </span>
                 </div>
               </div>
             )}
 
               <div className="p-4 flex justify-between items-center border-t border-outline-variant/10">
-              <div className="flex space-x-4">
+              <div className="flex items-center gap-3">
                 <div className="relative">
                   <button
                     onClick={() => handleLikeToggle(post.id)}
@@ -346,15 +363,15 @@ export default function HomePage() {
                     onMouseLeave={handleReactionPressEnd}
                     onTouchStart={() => handleReactionLongPress(post.id)}
                     onTouchEnd={handleReactionPressEnd}
-                    className="flex items-center space-x-1.5 text-on-surface-variant hover:text-primary transition-colors group"
+                    className="flex items-center gap-1.5 text-on-surface-variant hover:text-error transition-colors group"
                     aria-label={post.hasLiked ? 'Unlike post' : 'Like post'}
                   >
                     <Heart
-                      className={`w-5 h-5 group-hover:scale-110 transition-transform duration-150 ${
-                        post.hasLiked ? 'text-error fill-error like-pop' : ''
+                      className={`w-5 h-5 transition-all duration-200 ${
+                        post.hasLiked ? 'text-error fill-error scale-110 like-pop' : 'group-hover:scale-110'
                       }`}
                     />
-                    <span className="text-xs font-bold">{post.likes}</span>
+                    <span className="text-[11px] font-bold">{post.likes > 0 ? post.likes.toLocaleString() : ''}</span>
                   </button>
 
                   {reactionPickerPostId === post.id && (
@@ -374,11 +391,19 @@ export default function HomePage() {
 
                 <button
                   onClick={() => navigate('/post/' + post.id)}
-                  className="flex items-center space-x-1.5 text-on-surface-variant hover:text-primary transition-colors"
+                  className="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors"
                   aria-label={`View ${post.commentsCount} comments`}
                 >
                   <MessageCircle className="w-5 h-5" />
-                  <span className="text-xs font-bold">{post.commentsCount}</span>
+                  <span className="text-[11px] font-bold">{post.commentsList.length > 0 ? post.commentsList.length : ''}</span>
+                </button>
+
+                <button
+                  onClick={() => { setRepostTargetPost(post); setShowRepostModal(true); }}
+                  className="text-on-surface-variant hover:text-green-500 transition-colors"
+                  aria-label="Repost post"
+                >
+                  <Repeat2 className="w-5 h-5" />
                 </button>
               </div>
 
@@ -388,26 +413,8 @@ export default function HomePage() {
                 aria-label={post.hasBookmarked ? 'Remove bookmark' : 'Bookmark post'}
               >
                 <Bookmark
-                   className={`w-5 h-5 ${post.hasBookmarked ? 'text-on-surface fill-on-surface' : ''}`}
+                   className={`w-5 h-5 ${post.hasBookmarked ? 'text-on-surface fill-on-surface bookmark-pop' : ''}`}
                 />
-              </button>
-
-              <button
-                onClick={async () => {
-                  if (!currentUser?.id) return;
-                  try {
-                    await (supabase.from('post_shares') as any).insert({
-                      user_id: currentUser.id,
-                      post_id: post.id,
-                      share_type: 'repost'
-                    });
-                    triggerToast('Reposted!');
-                  } catch (_) {}
-                }}
-                className="text-on-surface-variant hover:text-primary transition-colors"
-                aria-label="Repost post"
-              >
-                <Repeat2 className="w-5 h-5" />
               </button>
             </div>
 
@@ -454,9 +461,28 @@ export default function HomePage() {
         )}
 
         {!postsLoading && !postsError && posts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
-            <p className="text-sm font-semibold text-on-surface-variant">No posts yet.</p>
-            <p className="text-xs text-outline">Be the first to share something! 🚀</p>
+          <div className="flex flex-col items-center justify-center py-16 px-6 gap-4">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+              <Sparkles className="w-10 h-10 text-primary" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-sm font-bold text-on-surface mb-1">Your feed is empty</h3>
+              <p className="text-xs text-on-surface-variant">Follow people or explore content to fill your feed</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => navigate('/explore')}
+                className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-full"
+              >
+                Explore Posts
+              </button>
+              <button
+                onClick={() => navigate('/explore?filter=people')}
+                className="px-5 py-2.5 bg-surface-container text-on-surface text-xs font-bold rounded-full border border-outline-variant/30"
+              >
+                Find People
+              </button>
+            </div>
           </div>
         )}
       </div>

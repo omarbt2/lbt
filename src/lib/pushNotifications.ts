@@ -17,7 +17,7 @@ export async function initPushNotifications(userId: string) {
     await PushNotifications.register();
 
     PushNotifications.addListener('registration', async (token) => {
-      await (supabase.from as any)('push_tokens').upsert({
+      await supabase.from('push_tokens').upsert({
         user_id: userId,
         token: token.value,
         platform: Capacitor.getPlatform(),

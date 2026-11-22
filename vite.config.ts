@@ -12,6 +12,8 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        react: path.resolve(__dirname, 'node_modules/react'),
+        'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
       },
       dedupe: ['react', 'react-dom'],
     },
@@ -29,7 +31,33 @@ export default defineConfig(() => {
       },
     },
     optimizeDeps: {
-      exclude: ['motion', 'framer-motion', 'zustand'],
+      include: ['react', 'react-dom', 'react-router', 'react-router-dom', 'motion'],
+    },
+    build: {
+      cssCodeSplit: true,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('react-router') || id.includes('react-dom') || id.includes('react/')) {
+                return 'vendor-react';
+              }
+              if (id.includes('motion') || id.includes('framer')) {
+                return 'vendor-motion';
+              }
+              if (id.includes('supabase')) {
+                return 'vendor-supabase';
+              }
+              if (id.includes('zustand')) {
+                return 'vendor-state';
+              }
+              if (id.includes('lucide')) {
+                return 'vendor-icons';
+              }
+            }
+          },
+        },
+      },
     },
   };
 });

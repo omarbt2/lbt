@@ -73,16 +73,16 @@ export async function recordStoryView(storyId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const { error: insertError } = await supabase
     .from('story_views')
-    .upsert(
-      { story_id: storyId, viewer_id: user.id },
-      { onConflict: 'story_id,viewer_id', ignoreDuplicates: true }
-    );
+    .upsert({ story_id: storyId, viewer_id: user.id }, { onConflict: 'story_id,viewer_id', ignoreDuplicates: true });
 
-  try {
-    await supabase.rpc('increment_story_views' as any, { story_id: storyId });
-  } catch {
+  if (insertError) {
+    console.error('recordStoryView insert error:', insertError);
+  }
+
+  const { error: rpcError } = await (supabase.rpc as any)('increment_story_views', { p_story_id: storyId });
+  if (rpcError) {
     const { data } = await supabase
       .from('stories')
       .select('views_count')
@@ -91,7 +91,7 @@ export async function recordStoryView(storyId: string): Promise<void> {
     if (data) {
       await supabase
         .from('stories')
-        .update({ views_count: (data as any).views_count + 1 })
+        .update({ views_count: (data.views_count || 0) + 1 })
         .eq('id', storyId);
     }
   }
@@ -130,8 +130,8 @@ export async function createStory(
       caption: options?.caption || null,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       audience: options?.audience || 'public',
-    } as any)
-    .select('*, profiles(*)')
+    })
+    .select('*, profiles!stories_user_id_fkey(*)')
     .single();
 
   if (error || !data) throw error || new Error('Failed to create story');

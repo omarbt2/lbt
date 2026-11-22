@@ -9,7 +9,7 @@ export interface LinkPreviewData {
 
 export async function getLinkPreview(url: string): Promise<LinkPreviewData | null> {
   try {
-    const { data: cached } = await (supabase as any)
+    const { data: cached } = await supabase
       .from('link_previews')
       .select('*')
       .eq('url', url)
@@ -28,7 +28,7 @@ export async function getLinkPreview(url: string): Promise<LinkPreviewData | nul
     };
 
     try {
-      await (supabase as any).rpc('cache_link_preview', {
+      await supabase.rpc('cache_link_preview', {
         p_url: url,
         p_title: preview.title,
         p_description: preview.description,

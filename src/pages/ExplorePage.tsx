@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Mic, Compass, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Search, Mic, X, Compass } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { searchProfiles } from '../lib/api/profiles';
 import { followUser, unfollowUser, isFollowing } from '../lib/api/follows';
 import { User } from '../types';
-import { getDefaultAvatar } from '../lib/defaultAvatars';
 import { useAuthStore } from '../store/authStore';
+import { Avatar } from '../components/ui/Avatar';
 
 export default function ExplorePage() {
   const navigate = useNavigate();
@@ -15,7 +16,6 @@ export default function ExplorePage() {
   const onViewProfile = (userId: string) => navigate('/profile/' + userId);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('For You');
   const [exploreItems, setExploreItems] = useState<any[]>([]);
   const [isLoadingExplore, setIsLoadingExplore] = useState(true);
   const [peopleResults, setPeopleResults] = useState<(User & { isFollowingUser?: boolean })[]>([]);
@@ -25,87 +25,95 @@ export default function ExplorePage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { currentUser } = useAuthStore();
 
-  const [activeFilter, setActiveFilter] = useState<'all' | 'photos' | 'videos' | 'people'>('all');
+  const [trendingHashtags, setTrendingHashtags] = useState<{ tag: string; posts: string }[]>([]);
 
-  const categories = ['For You', 'All', 'Trending', 'Following'];
-
-  const trendingHashtags = [
-    { tag: 'GenerativeArt', posts: '12.4k' },
-    { tag: 'FutureTech', posts: '8.1k' },
-    { tag: 'MinimalSpace', posts: '22.8k' },
-    { tag: 'DigitalNomad', posts: '15.9k' },
-  ];
+  useEffect(() => {
+    const fetchTrending = async () => {
+      try {
+        const { data } = await supabase
+          .from('posts')
+          .select('tags')
+          .not('tags', 'is', null)
+          .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+          .limit(200);
+        if (!data) return;
+        const tagCounts: Record<string, number> = {};
+        data.forEach((p: any) => {
+          (p.tags || []).forEach((t: string) => {
+            tagCounts[t] = (tagCounts[t] || 0) + 1;
+          });
+        });
+        const sorted = Object.entries(tagCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 8)
+          .map(([tag, count]) => ({
+            tag,
+            posts: count >= 1000 ? `${(count / 1000).toFixed(1)}k` : String(count),
+          }));
+        setTrendingHashtags(sorted);
+      } catch (_) {}
+    };
+    fetchTrending();
+  }, []);
 
   useEffect(() => {
     const fetchExplore = async () => {
       setIsLoadingExplore(true);
       const { data: { user } } = await supabase.auth.getUser();
 
-      if (selectedCategory === 'For You' && user) {
-        const { data: likedPosts } = await supabase
-          .from('likes')
-          .select('post_id, posts(tags)')
-          .eq('user_id', user.id)
-          .limit(50);
+      if (user) {
+        const { data: feedData, error: feedError } = await (supabase as any)
+          .from('explore_feed')
+          .select('*, posts(*, profiles(*))')
+          .order('score', { ascending: false })
+          .limit(30);
 
-        const interactedTags = likedPosts
-          ?.flatMap((lp: any) => (lp.posts as any)?.tags ?? [])
-          .filter(Boolean) ?? [];
-        const uniqueTags = [...new Set(interactedTags)].slice(0, 10);
-
-        if (uniqueTags.length > 0) {
-          const { data: recommended } = await supabase
-            .from('posts')
-            .select('id, caption, category, media_urls, likes_count, profiles(*)')
-            .overlaps('tags', uniqueTags)
-            .not('media_urls', 'is', null)
-            .order('likes_count', { ascending: false })
-            .limit(30);
-          if (recommended) setExploreItems(recommended);
+        if (!feedError && feedData && feedData.length > 0) {
+          const mapped = feedData.map((item: any) => ({
+            ...item.posts,
+            profiles: item.posts?.profiles,
+          })).filter(Boolean);
+          setExploreItems(mapped);
         } else {
-          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-          const { data: trending } = await supabase
-            .from('posts')
-            .select('id, caption, category, media_urls, likes_count, profiles(*)')
-            .not('media_urls', 'is', null)
-            .gte('created_at', weekAgo)
-            .order('likes_count', { ascending: false })
-            .limit(30);
-          if (trending) setExploreItems(trending);
+          const { data: likedPosts } = await supabase
+            .from('likes')
+            .select('post_id, posts(tags)')
+            .eq('user_id', user.id)
+            .limit(50);
+
+          const interactedTags = likedPosts
+            ?.flatMap((lp: any) => (lp.posts as any)?.tags ?? [])
+            .filter(Boolean) ?? [];
+          const uniqueTags = [...new Set(interactedTags)].slice(0, 10);
+
+          if (uniqueTags.length > 0) {
+            const { data: recommended } = await supabase
+              .from('posts')
+              .select('id, caption, category, media_urls, media_type, likes_count, profiles(*)')
+              .overlaps('tags', uniqueTags)
+              .not('media_urls', 'is', null)
+              .order('likes_count', { ascending: false })
+              .limit(30);
+            if (recommended) setExploreItems(recommended);
+          } else {
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            const { data: trending } = await supabase
+              .from('posts')
+              .select('id, caption, category, media_urls, media_type, likes_count, profiles(*)')
+              .not('media_urls', 'is', null)
+              .gte('created_at', weekAgo)
+              .order('likes_count', { ascending: false })
+              .limit(30);
+            if (trending) setExploreItems(trending);
+          }
         }
-      } else if (selectedCategory === 'Trending') {
+      } else {
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
         const { data } = await supabase
           .from('posts')
-          .select('id, caption, category, media_urls, likes_count, profiles(*)')
+          .select('id, caption, category, media_urls, media_type, likes_count, profiles(*)')
           .not('media_urls', 'is', null)
           .gte('created_at', weekAgo)
-          .order('likes_count', { ascending: false })
-          .limit(30);
-        if (data) setExploreItems(data);
-      } else if (selectedCategory === 'Following' && user) {
-        const { data: following } = await supabase
-          .from('follows')
-          .select('following_id')
-          .eq('follower_id', user.id);
-        const followingIds = following?.map((f: any) => f.following_id) ?? [];
-        if (followingIds.length > 0) {
-          const { data } = await supabase
-            .from('posts')
-            .select('id, caption, category, media_urls, likes_count, profiles(*)')
-            .not('media_urls', 'is', null)
-            .in('user_id', followingIds)
-            .order('created_at', { ascending: false })
-            .limit(30);
-          if (data) setExploreItems(data);
-        } else {
-          setExploreItems([]);
-        }
-      } else {
-        const { data } = await supabase
-          .from('posts')
-          .select('id, caption, category, media_urls, likes_count, profiles(*)')
-          .not('media_urls', 'is', null)
           .order('likes_count', { ascending: false })
           .limit(20);
         if (data) setExploreItems(data);
@@ -113,7 +121,7 @@ export default function ExplorePage() {
       setIsLoadingExplore(false);
     };
     fetchExplore();
-  }, [selectedCategory]);
+  }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -147,122 +155,101 @@ export default function ExplorePage() {
   }, [searchQuery, currentUser?.id]);
 
   const handleFollowToggle = useCallback(async (targetId: string) => {
-    const currentlyFollowing = followingMap[targetId];
-    setFollowingMap(prev => ({ ...prev, [targetId]: !currentlyFollowing }));
-    try {
+    setFollowingMap(prev => {
+      const currentlyFollowing = prev[targetId];
       if (currentlyFollowing) {
-        await unfollowUser(targetId);
+        unfollowUser(targetId).catch(err => {
+          console.error('Follow toggle error:', err);
+          setFollowingMap(p => ({ ...p, [targetId]: true }));
+        });
       } else {
-        await followUser(targetId);
+        followUser(targetId).catch(err => {
+          console.error('Follow toggle error:', err);
+          setFollowingMap(p => ({ ...p, [targetId]: false }));
+        });
       }
-    } catch (err) {
-      console.error('Follow toggle error:', err);
-      setFollowingMap(prev => ({ ...prev, [targetId]: currentlyFollowing }));
-    }
-  }, [followingMap]);
+      return { ...prev, [targetId]: !currentlyFollowing };
+    });
+  }, []);
 
-  const aspectRatios = ['aspect-[4/5]', 'aspect-[3/4]', 'aspect-[1/1]', 'aspect-[4/3]'];
-
-  const filteredItems = exploreItems.filter((item) => {
-    const matchesSearch =
-      (item.caption || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.profiles?.display_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-    if (activeFilter === 'photos') return matchesSearch && item.media_type !== 'video';
-    if (activeFilter === 'videos') return matchesSearch && item.media_type === 'video';
-    if (activeFilter === 'people') return false;
-    return matchesSearch;
-  });
+  const isSearching = searchQuery.trim().length >= 2;
 
   return (
-    <div className="flex flex-col gap-6 animate-fadeIn py-4" id="explore_screen">
-      <section className="relative">
-        <label htmlFor="explore_search" className="sr-only">Search Ideas</label>
-        <div className="relative group">
-          <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-on-surface-variant">
-            <Search className="w-5 h-5 group-focus-within:text-primary transition-colors" />
-          </span>
+    <div className="flex flex-col gap-4 animate-fadeIn pb-[calc(env(safe-area-inset-bottom)+80px)]" id="explore_screen">
+      <section className="px-4 pt-2">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant pointer-events-none" />
           <input
-            id="explore_search"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-surface-container-low focus:bg-white text-on-surface border border-transparent focus:border-primary/20 rounded-full py-3 pl-12 pr-12 text-sm outline-none transition-all shadow-sm focus:ring-4 focus:ring-primary/20 placeholder:text-outline-variant"
-            placeholder="Search for ideas, designs, creators..."
+            className="w-full bg-[#1a1a22] text-on-surface rounded-2xl py-3 pl-12 pr-12 text-sm outline-none border border-white/5 focus:border-primary/30 transition-all placeholder:text-outline-variant"
+            placeholder="Search people, posts, tags..."
+            style={{ fontSize: '16px' }}
           />
-          <button 
-            onClick={() => setSearchQuery('Minimalist')}
-            className="absolute inset-y-0 right-0 pr-4 flex items-center text-primary/60 hover:text-primary transition-colors"
-            title="AI Assisted Speak Input"
-          >
-            <Mic className="w-5 h-5" />
-          </button>
-        </div>
-      </section>
-
-      <div className="flex gap-2 px-4 py-2 overflow-x-auto no-scrollbar">
-        {(['all', 'photos', 'videos', 'people'] as const).map(f => (
-          <button
-            key={f}
-            onClick={() => setActiveFilter(f)}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize whitespace-nowrap transition-all ${
-              activeFilter === f
-                ? 'bg-primary text-white'
-                : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
-            }`}
-          >
-            {f === 'all' ? '✦ All' : f === 'photos' ? '📷 Photos' : f === 'videos' ? '🎬 Videos' : '👤 People'}
-          </button>
-        ))}
-      </div>
-
-      <section className="w-full overflow-x-auto no-scrollbar scroll-smooth -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex space-x-2 min-w-max">
-          {categories.map((cat) => (
+          {searchQuery ? (
             <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-5 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                selectedCategory === cat
-                  ? 'bg-primary text-white shadow-md shadow-primary/25 scale-105'
-                  : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
-              }`}
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
             >
-              {cat}
+              <X className="w-3.5 h-3.5" />
             </button>
-          ))}
+          ) : (
+            <button
+              onClick={() => {
+                if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
+                const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'en-US';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+                recognition.onresult = (event: any) => {
+                  setSearchQuery(event.results[0][0].transcript);
+                };
+                recognition.start();
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
+            >
+              <Mic className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </section>
 
-      {(searchQuery.trim().length >= 2 || activeFilter === 'people') && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-md font-bold tracking-tight text-on-surface flex items-center gap-1">
-            <Sparkles className="w-4 h-4 text-primary" /> People
-          </h2>
+      {isSearching ? (
+        <section className="flex flex-col gap-2 px-4">
           {isSearchingPeople ? (
             <div className="flex flex-col gap-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 bg-surface-container/50 rounded-xl animate-pulse">
-                  <div className="w-10 h-10 rounded-full bg-outline-variant/30" />
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 bg-[#1a1a22] rounded-2xl animate-pulse">
+                  <div className="w-11 h-11 rounded-full bg-white/5" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-3 bg-outline-variant/30 rounded w-24" />
-                    <div className="h-2.5 bg-outline-variant/20 rounded w-16" />
+                    <div className="h-3 bg-white/5 rounded w-28" />
+                    <div className="h-2.5 bg-white/5 rounded w-16" />
                   </div>
                 </div>
               ))}
             </div>
           ) : peopleSearched && peopleResults.length === 0 ? (
-            <p className="text-xs text-outline font-medium">No people found for "{searchQuery}"</p>
+            <div className="text-center py-12">
+              <Compass className="w-8 h-8 text-outline mx-auto opacity-40 mb-2" />
+              <p className="text-sm text-on-surface-variant">No people found for "{searchQuery}"</p>
+            </div>
           ) : peopleSearched ? (
             <div className="flex flex-col gap-2">
-              {peopleResults.map((person) => (
-                <div
+              {peopleResults.map((person, idx) => (
+                <motion.div
                   key={person.id}
-                  className="flex items-center gap-3 p-3 bg-surface-container-lowest/80 border border-white/45 rounded-xl"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.04 }}
+                  className="flex items-center gap-3 p-3 bg-[#1a1a22] border border-white/5 rounded-2xl"
                 >
-                  <img
-                    src={person.avatar || getDefaultAvatar(person.id)}
-                    alt={person.name}
-                    className="w-10 h-10 rounded-full object-cover border border-white/50"
+                  <Avatar
+                    src={person.avatar}
+                    userId={person.id}
+                    name={person.name}
+                    size="md"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-on-surface truncate">{person.name}</p>
@@ -271,14 +258,14 @@ export default function ExplorePage() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => onViewProfile(person.id)}
-                      className="bg-surface-container text-on-surface-variant text-xs font-bold px-3 py-1 rounded-full hover:bg-surface-container-high transition-colors cursor-pointer shrink-0"
+                      className="bg-surface-container text-on-surface-variant text-xs font-bold px-3 py-1.5 rounded-full hover:bg-surface-container-high transition-colors shrink-0"
                     >
                       View
                     </button>
                     {currentUser && (
                       <button
                         onClick={() => handleFollowToggle(person.id)}
-                        className={`text-xs font-bold px-3 py-1 rounded-full transition-colors cursor-pointer shrink-0 ${
+                        className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors shrink-0 ${
                           followingMap[person.id]
                             ? 'bg-surface-container text-on-surface-variant border border-outline-variant'
                             : 'bg-primary text-white'
@@ -288,86 +275,97 @@ export default function ExplorePage() {
                       </button>
                     )}
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           ) : null}
         </section>
-      )}
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-md font-bold tracking-tight text-on-surface flex items-center gap-1">
-          <Sparkles className="w-4 h-4 text-primary" /> Trending Now
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {trendingHashtags.map((ht) => (
-            <div
-              key={ht.tag}
-              onClick={() => { setSearchQuery(ht.tag); onSelectHashtag(ht.tag); }}
-              className="bg-surface-container-lowest/80 backdrop-blur-md border border-white/45 px-4 py-2 rounded-xl flex items-center space-x-2 cursor-pointer hover:bg-primary/5 hover:border-primary/25 transition-all text-xs shadow-sm"
-            >
-              <span className="text-primary font-extrabold text-[14px]">#</span>
-              <span className="font-semibold text-on-surface">{ht.tag}</span>
-              <span className="text-[10px] text-outline font-medium">({ht.posts})</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        {isLoadingExplore ? (
-          <div className="columns-2 sm:columns-3 gap-0.5 space-y-0.5">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="rounded-2xl bg-surface-container animate-pulse aspect-[4/5] break-inside-avoid" />
-            ))}
-          </div>
-        ) : (
-          <div className="columns-2 sm:columns-3 gap-0.5 space-y-0.5" id="explore_gallery">
-            {filteredItems.map((item, idx) => (
-              <div
-                key={item.id}
-                onClick={() => onPostSelect(item.id)}
-                className="relative group overflow-hidden break-inside-avoid cursor-pointer"
-              >
-                <div className={`relative w-full overflow-hidden ${aspectRatios[idx % aspectRatios.length]}`}>
-                  <img
-                    src={item.media_urls?.[0]}
-                    alt={item.caption || 'Post'}
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=80'; }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                    <div className="flex items-center space-x-2 mb-1.5">
-                      <img
-                        src={item.profiles?.avatar_url || getDefaultAvatar(item.profiles?.id || '')}
-                        alt={item.profiles?.display_name}
-                        className="w-6 h-6 rounded-full border border-white/50"
-                      />
-                      <span className="text-white font-semibold text-[11px] truncate">
-                        {item.profiles?.display_name || 'Creator'}
-                      </span>
-                    </div>
-                    <p className="text-white font-medium text-[11px] line-clamp-1">{item.caption}</p>
-                  </div>
-                </div>
+      ) : (
+        <>
+          {trendingHashtags.length > 0 && (
+            <section className="px-4">
+              <div className="flex flex-wrap gap-2">
+                {trendingHashtags.map((ht) => (
+                  <button
+                    key={ht.tag}
+                    onClick={() => onSelectHashtag(ht.tag)}
+                    className="bg-[#1a1a22] border border-white/5 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 hover:bg-primary/10 hover:border-primary/25 transition-all text-xs"
+                  >
+                    <span className="text-primary font-bold">#</span>
+                    <span className="font-semibold text-on-surface">{ht.tag}</span>
+                    <span className="text-[10px] text-outline">({ht.posts})</span>
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            </section>
+          )}
 
-        {!isLoadingExplore && filteredItems.length === 0 && (
-          <div className="text-center py-12 bg-surface-container/50 rounded-2xl border border-dashed border-outline-variant/30">
-            <Compass className="w-8 h-8 text-outline mx-auto opacity-40 mb-2" />
-            <p className="text-sm font-semibold text-on-surface-variant">No items found matching "{searchQuery}"</p>
-            <button
-              onClick={() => { setSearchQuery(''); setSelectedCategory('All'); }}
-              className="text-xs text-primary font-bold mt-2 hover:underline"
-            >
-              Reset Filters
-            </button>
-          </div>
-        )}
-      </section>
+          <section className="flex flex-col gap-3">
+            {isLoadingExplore ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 px-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="rounded-2xl bg-[#1a1a22] animate-pulse aspect-square" />
+                ))}
+              </div>
+            ) : exploreItems.length === 0 ? (
+              <div className="text-center py-16 px-4">
+                <Compass className="w-10 h-10 text-outline mx-auto opacity-30 mb-3" />
+                <p className="text-sm font-semibold text-on-surface-variant">Nothing to explore yet</p>
+                <p className="text-xs text-outline mt-1">Posts will appear here as people share</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 px-4" id="explore_gallery">
+                {exploreItems.map((item, idx) => {
+                  const isLarge = idx % 10 === 0 || idx % 10 === 5;
+                  return (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, scale: 0.92 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: Math.min(idx * 0.03, 0.4), duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => onPostSelect(item.id)}
+                      className={`relative group overflow-hidden cursor-pointer rounded-2xl ${
+                        isLarge ? 'row-span-2 aspect-[3/4]' : 'aspect-square'
+                      }`}
+                    >
+                      <div className="relative w-full h-full overflow-hidden bg-[#1a1a22]">
+                        {item.media_urls?.[0] ? (
+                          <img
+                            src={item.media_urls[0]}
+                            alt={item.caption || ''}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                            <Compass className="w-8 h-8 text-primary/30" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Avatar
+                              src={item.profiles?.avatar_url}
+                              userId={item.profiles?.id || ''}
+                              name={item.profiles?.display_name}
+                              size="xs"
+                              className="border border-white/50"
+                            />
+                            <span className="text-white font-semibold text-xs truncate">
+                              {item.profiles?.display_name || 'Creator'}
+                            </span>
+                          </div>
+                          <p className="text-white/90 font-medium text-xs line-clamp-1">{item.caption}</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }

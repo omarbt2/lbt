@@ -90,24 +90,26 @@ export async function markMessagesAsSeen(conversationId: string): Promise<void> 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const { error } = await supabase
     .from('messages')
     .update({ is_seen: true })
     .eq('conversation_id', conversationId)
     .neq('sender_id', user.id)
     .eq('is_seen', false);
+  if (error) console.error('markMessagesAsSeen error:', error);
 }
 
 export async function markMessagesAsRead(conversationId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const { error } = await supabase
     .from('messages')
     .update({ is_read: true })
     .eq('conversation_id', conversationId)
     .neq('sender_id', user.id)
     .eq('is_read', false);
+  if (error) console.error('markMessagesAsRead error:', error);
 }
 
 export async function getChats(): Promise<Chat[]> {
@@ -228,7 +230,15 @@ export async function addReaction(messageId: string, emoji: string): Promise<Mes
     .select()
     .single();
 
-  if (error || !data) throw error || new Error('Failed to add reaction');
+  if (error || !data) {
+    const { data: fallbackData, error: insertErr } = await supabase
+      .from('message_reactions')
+      .insert({ message_id: messageId, user_id: user.id, emoji })
+      .select()
+      .single();
+    if (insertErr || !fallbackData) throw error || insertErr || new Error('Failed to add reaction');
+    return fallbackData as MessageReaction;
+  }
 
   const { count } = await supabase
     .from('message_reactions')

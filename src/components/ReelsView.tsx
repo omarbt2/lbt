@@ -9,24 +9,42 @@ import { motion, AnimatePresence } from 'motion/react';
 import BottomSheetMenu from './ui/BottomSheetMenu';
 import type { BottomSheetMenuItem } from './ui/BottomSheetMenu';
 import ReportModal from './ReportModal';
+import { Avatar } from './ui/Avatar';
 import { getDefaultAvatar } from '../lib/defaultAvatars';
 
 interface ReelsViewProps {
   onBackToFeed: () => void;
+  initialReelId?: string;
 }
 
 function ReelSkeleton() {
   return (
-    <div className="relative h-dvh w-full bg-surface-container-lowest flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Loading reels</span>
+    <div className="relative h-dvh w-full bg-black flex flex-col">
+      {/* Header skeleton */}
+      <div className="absolute top-0 left-0 right-0 z-30 flex justify-between items-center px-5 pt-14 pb-4">
+        <div className="w-16 h-8 bg-white/10 rounded-full animate-pulse" />
+        <div className="w-12 h-6 bg-white/10 rounded-full animate-pulse" />
+        <div className="w-9 h-9 bg-white/10 rounded-full animate-pulse" />
+      </div>
+      {/* Video skeleton */}
+      <div className="flex-1 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 animate-pulse" />
+      {/* Side buttons skeleton */}
+      <div className="absolute right-3 bottom-28 flex flex-col items-center gap-5">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="w-12 h-12 rounded-full bg-white/10 animate-pulse" style={{ animationDelay: `${i * 0.1}s` }} />
+        ))}
+      </div>
+      {/* Bottom info skeleton */}
+      <div className="absolute bottom-24 left-5 right-20 flex flex-col gap-2">
+        <div className="h-4 w-32 bg-white/10 rounded animate-pulse" />
+        <div className="h-3 w-48 bg-white/10 rounded animate-pulse" />
+        <div className="h-7 w-40 bg-white/10 rounded-full animate-pulse" />
       </div>
     </div>
   );
 }
 
-export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
+export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProps) {
   const navigate = useNavigate();
   const [reels, setReels] = useState<any[]>([]);
   const [isLoadingReels, setIsLoadingReels] = useState(true);
@@ -46,6 +64,9 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
   const [reportReelId, setReportReelId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [playingStates, setPlayingStates] = useState<Record<number, boolean>>({});
+  const [loadedStates, setLoadedStates] = useState<Record<number, boolean>>({});
+  const [reelsFeedType, setReelsFeedType] = useState<'foryou' | 'following'>('foryou');
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
@@ -60,12 +81,28 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) setCurrentUserId(user.id);
 
-        const { data, error } = await supabase
+        let reelsQuery = supabase
           .from('reels')
           .select('*, profiles(id, username, display_name, avatar_url, is_verified)')
           .eq('is_public', true)
-          .eq('is_archived', false)
-          .order('created_at', { ascending: false });
+          .eq('is_archived', false);
+
+        if (reelsFeedType === 'following' && user) {
+          const { data: following } = await supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', user.id);
+          const followingIds = following?.map((f: any) => f.following_id) ?? [];
+          if (followingIds.length > 0) {
+            reelsQuery = reelsQuery.in('user_id', followingIds);
+          } else {
+            setReels([]);
+            setIsLoadingReels(false);
+            return;
+          }
+        }
+
+        const { data, error } = await reelsQuery.order('created_at', { ascending: false });
 
         if (error) throw error;
 
@@ -102,7 +139,20 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
       setIsLoadingReels(false);
     };
     fetchReels();
-  }, []);
+  }, [reelsFeedType]);
+
+  // Scroll to initialReelId after data loads
+  useEffect(() => {
+    if (!initialReelId || reels.length === 0) return;
+    const idx = reels.findIndex(r => r.id === initialReelId);
+    if (idx >= 0) {
+      setActiveIdx(idx);
+      setTimeout(() => {
+        const el = containerRef.current?.querySelector(`[data-reel-index="${idx}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [initialReelId, reels]);
 
   // Intersection observer for autoplay
   useEffect(() => {
@@ -148,7 +198,8 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
       } else {
         await supabase.from('reel_likes').delete().eq('reel_id', id).eq('user_id', currentUserId);
       }
-    } catch {
+    } catch (err) {
+      console.error('Like toggle failed:', err);
       setLikedReels(prev => ({ ...prev, [id]: isLiked }));
       setReelLikesCount(prev => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 0) + (isLiked ? 1 : -1)) }));
     }
@@ -164,7 +215,8 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
       } else {
         await supabase.from('follows').delete().eq('follower_id', currentUserId).eq('following_id', profileId);
       }
-    } catch {
+    } catch (err) {
+      console.error('Follow toggle failed:', err);
       setFollowState(prev => ({ ...prev, [profileId]: isFollowing }));
     }
   };
@@ -252,13 +304,6 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
           setMenuReel(null);
         }
       },
-      {
-        icon: <Repeat2 className="w-5 h-5" />, label: 'Remix Reel',
-        onClick: () => {
-          setMenuReel(null);
-          navigate(`/reels/create?duet_of=${reel.id}&duet_url=${encodeURIComponent(reel.video_url)}`);
-        }
-      },
     ];
     if (isOwn) {
       items.push({
@@ -278,9 +323,22 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
 
   if (!reels.length) {
     return (
-      <div className="relative h-dvh bg-black w-full flex flex-col items-center justify-center text-white gap-4">
-        <p className="text-sm text-white/60">No reels yet</p>
-        <button onClick={onBackToFeed} className="text-xs font-bold text-primary hover:underline">← Back to Feed</button>
+      <div className="relative h-dvh bg-black w-full flex flex-col items-center justify-center text-white gap-5 px-6">
+        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+          <svg className="w-8 h-8 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-semibold text-white/80">No reels yet</p>
+          <p className="text-xs text-white/40 mt-1">Be the first to share a moment</p>
+        </div>
+        <button
+          onClick={onBackToFeed}
+          className="px-5 py-2.5 bg-white/10 border border-white/10 rounded-full text-xs font-bold text-white hover:bg-white/15 transition-colors"
+        >
+          Back to Feed
+        </button>
       </div>
     );
   }
@@ -288,29 +346,53 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-black" id="reels_screen">
       {/* Header */}
-      <header className="absolute top-0 left-0 right-0 z-30 flex justify-between items-center px-5 pt-[calc(env(safe-area-inset-top)+14px)] pb-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-2">
+      <header className="absolute top-0 left-0 right-0 z-30 flex flex-col pt-[calc(env(safe-area-inset-top)+14px)] pb-4 bg-gradient-to-b from-black/60 via-black/20 to-transparent pointer-events-none">
+        <div className="flex justify-between items-center px-5 pointer-events-none">
+          <div className="pointer-events-auto flex items-center gap-2">
+            <button
+              onClick={onBackToFeed}
+              className="font-bold text-sm tracking-tight text-white hover:text-primary flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10"
+            >
+              <ArrowLeft className="w-4 h-4" /> LBT
+            </button>
+          </div>
+          {/* Feed type toggle */}
+          <div className="pointer-events-auto flex items-center bg-black/30 backdrop-blur-md rounded-full border border-white/10 p-0.5">
+            <button
+              onClick={() => setReelsFeedType('foryou')}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                reelsFeedType === 'foryou'
+                  ? 'bg-white text-black'
+                  : 'text-white/70 hover:text-white'
+              }`}
+            >
+              For You
+            </button>
+            <button
+              onClick={() => setReelsFeedType('following')}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                reelsFeedType === 'following'
+                  ? 'bg-white text-black'
+                  : 'text-white/70 hover:text-white'
+              }`}
+            >
+              Following
+            </button>
+          </div>
+          {/* Mute toggle */}
           <button
-            onClick={onBackToFeed}
-            className="font-bold text-sm tracking-tight text-white hover:text-primary flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10"
+            onClick={() => {
+              setIsMuted(m => {
+                const next = !m;
+                videoRefs.current.forEach(v => { v.muted = next; });
+                return next;
+              });
+            }}
+            className="pointer-events-auto w-9 h-9 flex items-center justify-center bg-black/30 backdrop-blur-md rounded-full border border-white/10 text-white"
           >
-            <ArrowLeft className="w-4 h-4" /> LBT
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
         </div>
-        <h1 className="text-lg font-black tracking-tight text-white drop-shadow-md">Reels</h1>
-        {/* Mute toggle */}
-        <button
-          onClick={() => {
-            setIsMuted(m => {
-              const next = !m;
-              videoRefs.current.forEach(v => { v.muted = next; });
-              return next;
-            });
-          }}
-          className="pointer-events-auto w-9 h-9 flex items-center justify-center bg-black/30 backdrop-blur-md rounded-full border border-white/10 text-white"
-        >
-          {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-        </button>
       </header>
 
       {/* Vertical snap scroll */}
@@ -320,7 +402,7 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
         style={{ scrollSnapType: 'y mandatory' }}
       >
         {reels.map((reel, idx) => {
-          const reelAvatar = reel.profiles?.avatar_url ?? getDefaultAvatar(reel.profiles?.id || '');
+          const reelAvatar = reel.profiles?.avatar_url || getDefaultAvatar(reel.profiles?.id || '');
           const reelUsername = reel.profiles?.username ?? 'unknown';
           const reelDisplayName = reel.profiles?.display_name ?? reelUsername;
           const isActive = idx === activeIdx;
@@ -331,28 +413,61 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
             <div
               key={reel.id}
               data-reel-index={idx}
-              className="relative h-dvh w-full snap-start snap-always flex items-center justify-center bg-black"
+              className="relative h-full w-full snap-start snap-always flex items-center justify-center bg-black"
               style={{ scrollSnapAlign: 'start' }}
             >
               {/* Video */}
               <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-black" onClick={(e) => handleDoubleTap(e, reel.id)}>
+                {!loadedStates[idx] && (
+                  <div className="absolute inset-0 bg-black animate-pulse flex items-center justify-center z-10">
+                    {reel.thumbnail_url ? (
+                      <img src={reel.thumbnail_url} alt="" className="w-full h-full object-cover opacity-50" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    )}
+                  </div>
+                )}
                 <video
                   ref={(el) => { if (el) videoRefs.current.set(idx, el); }}
                   src={reel.video_url}
+                  poster={reel.thumbnail_url || undefined}
                   className="w-full h-full object-contain bg-black"
                   loop
                   playsInline
                   preload="metadata"
                   muted={isMuted}
-                  onClick={() => {
+                  onLoadedData={() => setLoadedStates(prev => ({ ...prev, [idx]: true }))}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const video = videoRefs.current.get(idx);
+                    if (!video) return;
                     if (!interactedRef.current) {
                       interactedRef.current = true;
-                      const video = videoRefs.current.get(idx);
-                      if (video) video.play().catch(() => {});
+                      video.play().catch(() => {});
+                      setPlayingStates(prev => ({ ...prev, [idx]: true }));
+                      return;
+                    }
+                    if (video.paused) {
+                      video.play().catch(() => {});
+                      setPlayingStates(prev => ({ ...prev, [idx]: true }));
+                    } else {
+                      video.pause();
+                      setPlayingStates(prev => ({ ...prev, [idx]: false }));
                     }
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/80 pointer-events-none" />
+
+                {/* Play/Pause indicator */}
+                {loadedStates[idx] && playingStates[idx] === false && isActive && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                    <div className="w-16 h-16 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                      <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </div>
+                  </div>
+                )}
 
                 {/* Double-tap heart */}
                 <AnimatePresence>
@@ -364,21 +479,26 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
                       exit={{}}
                       transition={{ duration: 0.5, ease: 'easeOut' }}
                     >
-                      <Heart className="w-24 h-24 text-white fill-white drop-shadow-2xl" />
+                      <Heart className="w-24 h-24 text-secondary fill-secondary drop-shadow-2xl" />
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
 
               {/* Side action buttons */}
-              <div className="absolute right-3 bottom-28 z-30 flex flex-col items-center gap-5">
+              <div className="absolute right-3 bottom-[calc(env(safe-area-inset-bottom)+110px)] z-30 flex flex-col items-center gap-5">
                 {/* Avatar + follow */}
                 <div className="relative mb-2 flex flex-col items-center gap-1">
                   <div
                     className="w-12 h-12 rounded-full p-[2.5px] bg-gradient-to-tr from-primary to-primary shadow-lg cursor-pointer hover:scale-105 transition-transform"
                     onClick={() => reel.profiles?.id && navigate('/profile/' + reel.profiles.id)}
                   >
-                    <img src={reelAvatar} alt="" className="w-full h-full rounded-full object-cover border-2 border-black" />
+                    <Avatar
+                      src={reelAvatar}
+                      userId={reel.profiles?.id || ''}
+                      name={reelDisplayName}
+                      className="w-full h-full rounded-full object-cover border-2 border-black"
+                    />
                   </div>
                   {!isOwn && (
                     <button
@@ -427,10 +547,20 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
                   onClick={async () => {
                     if (!currentUserId) return;
                     try {
-                      await (supabase.from('post_shares') as any).insert({
+                      const reel = reels[idx];
+                      if (!reel) return;
+                      await (supabase.from('posts') as any).insert({
                         user_id: currentUserId,
-                        post_id: reel.id,
-                        share_type: 'repost'
+                        caption: '',
+                        category: 'General',
+                        media_urls: reel.thumbnail_url ? [reel.thumbnail_url] : [],
+                        media_type: 'repost',
+                        tags: [],
+                        likes_count: 0,
+                        comments_count: 0,
+                        shares_count: 0,
+                        repost_of: reel.id,
+                        is_repost: true,
                       });
                     } catch (_) {}
                   }}
@@ -456,20 +586,12 @@ export default function ReelsView({ onBackToFeed }: ReelsViewProps) {
               </div>
 
               {/* Bottom info */}
-              <div className="absolute bottom-24 left-5 right-20 z-30 flex flex-col gap-2">
+              <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+100px)] left-5 right-20 z-30 flex flex-col gap-2">
                 <div
                   className="flex items-center gap-2 cursor-pointer"
                   onClick={() => reel.profiles?.id && navigate('/profile/' + reel.profiles.id)}
                 >
                   <span className="text-sm font-bold text-white drop-shadow-md">@{reelUsername}</span>
-                  {!isOwn && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleFollow(reel.profiles?.id); }}
-                      className={`px-3 py-0.5 rounded-full text-[11px] font-bold border transition-all ${isFollowing ? 'border-white/40 text-white/80 bg-white/10' : 'border-primary text-primary bg-primary/10'}`}
-                    >
-                      {isFollowing ? 'Following' : 'Follow'}
-                    </button>
-                  )}
                 </div>
                 {reel.caption && <p className="text-xs text-white/90 drop-shadow-md line-clamp-2 leading-relaxed">{reel.caption}</p>}
                 {reel.is_duet && reel.duet_of && (

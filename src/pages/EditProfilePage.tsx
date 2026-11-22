@@ -1,10 +1,9 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { OutletContextType } from '../types/context';
 import { useAuthStore } from '../store/authStore';
-import { ArrowLeft, Camera, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Camera, Check, AlertCircle, User, AtSign, FileText, Link as LinkIcon, Phone, Shield, Smile } from 'lucide-react';
 import { useStorage } from '../hooks/useStorage';
-import { useState, useRef } from 'react';
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
@@ -22,7 +21,7 @@ export default function EditProfilePage() {
     return p.replace(/\D/g, '').slice(-9);
   });
   const [gender, setGender] = useState('Male');
-  const [dob, setDob] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState(() => (currentUser as any).date_of_birth || '');
   const [isPrivate, setIsPrivate] = useState(currentUser.is_private ?? false);
 
   const STATUS_EMOJIS = ['😊', '🔥', '💤', '🎵', '💼', '📸', '🎮', '📚', '✈️', '🍕', '💻', '🎨', '💪', '🌙', '☀️'];
@@ -38,15 +37,9 @@ export default function EditProfilePage() {
   const coverInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isUploading } = useStorage();
 
-  // Phone validation: 9 digits starting with 5, 6, or 7
-  const validatePhone = (local: string): boolean => {
-    return /^[5-7]\d{8}$/.test(local);
-  };
-
+  const validatePhone = (local: string): boolean => /^[5-7]\d{8}$/.test(local);
   const fullPhone = `+213${phoneLocal}`;
   const phoneValid = phoneLocal === '' || validatePhone(phoneLocal);
-
-  // Username validation
   const usernameRegex = /^[a-z0-9_]{3,20}$/;
   const usernameValid = usernameRegex.test(username.toLowerCase());
 
@@ -99,18 +92,17 @@ export default function EditProfilePage() {
         avatar_url: avatarUrl || undefined,
         cover_url: coverUrl || undefined,
         phone: phoneLocal && validatePhone(phoneLocal) ? fullPhone : undefined,
-        dob: dob || undefined,
+        date_of_birth: dateOfBirth || null,
         gender: gender || undefined,
         is_private: isPrivate,
         status_emoji: statusEmoji || undefined,
         status_text: statusText || undefined,
         status_expires_at: statusEmoji ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null,
-      } as any);
+      });
 
       await useAuthStore.getState().initialize();
-
-      setFeedback({ type: 'success', text: 'Profile updated successfully!' });
-      setTimeout(() => onBack(), 1200);
+      setFeedback({ type: 'success', text: 'Profile updated!' });
+      setTimeout(() => onBack(), 1000);
     } catch (err: any) {
       setFeedback({ type: 'error', text: err?.message || 'Failed to save profile.' });
     } finally {
@@ -119,255 +111,286 @@ export default function EditProfilePage() {
   };
 
   return (
-    <div className="flex flex-col animate-fadeIn py-3 max-w-xl mx-auto text-on-surface min-h-dvh">
+    <div className="flex flex-col min-h-dvh bg-surface-container-low animate-fadeIn">
       {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b border-outline-variant/30 mb-4">
-        <button
-          onClick={onBack}
-          className="p-1 rounded-full hover:bg-surface-container select-none cursor-pointer transition-all text-primary"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h2 className="text-md font-extrabold text-on-surface">Edit Profile</h2>
-          <p className="text-[10px] text-outline font-semibold tracking-wider uppercase">Update your profile details</p>
-        </div>
-      </div>
-
-      {/* Cover photo */}
-      <div className="relative rounded-2xl overflow-hidden mb-6">
-        <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
-        <div
-          className="h-32 sm:h-40 cursor-pointer relative group"
-          onClick={() => coverInputRef.current?.click()}
-        >
-          {coverUrl ? (
-            <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-[#1a2744] via-[#2a3a5a] to-[#1a2744]" />
-          )}
-          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <span className="bg-white/90 text-xs font-bold text-slate-800 px-4 py-2 rounded-full flex items-center gap-2 shadow-lg">
-              <Camera className="w-4 h-4" /> {coverUrl ? 'Change Cover' : 'Upload Cover'}
-            </span>
-          </div>
-        </div>
-
-        {/* Avatar overlay on cover */}
-        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
-          <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-          <div
-            onClick={() => avatarInputRef.current?.click()}
-            className="relative w-20 h-20 rounded-full border-3 border-white bg-surface shadow-lg overflow-hidden cursor-pointer group"
-          >
-            <img
-              src={avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser.username}`}
-              alt="Avatar"
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser.username}`;
-              }}
-            />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
-              <Camera className="w-5 h-5 text-white" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="h-6" />
-
-      {/* Feedback */}
-      {feedback && (
-        <div className={`flex items-center gap-2 p-3 rounded-xl text-xs font-bold mb-4 ${
-          feedback.type === 'success'
-            ? 'bg-surface-container-low text-on-surface border border-outline-variant'
-            : 'bg-error/10 text-error border border-error/25'
-        }`}>
-          {feedback.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-          {feedback.text}
-        </div>
-      )}
-
-      {/* Form Fields */}
-      <div className="space-y-4">
-        {/* Full Name */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] uppercase font-bold text-primary tracking-wider">Full Name</label>
-          <input
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="w-full bg-white border border-outline-variant/65 rounded-xl px-3.5 py-2.5 text-xs text-on-surface outline-none focus:border-primary transition-colors font-medium"
-            placeholder="Your full name"
-          />
-        </div>
-
-        {/* Username */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] uppercase font-bold text-primary tracking-wider">Username</label>
-          <div className="relative">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-outline">@</span>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-              className={`w-full bg-white border rounded-xl pl-8 pr-4 py-2.5 text-xs text-on-surface outline-none transition-colors font-medium ${
-                !usernameValid && username ? 'border-error ring-1 ring-error/15' : 'border-outline-variant/65 focus:border-primary'
-              }`}
-              placeholder="username"
-            />
-          </div>
-          {!usernameValid && username && (
-            <p className="text-[10px] text-error font-bold">3-20 chars: letters, numbers, underscores only</p>
-          )}
-        </div>
-
-        {/* Bio */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] uppercase font-bold text-primary tracking-wider">Bio</label>
-          <textarea
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            className="w-full bg-white border border-outline-variant/65 rounded-xl px-3.5 py-2.5 text-xs text-on-surface outline-none focus:border-primary transition-colors min-h-[80px] leading-relaxed font-medium"
-            placeholder="Tell the world about yourself..."
-            maxLength={150}
-          />
-          <p className="text-[9px] text-outline text-right">{bio.length}/150</p>
-        </div>
-
-        {/* Website */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] uppercase font-bold text-primary tracking-wider">Website</label>
-          <input
-            type="url"
-            value={website}
-            onChange={(e) => setWebsite(e.target.value)}
-            className="w-full bg-white border border-outline-variant/65 rounded-xl px-3.5 py-2.5 text-xs text-on-surface outline-none focus:border-primary transition-colors font-medium"
-            placeholder="https://yoursite.com"
-          />
-        </div>
-
-        {/* Phone — Algerian flag + +213 prefix */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] uppercase font-bold text-primary tracking-wider">Phone Number</label>
-          <div className="flex gap-0">
-            <div className="flex items-center bg-surface-container-low border border-r-0 border-outline-variant/65 rounded-l-xl px-3 py-2.5 gap-1.5 shrink-0 select-none">
-              <span className="text-sm leading-none">🇩🇿</span>
-              <span className="text-xs font-bold text-on-surface font-mono">+213</span>
-            </div>
-            <input
-              type="tel"
-              value={phoneLocal}
-              onChange={(e) => setPhoneLocal(e.target.value.replace(/\D/g, '').slice(0, 9))}
-              className={`flex-1 bg-white border rounded-r-xl px-3.5 py-2.5 text-xs text-on-surface outline-none transition-colors font-mono font-semibold ${
-                !phoneValid ? 'border-error ring-1 ring-error/15' : 'border-outline-variant/65 focus:border-primary'
-              }`}
-              placeholder="5XXXXXXXX"
-              maxLength={9}
-            />
-          </div>
-          {!phoneValid && (
-            <p className="text-[10px] text-error font-bold">Must be 9 digits starting with 5, 6, or 7</p>
-          )}
-          {phoneLocal && phoneValid && (
-            <p className="text-[10px] text-on-surface font-bold">✓ {fullPhone}</p>
-          )}
-        </div>
-
-        {/* Gender */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] uppercase font-bold text-primary tracking-wider">Gender</label>
-          <select
-            value={gender}
-            onChange={(e) => setGender(e.target.value)}
-            className="w-full bg-white border border-outline-variant/65 rounded-xl px-3.5 py-2.5 text-xs text-on-surface outline-none focus:border-primary cursor-pointer font-medium"
-          >
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Non-binary">Non-binary</option>
-            <option value="Prefer not to say">Prefer not to say</option>
-          </select>
-        </div>
-
-        {/* Date of Birth */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] uppercase font-bold text-primary tracking-wider">Date of Birth</label>
-          <input
-            type="date"
-            value={dob}
-            onChange={(e) => setDob(e.target.value)}
-            className="w-full bg-white border border-outline-variant/65 rounded-xl px-3.5 py-2.5 text-xs text-on-surface outline-none focus:border-primary font-mono font-medium"
-          />
-        </div>
-
-        {/* Private Account Toggle */}
-        <div className="flex items-center justify-between p-4 bg-white border border-outline-variant/40 rounded-xl select-none">
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-on-surface">Private Account</span>
-            <span className="text-[10px] text-outline">Only followers can see your posts</span>
-          </div>
-          <button
-            onClick={() => setIsPrivate(!isPrivate)}
-            className={`w-11 h-6 rounded-full transition-all relative p-0.5 cursor-pointer ${
-              isPrivate ? 'bg-primary' : 'bg-outline-variant'
-            }`}
-          >
-            <div className={`w-5 h-5 bg-white rounded-full shadow transition-all ${
-              isPrivate ? 'translate-x-[20px]' : 'translate-x-0'
-            }`} />
+      <div className="sticky top-0 z-30 bg-surface-container-lowest/95 backdrop-blur-xl border-b border-outline-variant/10">
+        <div className="flex items-center justify-between px-4 py-3 max-w-xl mx-auto">
+          <button onClick={onBack} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors active:scale-90">
+            <ArrowLeft className="w-5 h-5 text-on-surface" />
           </button>
+          <h1 className="text-base font-bold text-on-surface">Edit Profile</h1>
+          <div className="w-10" />
         </div>
       </div>
 
-        {/* Status */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] uppercase font-bold text-primary tracking-wider">Status</label>
-          <div className="flex items-center gap-2 flex-wrap">
-            {STATUS_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => setStatusEmoji(statusEmoji === emoji ? '' : emoji)}
-                className={`w-9 h-9 rounded-full flex items-center justify-center text-lg border transition-all ${
-                  statusEmoji === emoji
-                    ? 'border-primary bg-primary/10 scale-110'
-                    : 'border-outline-variant/40 hover:border-primary/50'
-                }`}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-          {statusEmoji && (
-            <input
-              type="text"
-              value={statusText}
-              onChange={(e) => setStatusText(e.target.value.slice(0, 30))}
-              placeholder="What's your status?"
-              className="w-full bg-white border border-outline-variant/65 rounded-xl px-3.5 py-2.5 text-xs text-on-surface outline-none focus:border-primary transition-colors font-medium"
-              maxLength={30}
-            />
-          )}
-        </div>
+      <div className="flex-1 overflow-y-auto pb-8">
+        <div className="max-w-xl mx-auto">
+          {/* Cover + Avatar — Snapchat-style centered */}
+          <div className="relative">
+            <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
+            <div
+              className="h-36 cursor-pointer relative group"
+              onClick={() => coverInputRef.current?.click()}
+            >
+              {coverUrl ? (
+                <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-primary/20 via-primary/10 to-transparent" />
+              )}
+              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <span className="bg-black/60 backdrop-blur-sm text-white text-[11px] font-bold px-4 py-2 rounded-full flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5" /> {coverUrl ? 'Change' : 'Add Cover'}
+                </span>
+              </div>
+            </div>
 
-        {/* Save Button */}
-      <button
-        onClick={handleSave}
-        disabled={saving || isUploading || !fullName.trim() || !usernameValid || (phoneLocal !== '' && !phoneValid)}
-        className="w-full mt-6 bg-gradient-to-r from-primary to-primary text-white font-bold text-xs py-3 rounded-xl transition-all cursor-pointer active:scale-98 shadow-md hover:shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {saving ? (
-          <span className="flex items-center justify-center gap-2">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            Saving...
-          </span>
-        ) : isUploading ? (
-          'Uploading image...'
-        ) : (
-          'Save Profile'
-        )}
-      </button>
+            {/* Avatar — centered, large */}
+            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+              <button
+                onClick={() => avatarInputRef.current?.click()}
+                className="relative group"
+              >
+                <div className="w-24 h-24 rounded-full border-4 border-surface-container-low bg-surface-container overflow-hidden shadow-xl">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-primary/20 flex items-center justify-center">
+                      <User className="w-10 h-10 text-primary/50" />
+                    </div>
+                  )}
+                </div>
+                <div className="absolute inset-0 rounded-full bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera className="w-5 h-5 text-white" />
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 w-7 h-7 bg-primary rounded-full flex items-center justify-center border-3 border-surface-container-low shadow-md">
+                  <Camera className="w-3.5 h-3.5 text-white" />
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div className="h-16" />
+
+          {/* Feedback */}
+          {feedback && (
+            <div className={`mx-4 mb-4 flex items-center gap-2 p-3 rounded-2xl text-xs font-bold ${
+              feedback.type === 'success'
+                ? 'bg-green-500/10 text-green-500 border border-green-500/20'
+                : 'bg-red-500/10 text-red-500 border border-red-500/20'
+            }`}>
+              {feedback.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+              {feedback.text}
+            </div>
+          )}
+
+          {/* Form — Snapchat-style card sections */}
+          <div className="px-4 space-y-3">
+            {/* Basic Info Card */}
+            <div className="bg-surface-container-lowest/80 rounded-2xl border border-outline-variant/10 overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-outline-variant/10">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Basic Info</span>
+              </div>
+
+              <div className="divide-y divide-outline-variant/10">
+                {/* Full Name */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <User className="w-4 h-4 text-on-surface-variant shrink-0" />
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="flex-1 bg-transparent text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50"
+                    placeholder="Your name"
+                  />
+                </div>
+
+                {/* Username */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <AtSign className="w-4 h-4 text-on-surface-variant shrink-0" />
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+                    className={`flex-1 bg-transparent text-sm outline-none placeholder:text-on-surface-variant/50 ${
+                      !usernameValid && username ? 'text-red-500' : 'text-on-surface'
+                    }`}
+                    placeholder="username"
+                  />
+                </div>
+
+                {/* Bio */}
+                <div className="flex items-start gap-3 px-4 py-3">
+                  <FileText className="w-4 h-4 text-on-surface-variant shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <textarea
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      className="w-full bg-transparent text-sm text-on-surface outline-none resize-none min-h-[60px] placeholder:text-on-surface-variant/50"
+                      placeholder="Tell the world about yourself..."
+                      maxLength={150}
+                    />
+                    <p className="text-[9px] text-on-surface-variant/60 text-right">{bio.length}/150</p>
+                  </div>
+                </div>
+
+                {/* Website */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <LinkIcon className="w-4 h-4 text-on-surface-variant shrink-0" />
+                  <input
+                    type="url"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    className="flex-1 bg-transparent text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50"
+                    placeholder="https://yoursite.com"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Card */}
+            <div className="bg-surface-container-lowest/80 rounded-2xl border border-outline-variant/10 overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-outline-variant/10">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Contact</span>
+              </div>
+
+              <div className="divide-y divide-outline-variant/10">
+                {/* Phone */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <Phone className="w-4 h-4 text-on-surface-variant shrink-0" />
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <span className="text-sm">🇩🇿</span>
+                    <span className="text-xs font-bold text-on-surface-variant">+213</span>
+                    <input
+                      type="tel"
+                      value={phoneLocal}
+                      onChange={(e) => setPhoneLocal(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                      className={`flex-1 bg-transparent text-sm outline-none font-mono ml-1 ${
+                        !phoneValid ? 'text-red-500' : 'text-on-surface'
+                      }`}
+                      placeholder="5XXXXXXXX"
+                      maxLength={9}
+                    />
+                  </div>
+                </div>
+
+                {/* Gender */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <User className="w-4 h-4 text-on-surface-variant shrink-0" />
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="flex-1 bg-transparent text-sm text-on-surface outline-none cursor-pointer"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Non-binary">Non-binary</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </div>
+
+                {/* Date of Birth */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <span className="text-xs">🎂</span>
+                  <input
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    className="flex-1 bg-transparent text-sm text-on-surface outline-none font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Privacy Card */}
+            <div className="bg-surface-container-lowest/80 rounded-2xl border border-outline-variant/10 overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-outline-variant/10">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Privacy</span>
+              </div>
+
+              <div className="flex items-center justify-between px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <Shield className="w-4 h-4 text-on-surface-variant" />
+                  <div>
+                    <span className="text-sm font-medium text-on-surface">Private Account</span>
+                    <p className="text-[10px] text-on-surface-variant/70 mt-0.5">Only followers can see your posts</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsPrivate(!isPrivate)}
+                  className={`w-12 h-7 rounded-full transition-all relative p-0.5 cursor-pointer ${
+                    isPrivate ? 'bg-primary' : 'bg-outline-variant/50'
+                  }`}
+                >
+                  <div className={`w-6 h-6 bg-white rounded-full shadow transition-all ${
+                    isPrivate ? 'translate-x-[20px]' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Status Card */}
+            <div className="bg-surface-container-lowest/80 rounded-2xl border border-outline-variant/10 overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-outline-variant/10">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Status</span>
+              </div>
+
+              <div className="p-4 space-y-3">
+                <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                  {STATUS_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => setStatusEmoji(statusEmoji === emoji ? '' : emoji)}
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl border transition-all active:scale-90 ${
+                        statusEmoji === emoji
+                          ? 'border-primary bg-primary/10 scale-110 shadow-md shadow-primary/10'
+                          : 'border-outline-variant/20 hover:border-primary/40 bg-surface-container/50'
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+                {statusEmoji && (
+                  <input
+                    type="text"
+                    value={statusText}
+                    onChange={(e) => setStatusText(e.target.value.slice(0, 30))}
+                    placeholder="What's on your mind?"
+                    className="w-full bg-surface-container/50 border border-outline-variant/20 rounded-2xl px-4 py-2.5 text-sm text-on-surface outline-none focus:border-primary/40 transition-colors text-center"
+                    maxLength={30}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Validation errors */}
+            {(!usernameValid && username) && (
+              <p className="text-[10px] text-red-500 font-bold px-1">Username: 3-20 chars, letters, numbers, underscores</p>
+            )}
+            {(!phoneValid) && (
+              <p className="text-[10px] text-red-500 font-bold px-1">Phone: 9 digits starting with 5, 6, or 7</p>
+            )}
+            {phoneLocal && phoneValid && (
+              <p className="text-[10px] text-green-500 font-bold px-1">✓ {fullPhone}</p>
+            )}
+
+            {/* Save Button */}
+            <button
+              onClick={handleSave}
+              disabled={saving || isUploading || !fullName.trim() || !usernameValid || (phoneLocal !== '' && !phoneValid)}
+              className="w-full bg-primary text-white font-bold text-sm py-3.5 rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-primary/20 disabled:opacity-40 disabled:cursor-not-allowed mt-2"
+            >
+              {saving ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Saving...
+                </span>
+              ) : isUploading ? 'Uploading...' : 'Save Profile'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

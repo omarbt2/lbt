@@ -4,10 +4,45 @@ import { User } from '../types';
 import { Session } from '@supabase/supabase-js';
 import { getDefaultAvatar } from '../lib/defaultAvatars';
 
-// Auth listener guard - ensure only ONE listener ever exists
-let authListenerUnsubscribe: (() => void) | null = null;
-let refreshIntervalId: ReturnType<typeof setInterval> | null = null;
-let isInitialized = false;
+// Auth listener guard - ensure only ONE listener ever exists.
+// BUG #7 FIX: module-level `let` state is re-initialized to its default values
+// every time Vite HMR re-executes this module, while the *previous* module
+// instance's closures (subscriptions, intervals) are still alive and running.
+// This causes duplicate auth listeners / intervals to accumulate across HMR
+// reloads in dev. We store this state on `import.meta.hot.data`, which Vite
+// preserves across HMR re-executions of the same module, and dispose of the
+// previous instance's listener/interval before the new module body runs.
+interface AuthModuleState {
+  authListenerUnsubscribe: (() => void) | null;
+  refreshIntervalId: ReturnType<typeof setInterval> | null;
+  isInitialized: boolean;
+}
+
+const hot = (import.meta as any).hot;
+const moduleState: AuthModuleState = hot?.data?.authModuleState ?? {
+  authListenerUnsubscribe: null,
+  refreshIntervalId: null,
+  isInitialized: false,
+};
+
+if (hot) {
+  // Clean up the previous module instance's live resources before this
+  // new instance takes over, then persist state for the next HMR cycle.
+  hot.dispose((data: any) => {
+    data.authModuleState = moduleState;
+  });
+}
+
+let authListenerUnsubscribe: (() => void) | null = moduleState.authListenerUnsubscribe;
+let refreshIntervalId: ReturnType<typeof setInterval> | null = moduleState.refreshIntervalId;
+let isInitialized = moduleState.isInitialized;
+
+// Keep moduleState in sync so hot.dispose() above captures current values.
+function syncModuleState() {
+  moduleState.authListenerUnsubscribe = authListenerUnsubscribe;
+  moduleState.refreshIntervalId = refreshIntervalId;
+  moduleState.isInitialized = isInitialized;
+}
 
 export interface AuthState {
   currentUser: User | null;
@@ -51,6 +86,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
   initialize: async () => {
     if (isInitialized) return;
     isInitialized = true;
+    syncModuleState();
 
     set({ isLoading: true });
 
@@ -63,7 +99,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
           .eq('id', session.user.id)
           .maybeSingle();
         if (profile) {
-          set({ session, currentUser: mapProfileToUser(profile as any) });
+          set({ session, currentUser: mapProfileToUser(profile) });
         } else {
           set({ session, currentUser: null });
         }
@@ -87,26 +123,35 @@ export const useAuthStore = create<AuthState>()((set) => ({
           .eq('id', session.user.id)
           .maybeSingle();
         if (profile) {
-          set({ session, currentUser: mapProfileToUser(profile as any), pendingVerification: false });
+          set({ session, currentUser: mapProfileToUser(profile), pendingVerification: false });
         }
       } else {
         set({ session: null, currentUser: null });
       }
     });
     authListenerUnsubscribe = () => subscription.unsubscribe();
+    syncModuleState();
 
-    // Token refresh check every 5 minutes
+    // Token refresh check every 5 minutes.
+    // BUG #2 FIX: only clear the session if Supabase explicitly reports no session.
+    // Network/transient errors must NOT force a logout — just skip this cycle.
     if (refreshIntervalId) clearInterval(refreshIntervalId);
     refreshIntervalId = setInterval(async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.warn('Session refresh check failed (will retry):', error.message);
+          return;
+        }
         if (!session) {
           set({ currentUser: null, session: null });
         }
-      } catch {
-        set({ currentUser: null, session: null });
+      } catch (err) {
+        // Network error or similar — do not log the user out, just retry next cycle.
+        console.warn('Session refresh check error (will retry):', err);
       }
     }, 5 * 60 * 1000);
+    syncModuleState();
   },
 
   login: async (emailOrUsername, password) => {
@@ -125,7 +170,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
           .eq('id', data.user.id)
           .maybeSingle();
         if (profile) {
-          set({ session: data.session, currentUser: mapProfileToUser(profile as any) });
+          set({ session: data.session, currentUser: mapProfileToUser(profile) });
         } else {
           // Profile not found — user exists in auth but not in profiles
           set({ session: data.session, currentUser: null });
@@ -148,6 +193,20 @@ export const useAuthStore = create<AuthState>()((set) => ({
         throw new Error('Password must be at least 8 characters.');
       }
 
+      // BUG #1 FIX: check username availability BEFORE creating the auth user,
+      // so we never create an orphaned auth account for a duplicate username.
+      // A final 23505 catch after the profile insert remains as a race-condition
+      // backstop (DB has a unique index on lower(username)).
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', username.toLowerCase())
+        .maybeSingle();
+
+      if (existingUser) {
+        throw new Error('This username is already taken. Please choose another.');
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -156,17 +215,6 @@ export const useAuthStore = create<AuthState>()((set) => ({
       if (error) throw error;
 
       if (!data.user) throw new Error('Sign-up failed: user was not created.');
-
-      const { data: existingUser } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', username.toLowerCase())
-        .maybeSingle();
-
-      if (existingUser) {
-        await supabase.auth.signOut();
-        throw new Error('This username is already taken. Please choose another.');
-      }
 
       if (!data.session) {
         set({ pendingVerification: true, pendingEmail: email, isLoading: false });
@@ -184,7 +232,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
         bio: 'LBT member.',
         followers_count: 0,
         following_count: 0,
-      }] as any);
+      }]);
 
       if (profileError) {
         if (profileError.code === '23505') {
@@ -201,7 +249,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
         .maybeSingle();
 
       if (profile) {
-        set({ session: data.session, currentUser: mapProfileToUser(profile as any), pendingVerification: false });
+        set({ session: data.session, currentUser: mapProfileToUser(profile), pendingVerification: false });
       }
     } catch (err) {
       throw err;
@@ -220,6 +268,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
       if (authListenerUnsubscribe) { authListenerUnsubscribe(); authListenerUnsubscribe = null; }
       if (refreshIntervalId) { clearInterval(refreshIntervalId); refreshIntervalId = null; }
       isInitialized = false;
+      syncModuleState();
       set({ session: null, currentUser: null, isLoading: false, pendingVerification: false, pendingEmail: null });
     }
   },

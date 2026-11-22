@@ -57,6 +57,20 @@ function resolveProfile(raw: any, fallbackUserId?: string): {
   };
 }
 
+export function formatRelativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const s = Math.floor(diff / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  const d = Math.floor(h / 24);
+  if (s < 60)  return 'just now';
+  if (m < 60)  return `${m}m`;
+  if (h < 24)  return `${h}h`;
+  if (d < 7)   return `${d}d`;
+  if (d < 30)  return `${Math.floor(d / 7)}w`;
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 export function formatTimeLabel(created_at: string): string {
   const date = new Date(created_at);
   const diffMs = Date.now() - date.getTime();
@@ -326,7 +340,7 @@ export async function getPosts(
 
 export async function getPostById(id: string): Promise<Post | null> {
   const { data: p, error } = await supabase
-    .from('posts').select('*, profiles(*)').eq('id', id).maybeSingle();
+    .from('posts').select('*, profiles!posts_user_id_fkey(*)').eq('id', id).maybeSingle();
   if (error || !p) return null;
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -340,7 +354,7 @@ export async function getPostById(id: string): Promise<Post | null> {
   }
 
   const { data: commentsData } = await supabase
-    .from('comments').select('*, profiles(*)').eq('post_id', id).order('created_at', { ascending: true });
+    .from('comments').select('*, profiles!comments_user_id_fkey(*)').eq('post_id', id).order('created_at', { ascending: true });
 
   const pProfile = resolveProfile(p.profiles);
   const commentsList: Comment[] = (commentsData || []).map((c: any) => {
@@ -410,7 +424,7 @@ export async function createPost(postData: {
       comments_count: 0,
       shares_count: 0,
     } as any)
-    .select('*, profiles(*)')
+    .select('*, profiles!posts_user_id_fkey(*)')
     .single();
 
   if (error) throw new Error(error.message || 'Failed to create post');
@@ -475,7 +489,7 @@ export async function addComment(postId: string, content: string): Promise<Comme
   const { data, error } = await supabase
     .from('comments')
     .insert({ post_id: postId, user_id: user.id, content, likes_count: 0 })
-    .select('*, profiles(*)')
+    .select('*, profiles!comments_user_id_fkey(*)')
     .single();
 
   if (error || !data) throw error || new Error('Failed to insert comment');

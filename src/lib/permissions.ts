@@ -47,15 +47,15 @@ export async function requestMicPermission(): Promise<boolean> {
       if (!mod) return false;
       const r = await mod.Microphone.requestPermissions();
       const granted = r.microphone === 'granted';
-      await (supabase.rpc as any)('save_permission_state', { p_mic: granted ? 'granted' : 'denied' });
+      await supabase.rpc('save_permission_state', { p_mic: granted ? 'granted' : 'denied' });
       return granted;
     }
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach(t => t.stop());
-    await (supabase.rpc as any)('save_permission_state', { p_mic: 'granted' });
+    await supabase.rpc('save_permission_state', { p_mic: 'granted' });
     return true;
   } catch {
-    await (supabase.rpc as any)('save_permission_state', { p_mic: 'denied' });
+    await supabase.rpc('save_permission_state', { p_mic: 'denied' });
     return false;
   }
 }
@@ -70,36 +70,12 @@ export async function requestCamPermission(): Promise<boolean> {
       if (!mod) return false;
       const r = await mod.Camera.requestPermissions();
       const granted = r.camera === 'granted';
-      await (supabase.rpc as any)('save_permission_state', { p_camera: granted ? 'granted' : 'denied' });
+      await supabase.rpc('save_permission_state', { p_camera: granted ? 'granted' : 'denied' });
       return granted;
     }
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     stream.getTracks().forEach(t => t.stop());
-    await (supabase.rpc as any)('save_permission_state', { p_camera: 'granted' });
-    return true;
-  } catch { return false; }
-}
-
-export async function requestCallPermissions(isVideo: boolean): Promise<boolean> {
-  if (isNative()) {
-    try {
-      const micMod = await loadNativeModule('@capacitor/microphone');
-      if (!micMod) return false;
-      const micStatus = await micMod.Microphone.requestPermissions();
-      if (micStatus.microphone !== 'granted') return false;
-      if (isVideo) {
-        const camMod = await loadNativeModule('@capacitor/camera');
-        if (!camMod) return false;
-        const camStatus = await camMod.Camera.requestPermissions();
-        return camStatus.camera === 'granted';
-      }
-      return true;
-    } catch { return false; }
-  }
-  try {
-    const constraints: MediaStreamConstraints = { audio: true, video: isVideo };
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    stream.getTracks().forEach(t => t.stop());
+    await supabase.rpc('save_permission_state', { p_camera: 'granted' });
     return true;
   } catch { return false; }
 }

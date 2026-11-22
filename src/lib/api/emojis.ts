@@ -9,10 +9,22 @@ export interface EmojiItem {
 
 let emojiCache: EmojiItem[] | null = null;
 
+// BUG #10 FIX: the previous implementation set `el.innerHTML = code` to decode
+// HTML entities. If the external API ever returned malicious markup (e.g.
+// `<img src=x onerror=...>`) instead of a plain entity like `&#128512;`,
+// the browser would parse/execute it as real DOM, creating an XSS vector.
+// DOMParser with 'text/html' also parses markup, but by reading back
+// `.body.textContent` from a *detached* document (never inserted into the
+// live DOM and never rendered), any script/element tags are inert — only
+// their text content is extracted, so no handlers can fire and nothing is
+// rendered. This safely decodes entities like `&#128512;` -> 😀 without risk.
 function decodeHtmlCode(code: string): string {
-  const el = document.createElement('textarea');
-  el.innerHTML = code;
-  return el.value;
+  try {
+    const doc = new DOMParser().parseFromString(code, 'text/html');
+    return doc.body.textContent ?? '';
+  } catch {
+    return '';
+  }
 }
 
 export async function getAllEmojis(): Promise<EmojiItem[]> {

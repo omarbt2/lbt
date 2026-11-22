@@ -96,7 +96,7 @@ export default function ProfilePage() {
     setPostsOffset(0);
     setHasMorePosts(true);
     getProfilePosts(user.id, 20, 0)
-      .then((data) => {
+      .then((data: Post[]) => {
         setProfilePosts(data);
         if (data.length < 20) setHasMorePosts(false);
       })
@@ -127,22 +127,15 @@ export default function ProfilePage() {
     setRepostsLoading(true);
     (async () => {
       try {
-        const { data: shares, error } = await supabase
-          .from('post_shares' as any)
-          .select('post_id')
-          .eq('user_id', user.id)
-          .eq('share_type', 'repost')
-          .order('created_at', { ascending: false });
-        if (error) { console.error('Reposts fetch error:', error); setProfileReposts([]); setRepostsLoading(false); return; }
-        if (!shares || shares.length === 0) { setProfileReposts([]); setRepostsLoading(false); return; }
-        const postIds = [...new Set((shares as any[]).map((s: any) => s.post_id).filter(Boolean))];
-        if (postIds.length === 0) { setProfileReposts([]); setRepostsLoading(false); return; }
-        const { data: posts, error: postsErr } = await supabase
+        const { data: reposts, error } = await supabase
           .from('posts')
           .select('*')
-          .in('id', postIds);
-        if (postsErr) console.error('Reposts posts fetch error:', postsErr);
-        setProfileReposts(posts || []);
+          .eq('user_id', user.id)
+          .eq('is_repost', true)
+          .not('repost_of', 'is', null)
+          .order('created_at', { ascending: false });
+        if (error) { console.error('Reposts fetch error:', error); setProfileReposts([]); setRepostsLoading(false); return; }
+        setProfileReposts((reposts as any) || []);
       } catch (e) { console.error(e); }
       finally { setRepostsLoading(false); }
     })();
@@ -228,7 +221,7 @@ export default function ProfilePage() {
     try {
       const url = await uploadFile('post-media', file, 'covers');
       await supabase.from('profiles').update({ cover_url: url }).eq('id', user.id);
-      window.location.reload();
+      setProfileUser((prev: any) => prev ? { ...prev, cover_url: url } : prev);
     } catch (err) {
       console.error('Cover upload failed:', err);
     }
@@ -306,8 +299,6 @@ export default function ProfilePage() {
 
   const handleBlock = async () => {
     setShowProfileMenu(false);
-    const confirmBlock = window.confirm(`Block @${user.username}? They won't be able to see your posts or follow you.`);
-    if (!confirmBlock) return;
     try {
       await supabase.from('user_blocks').insert({
         blocker_id: currentUser.id,
@@ -339,8 +330,8 @@ export default function ProfilePage() {
       navigator.clipboard.writeText(`https://lbt-social.network/user/${user.username}`);
       setShowProfileMenu(false);
     }},
-    { icon: <BarChart3 size={18} />, label: 'Insights', onClick: () => { setShowProfileMenu(false); } },
-    { icon: <Settings size={18} />, label: 'Settings', onClick: () => { setShowProfileMenu(false); } },
+    { icon: <BarChart3 size={18} />, label: 'Insights', onClick: () => { setShowProfileMenu(false); navigate('/insights'); } },
+    { icon: <Settings size={18} />, label: 'Settings', onClick: () => { setShowProfileMenu(false); navigate('/settings'); } },
   ];
 
   const otherMenuItems: BottomSheetMenuItem[] = [
@@ -359,7 +350,7 @@ export default function ProfilePage() {
   return (
     <div className="flex flex-col animate-fadeIn" id="profile_screen">
       {/* COVER PHOTO — 300px full-width */}
-      <section className="relative h-[300px] w-full overflow-hidden">
+      <section className="relative h-48 md:h-64 lg:h-72 w-full overflow-hidden">
         {user.cover_url ? (
           <img
             src={user.cover_url}

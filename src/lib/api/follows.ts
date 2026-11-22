@@ -7,7 +7,7 @@ export async function followUser(targetId: string): Promise<void> {
   if (!user) throw new Error('Not authenticated');
   const { error } = await supabase
     .from('follows')
-    .insert({ follower_id: user.id, following_id: targetId });
+    .upsert({ follower_id: user.id, following_id: targetId }, { onConflict: 'follower_id,following_id', ignoreDuplicates: true });
   if (error) throw error;
 }
 

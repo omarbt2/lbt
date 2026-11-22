@@ -80,7 +80,7 @@ export default function InsightsPage() {
       setInsights({
         reach: totalLikes > 1000 ? `${(totalLikes / 1000).toFixed(1)}k` : String(totalLikes),
         reachDelta: reachDelta > 0 ? `+${reachDelta}%` : `${reachDelta}%`,
-        profileVisits: String((posts || []).length),
+        profileVisits: String(Math.round(totalLikes * 0.3 + totalComments * 2)),
         profileVisitsDelta: interactionsDelta > 0 ? `+${interactionsDelta}%` : `${interactionsDelta}%`,
         followers: profile?.followers_count ? String(profile.followers_count) : '0',
         followersDelta: String((profile?.followers_count ?? 0) - (profile?.following_count ?? 0)),

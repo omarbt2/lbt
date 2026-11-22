@@ -1,38 +1,38 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { OutletContextType } from '../types/context';
 import { Chat, Message, User } from '../types';
 import {
-  Plus, Search, Edit3, Send, Play, Pause, Paperclip, Smile, Phone, Video,
-  ArrowLeft, MoreVertical, Mic, MicOff, Check, CheckCheck, Reply, X,
-  BellOff, Trash2, Ban, Flag, PhoneIncoming, PhoneOutgoing, PhoneMissed
+  Plus, Search, Edit3, BellOff, Trash2, Ban, Flag,
+  Reply, X
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { AnimatePresence } from 'motion/react';
 import { Avatar } from '../components/ui/Avatar';
 import {
   getChats, sendMessage, getConversationMessages, getOrCreateConversation,
   markMessagesAsSeen, markMessagesAsRead, addReaction, removeReaction,
   upsertTypingIndicator, removeTypingIndicator
 } from '../lib/api/messages';
-import { formatTimeLabel } from '../lib/api/posts';
-import { getCallHistory } from '../lib/api/calls';
 import { searchProfiles } from '../lib/api/profiles';
 import GifPicker from '../components/ui/GifPicker';
 import type { GifResult } from '../components/ui/GifPicker';
-import LinkPreviewCard from '../components/ui/LinkPreviewCard';
-import { extractUrls } from '../lib/api/linkPreview';
-import { getAllEmojis, QUICK_REACTIONS, EMOJI_CATEGORIES } from '../lib/api/emojis';
+import { getAllEmojis, EMOJI_CATEGORIES } from '../lib/api/emojis';
 import type { EmojiItem } from '../lib/api/emojis';
 import { useRealtimeMessages, useRealtimeReactions, useRealtimeTyping } from '../hooks/useRealtime';
 import { supabase } from '../lib/supabase';
 import BottomSheetMenu from '../components/ui/BottomSheetMenu';
-import type { BottomSheetMenuItem } from '../components/ui/BottomSheetMenu';
 import ReportModal from '../components/ReportModal';
+
+import ChatListItem from '../components/messages/ChatListItem';
+import ChatHeader from '../components/messages/ChatHeader';
+import MessageBubble from '../components/messages/MessageBubble';
+import MessageInput from '../components/messages/MessageInput';
+import EmojiPickerPanel from '../components/messages/EmojiPickerPanel';
 
 const QUICK_EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
 export default function MessagesPage() {
-  const { currentUser, startCall, showPermissionDenied } = useOutletContext<OutletContextType>();
+  const { currentUser, showPermissionDenied } = useOutletContext<OutletContextType>();
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [typeInput, setTypeInput] = useState('');
@@ -41,6 +41,7 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
@@ -51,7 +52,6 @@ export default function MessagesPage() {
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [contextMenuChatId, setContextMenuChatId] = useState<string | null>(null);
   const [contextMenuUser, setContextMenuUser] = useState<User | null>(null);
-  const [callHistory, setCallHistory] = useState<any[]>([]);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportUserId, setReportUserId] = useState<string | null>(null);
   const [disappearingEnabled, setDisappearingEnabled] = useState(false);
@@ -140,11 +140,6 @@ export default function MessagesPage() {
       markMessagesAsSeen(activeChatId).catch(console.error);
       markMessagesAsRead(activeChatId).catch(console.error);
     }
-  }, [activeChatId]);
-
-  useEffect(() => {
-    if (!activeChatId) return;
-    getCallHistory(50, 0).then(setCallHistory).catch(() => setCallHistory([]));
   }, [activeChatId]);
 
   useEffect(() => {
@@ -384,6 +379,11 @@ export default function MessagesPage() {
             .from('voice-messages')
             .getPublicUrl(fileName);
 
+          if (!urlData?.publicUrl) {
+            console.error('Failed to get voice message URL');
+            return;
+          }
+
           const voiceMsg = await sendMessage(activeChatId, '', {
             messageType: 'voice',
             voiceUrl: urlData.publicUrl,
@@ -423,7 +423,7 @@ export default function MessagesPage() {
     setIsRecording(false);
   };
 
-  const toggleVoicePlayback = (msgId: string, url: string) => {
+  const toggleVoicePlayback = useCallback((msgId: string, url: string) => {
     if (playingVoiceId === msgId) {
       const audio = audioElementsRef.current[msgId];
       if (audio) audio.pause();
@@ -450,15 +450,9 @@ export default function MessagesPage() {
     audioElementsRef.current[msgId].currentTime = 0;
     audioElementsRef.current[msgId].play();
     setPlayingVoiceId(msgId);
-  };
+  }, [playingVoiceId]);
 
-  const formatDuration = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const handleReaction = async (messageId: string, emoji: string) => {
+  const handleReaction = useCallback(async (messageId: string, emoji: string) => {
     try {
       const existing = activeChat?.messages.find(m => m.id === messageId)
         ?.reactions?.find(r => r.user_id === currentUser.id);
@@ -476,16 +470,7 @@ export default function MessagesPage() {
     } catch (e) {
       console.error('Failed to toggle reaction:', e);
     }
-  };
-
-  const handleCallButton = async (callType: 'audio' | 'video') => {
-    if (!activeChat || !activeChatId) return;
-    try {
-      await startCall(activeChat.user.id, callType);
-    } catch (e) {
-      console.error('Failed to initiate call:', e);
-    }
-  };
+  }, [activeChat, currentUser.id]);
 
   const handleMessageContextMenu = (e: React.MouseEvent, messageId: string) => {
     e.preventDefault();
@@ -505,10 +490,19 @@ export default function MessagesPage() {
     }
   };
 
-  const selectChatMobile = (id: string) => {
+  const selectChatMobile = useCallback((id: string) => {
     setActiveChatId(id);
     setMobileChatOpen(true);
-  };
+  }, []);
+
+  const handleAttachmentSent = useCallback((msg: any) => {
+    if (!activeChatId) return;
+    setChats(prev => prev.map(c => {
+      if (c.id !== activeChatId) return c;
+      if (c.messages.some(m => m.id === msg.id)) return c;
+      return { ...c, messages: [...c.messages, msg] };
+    }));
+  }, [activeChatId]);
 
   return (
     <div className="flex bg-surface h-[calc(100dvh-140px)] rounded-2xl overflow-hidden border border-white/40 shadow-xl animate-scaleIn" id="messaging_screen">
@@ -519,18 +513,21 @@ export default function MessagesPage() {
         <div className="p-4 border-b border-outline-variant bg-transparent">
           <div className="flex justify-between items-center mb-3">
             <h1 className="text-xl font-bold tracking-tighter text-primary">Direct Messages</h1>
-            <button className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-primary hover:bg-primary/10 transition-colors" aria-label="New message">
+            <button onClick={() => { searchInputRef.current?.focus(); setSearchQuery(''); }}
+              className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-primary hover:bg-primary/10 transition-colors" aria-label="New message">
               <Edit3 className="w-4 h-4" />
             </button>
           </div>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
             <input
+              ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-surface-container border-none rounded-full py-2 pl-9 pr-4 text-xs outline-none focus:ring-1 focus:ring-primary/20 text-on-surface placeholder:text-outline-variant"
+              className="w-full bg-surface-container border-none rounded-full py-2.5 pl-9 pr-4 text-sm outline-none focus:ring-1 focus:ring-primary/20 text-on-surface placeholder:text-outline-variant"
               placeholder="Search people to start a chat..."
+              style={{ fontSize: '16px' }}
             />
           </div>
         </div>
@@ -571,70 +568,20 @@ export default function MessagesPage() {
               <span className="text-[10px] opacity-70 mt-1">Search for a designer above to start a conversation!</span>
             </div>
           ) : (
-            chats.map((c, index) => {
-              const hasUnread = (c.unreadCount > 0) || ((c as any).unread_count > 0);
-              const lastMsg = c.messages[c.messages.length - 1];
-              const isSelected = c.id === activeChatId;
-              return (
-                <motion.div
-                  key={c.id}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.04, duration: 0.22 }}
-                  onClick={() => selectChatMobile(c.id)}
-                  className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all ${
-                    isSelected ? 'bg-surface-container-high shadow-sm border border-outline-variant/30' : 'hover:bg-surface-container/50'
-                  }`}
-                >
-                  <div className="relative w-12 h-12 shrink-0">
-                    <Avatar src={c.user.avatar} userId={c.user.id} name={c.user.name} size="lg" className="w-14 h-14 border border-white/40 shadow-sm" />
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-on-surface rounded-full border-2 border-white" />
-                    {hasUnread && (
-                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center text-[9px] font-black text-white border border-white px-0.5">
-                        {c.unreadCount > 9 ? '9+' : c.unreadCount}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="flex justify-between items-baseline mb-1">
-                      <h3 className={`text-sm tracking-tight truncate ${isSelected ? 'font-bold text-primary' : 'font-semibold text-on-surface'}`}>
-                        {c.user.name}
-                      </h3>
-                      <span className="text-[10px] text-outline font-medium shrink-0">
-                        {lastMsg?.timeLabel || ''}
-                      </span>
-                    </div>
-                    {(c.user as any).status_emoji && (
-                      <div className="flex items-center gap-1 mb-0.5">
-                        <span className="text-[10px]">{(c.user as any).status_emoji}</span>
-                        {(c.user as any).status_text && (
-                          <span className="text-[9px] text-on-surface-variant font-medium truncate">{(c.user as any).status_text}</span>
-                        )}
-                      </div>
-                    )}
-                    <p className={`text-xs truncate ${hasUnread ? 'text-primary font-bold' : 'text-on-surface-variant font-medium'}`}>
-                      {lastMsg?.message_type === 'voice'
-                        ? '🎤 Voice message'
-                        : lastMsg?.text
-                          ? (lastMsg.text.length > 35 ? lastMsg.text.slice(0, 35) + '...' : lastMsg.text)
-                          : lastMsg?.imageUrl ? '📷 Shared photo' : 'Send a clean design spark'
-                      }
-                    </p>
-                  </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setContextMenuChatId(c.id);
-                    setContextMenuUser(c.user);
-                  }}
-                  className="p-1.5 rounded-full hover:bg-surface-container-high transition-colors shrink-0"
-                  aria-label="Chat options"
-                >
-                    <MoreVertical className="w-4 h-4 text-outline" />
-                  </button>
-                </motion.div>
-              );
-            })
+            chats.map((c, index) => (
+              <ChatListItem
+                key={c.id}
+                chat={c}
+                isSelected={c.id === activeChatId}
+                index={index}
+                currentUserId={currentUser.id}
+                onSelect={selectChatMobile}
+                onContextMenu={(chatId, user) => {
+                  setContextMenuChatId(chatId);
+                  setContextMenuUser(user);
+                }}
+              />
+            ))
           )}
         </div>
       </aside>
@@ -645,66 +592,15 @@ export default function MessagesPage() {
       }`}>
         {activeChat ? (
           <>
-            {/* Chat Header */}
-            <header className="flex justify-between items-center px-4 py-3 bg-[#0a0a0a] border-b border-white/10 shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <button
-                  onClick={() => setMobileChatOpen(false)}
-                  className="md:hidden text-white/70 p-1 hover:bg-white/10 rounded-full transition-colors shrink-0"
-                  title="Return to chats list"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div className="relative shrink-0">
-                   <Avatar src={activeChat.user.avatar} userId={activeChat.user.id} name={activeChat.user.name} size="md" />
-                   {otherUserOnline && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#0a0a0a]" />}
-                </div>
-                <div className="min-w-0 text-left">
-                  <h2 className="text-sm font-bold text-white truncate">{activeChat.user.name}</h2>
-                  <p className="text-[10px] font-semibold flex items-center gap-1">
-                    {otherUserTyping ? (
-                      <span className="text-primary">Typing...</span>
-                    ) : otherUserOnline ? (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-400" /> Active now
-                      </>
-                    ) : (
-                      <span className="text-white/50">Last seen {otherUserLastSeen ? formatTimeLabel(otherUserLastSeen) : 'recently'}</span>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => setDisappearingEnabled(!disappearingEnabled)}
-                  className={`px-2 py-1 rounded-full text-[10px] font-bold transition-all ${
-                    disappearingEnabled
-                      ? 'bg-primary/10 text-primary border border-primary/20'
-                      : 'bg-white/10 text-white/70 border border-white/10'
-                  }`}
-                  title="Toggle disappearing messages (24h)"
-                >
-                  ⏱ {disappearingEnabled ? 'ON' : 'OFF'}
-                </button>
-                <button
-                  onClick={() => handleCallButton('audio')}
-                  className="w-9 h-9 flex items-center justify-center rounded-full text-white/70 hover:bg-white/10 transition-colors"
-                  title="Voice Call"
-                >
-                  <Phone className="w-4.5 h-4.5" />
-                </button>
-                <button
-                  onClick={() => handleCallButton('video')}
-                  className="w-9 h-9 flex items-center justify-center rounded-full text-white/70 hover:bg-white/10 transition-colors"
-                  title="Video Call"
-                >
-                  <Video className="w-4.5 h-4.5" />
-                </button>
-                <button className="w-9 h-9 flex items-center justify-center rounded-full text-white/70 hover:bg-white/10 transition-colors" aria-label="More options">
-                  <MoreVertical className="w-4.5 h-4.5" />
-                </button>
-              </div>
-            </header>
+            <ChatHeader
+              user={activeChat.user}
+              otherUserOnline={otherUserOnline}
+              otherUserLastSeen={otherUserLastSeen}
+              otherUserTyping={otherUserTyping}
+              disappearingEnabled={disappearingEnabled}
+              onBack={() => setMobileChatOpen(false)}
+              onToggleDisappearing={() => setDisappearingEnabled(!disappearingEnabled)}
+            />
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 hover:no-scrollbar bg-surface-container-low/50" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -716,267 +612,26 @@ export default function MessagesPage() {
 
               {(() => {
                 const msgs = activeChat.messages || [];
-                const formatCallTime = (ts: string) => {
-                  const diff = Date.now() - new Date(ts).getTime();
-                  const m = Math.floor(diff / 60000);
-                  const h = Math.floor(m / 60);
-                  const d = Math.floor(h / 24);
-                  if (m < 1) return 'Just now';
-                  if (m < 60) return `${m}m ago`;
-                  if (h < 24) return `${h}h ago`;
-                  return `${d}d ago`;
-                };
 
                 return (
                   <>
-                    {callHistory.filter(c => c.status === 'rejected' || (c.status === 'ended' && !c.duration_seconds)).map(c => {
-                      const isMissed = true;
-                      const Icon = c.caller_id === currentUser.id ? PhoneOutgoing : PhoneMissed;
-                      const label = c.call_type === 'video' ? '📹 Missed video call' : '📞 Missed voice call';
-                      return (
-                        <div key={c.id} className="flex justify-center my-3">
-                          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-surface-container border border-outline-variant/30 text-center">
-                            <Icon className="w-4 h-4 text-error shrink-0" />
-                            <span className="text-[11px] font-semibold text-on-surface-variant">{label}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {callHistory.filter(c => c.status !== 'rejected' && !(c.status === 'ended' && !c.duration_seconds)).map(c => {
-                      const duration = c.duration_seconds ? `${Math.floor(c.duration_seconds / 60)}:${(c.duration_seconds % 60).toString().padStart(2, '0')}` : null;
-                      const Icon = c.caller_id === currentUser.id ? PhoneOutgoing : PhoneIncoming;
-                      return (
-                        <div key={c.id} className="flex justify-center my-1">
-                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
-                            <Icon className="w-3 h-3" />
-                            <span>
-                              {c.call_type === 'video' ? 'Video' : 'Voice'} call
-                              {duration ? ` - ${duration}` : ''}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {msgs.map((m) => {
-                      const isMe = m.senderId === currentUser.id;
-                      return (
-                  <motion.div
-                    key={m.id}
-                    initial={{ opacity: 0, y: 10, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-                    className="relative group"
-                  >
-                    {/* Reply-to preview */}
-                    {m.reply_to && (
-                      <div className={`flex mb-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[70%] px-3 py-1.5 rounded-xl text-[10px] border-l-2 ${
-                          isMe
-                            ? 'bg-primary/10 border-primary text-primary/80'
-                            : 'bg-surface-container-high border-outline text-on-surface-variant'
-                        }`}>
-                          <span className="font-bold block truncate">{m.reply_to.senderName}</span>
-                          <span className="truncate block opacity-70">{m.reply_to.text || 'Media'}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    <div
-                      className={`flex gap-3 max-w-[80%] ${isMe ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
-                      onContextMenu={(e) => handleMessageContextMenu(e, m.id)}
-                      onMouseDown={() => handleMessageLongPress(m.id)}
-                      onMouseUp={handlePressEnd}
-                      onMouseLeave={handlePressEnd}
-                      onTouchStart={() => handleMessageLongPress(m.id)}
-                      onTouchEnd={handlePressEnd}
-                    >
-                      {!isMe && (
-                        <Avatar
-                          src={activeChat.user.avatar}
-                          userId={activeChat.user.id}
-                          name={activeChat.user.name}
-                          size="xs"
-                          className="w-7 h-7 mt-1 shrink-0 shadow-sm"
-                        />
-                      )}
-
-                      <div className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
-                        {/* Voice message */}
-                        {m.message_type === 'voice' && m.voice_url && (
-                          <div className={`flex items-center gap-2 rounded-full px-4 py-2 ${
-                            isMe
-                              ? 'bg-gradient-to-tr from-primary to-primary-container text-white'
-                              : 'bg-surface-container-high text-on-surface'
-                          }`}>
-                            <button
-                              onClick={() => toggleVoicePlayback(m.id, m.voice_url!)}
-                              className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                              style={{ background: isMe ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)' }}
-                              aria-label={playingVoiceId === m.id ? 'Pause voice message' : 'Play voice message'}
-                            >
-                              {playingVoiceId === m.id ? (
-                                <Pause className="w-3.5 h-3.5" />
-                              ) : (
-                                <Play className="w-3.5 h-3.5 ml-0.5" />
-                              )}
-                            </button>
-                            <div className="flex gap-0.5 items-center h-4">
-                              {Array.from({ length: 20 }).map((_, i) => {
-                                const h = Math.sin(i * 0.7 + m.id.charCodeAt(0)) * 0.5 + 0.5;
-                                return (
-                                  <div
-                                    key={i}
-                                    className="w-0.5 bg-current rounded-full"
-                                    style={{ height: `${Math.max(h * 14 + 2, 4)}px`, opacity: 0.7 }}
-                                  />
-                                );
-                              })}
-                            </div>
-                            <span className="text-xs font-mono">
-                              {m.voice_duration_seconds ? formatDuration(m.voice_duration_seconds) : '0:00'}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Text message */}
-                        {m.text && !(m.message_type === 'voice' && m.text === '[Voice Message]' && m.voice_url) && (
-                          <div className={`px-4 py-2.5 rounded-2xl text-[15px] font-semibold leading-relaxed shadow-sm text-left ${
-                            isMe
-                              ? 'bg-gradient-to-tr from-primary to-primary-container text-white rounded-tr-none'
-                              : 'bg-surface-container-high text-on-surface rounded-tl-none'
-                          }`}>
-                            {m.text}
-                          </div>
-                        )}
-
-                        {/* Image message */}
-                        {m.imageUrl && (
-                          <div className="rounded-2xl overflow-hidden border border-outline-variant bg-surface p-1 shadow-sm max-w-xs">
-                            <img src={m.imageUrl} alt="Shared" className="w-full h-auto rounded-xl cursor-pointer" onClick={() => window.open(m.imageUrl, '_blank')} />
-                          </div>
-                        )}
-
-                        {/* Video message */}
-                        {(m as any).message_type === 'video' && (m as any).video_url && (
-                          <div className="rounded-2xl overflow-hidden border border-outline-variant bg-surface p-1 shadow-sm max-w-[220px]">
-                            <video src={(m as any).video_url} controls className="w-full rounded-xl" />
-                          </div>
-                        )}
-
-                        {/* GIF message */}
-                        {m.message_type === 'gif' && m.gif_url && (
-                          <div className="rounded-2xl overflow-hidden border border-outline-variant shadow-sm max-w-[200px]">
-                            <img src={m.gif_url} alt="GIF" className="w-full h-auto rounded-2xl" loading="lazy" />
-                          </div>
-                        )}
-
-                        {/* Shared post preview */}
-                        {m.message_type === 'post_share' && m.shared_post && (
-                          <div
-                            className="border rounded-xl p-2 max-w-xs cursor-pointer hover:bg-surface-container/50 transition-colors"
-                            onClick={() => {
-                              if (m.shared_post?.id) window.location.href = `/post/${m.shared_post.id}`;
-                            }}
-                          >
-                            {m.shared_post.image_url && (
-                              <img
-                                src={m.shared_post.image_url}
-                                alt="Shared post"
-                                className="rounded-lg w-full aspect-square object-cover"
-                              />
-                            )}
-                            {m.shared_post.caption && (
-                              <p className="text-xs mt-1 truncate text-on-surface-variant">
-                                {m.shared_post.caption}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Link preview for URLs in text messages */}
-                        {m.text && (() => {
-                          const urls = extractUrls(m.text);
-                          return urls.length > 0 ? (
-                            <div className="mt-1">
-                              <LinkPreviewCard url={urls[0]} />
-                            </div>
-                          ) : null;
-                        })()}
-
-                        {/* Reactions badge row */}
-                        {m.reactions && m.reactions.length > 0 && (
-                          <div className={`flex flex-wrap gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            {Object.entries(
-                              m.reactions.reduce((acc, r) => {
-                                acc[r.emoji] = (acc[r.emoji] || 0) + 1;
-                                return acc;
-                              }, {} as Record<string, number>)
-                            ).map(([emoji, count]) => (
-                              <button
-                                key={emoji}
-                                onClick={() => handleReaction(m.id, emoji)}
-                                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] border transition-colors ${
-                                  m.reactions!.some(r => r.user_id === currentUser.id && r.emoji === emoji)
-                                    ? 'bg-primary/10 border-primary/30 text-primary'
-                                    : 'bg-surface-container-high border-outline-variant/50 text-on-surface-variant hover:border-primary/30'
-                                }`}
-                              >
-                                <span>{emoji}</span>
-                                {count > 1 && <span className="font-bold">{count}</span>}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Time + read receipt */}
-                        <div className={`flex items-center gap-1 px-1 mt-0.5 ${isMe ? 'flex-row-reverse' : ''}`}>
-                          <span className="text-[9px] font-bold text-outline">{m.timeLabel}</span>
-                          {isMe && (
-                            m.is_seen ? (
-                               <CheckCheck className="w-3.5 h-3.5 text-primary" />
-                            ) : m.isRead ? (
-                              <CheckCheck className="w-3.5 h-3.5 text-outline" />
-                            ) : (
-                              <Check className="w-3.5 h-3.5 text-outline" />
-                            )
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Reaction picker popup */}
-                    <AnimatePresence>
-                    {reactionPickerMessageId === m.id && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.8, y: 8 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.8, y: 8 }}
-                        transition={{ type: 'spring', damping: 20, stiffness: 350 }}
-                        className={`absolute z-30 flex gap-1 bg-surface-container-lowest/95 dark:bg-surface-container/95 backdrop-blur-md rounded-full px-2 py-1.5 shadow-xl border border-outline-variant/30 ${
-                          isMe ? 'right-0' : 'left-10'
-                        } -top-10`}
-                      >
-                        {QUICK_EMOJIS.map(emoji => (
-                          <button
-                            key={emoji}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleReaction(m.id, emoji);
-                            }}
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-base hover:bg-surface-container-high hover:scale-125 transition-all active:scale-95"
-                            aria-label={`React with ${emoji}`}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                    </AnimatePresence>
-                  </motion.div>
-                );
-              })}
+                    {msgs.map((m) => (
+                      <MessageBubble
+                        key={m.id}
+                        message={m}
+                        isMe={m.senderId === currentUser.id}
+                        currentUser={currentUser}
+                        activeChat={activeChat}
+                        playingVoiceId={playingVoiceId}
+                        voiceProgress={voiceProgress}
+                        reactionPickerMessageId={reactionPickerMessageId}
+                        onToggleVoicePlayback={toggleVoicePlayback}
+                        onReaction={handleReaction}
+                        onContextMenu={handleMessageContextMenu}
+                        onLongPressStart={handleMessageLongPress}
+                        onLongPressEnd={handlePressEnd}
+                      />
+                    ))}
                   </>
                 );
               })()}
@@ -1016,144 +671,23 @@ export default function MessagesPage() {
               </div>
             )}
 
-            {/* Input bar */}
-            <footer className="p-4 bg-transparent border-t border-outline-variant/30 shrink-0">
-              <div className="bg-surface-container-lowest/95 dark:bg-surface-container/95 border border-outline-variant/30 backdrop-blur-md rounded-full flex items-center p-1.5 gap-2 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-                <button className="w-9 h-9 rounded-full flex items-center justify-center text-outline hover:text-primary hover:bg-surface-container transition-colors shrink-0" aria-label="Attach file">
-                  <Paperclip className="w-4.5 h-4.5" />
-                </button>
-
-                {!isRecording && import.meta.env.VITE_GIPHY_API_KEY && (
-                  <button
-                    onClick={() => setShowGifPicker(true)}
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-outline hover:text-primary hover:bg-surface-container transition-colors shrink-0"
-                    title="Send GIF"
-                  >
-                    <span className="text-[10px] font-bold border border-outline rounded px-1 py-0.5">GIF</span>
-                  </button>
-                )}
-
-                {!isRecording && (
-                  <button
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-outline hover:text-primary hover:bg-surface-container transition-colors shrink-0"
-                    title="Emoji"
-                  >
-                    <Smile className="w-4.5 h-4.5" />
-                  </button>
-                )}
-
-                {!isRecording && (
-                  <label className="w-9 h-9 flex items-center justify-center rounded-full bg-surface-container-highest cursor-pointer shrink-0" title="Send image or video">
-                    <Paperclip className="w-4.5 h-4.5 text-outline" />
-                    <input
-                      type="file"
-                      accept="image/*,video/*"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file || !activeChat) return;
-                        const ext = file.name.split('.').pop();
-                        const isVideo = file.type.startsWith('video/');
-                        const path = `messages/${activeChat.id}/${Date.now()}.${ext}`;
-                        const { error } = await supabase.storage.from('messages-media').upload(path, file);
-                        if (error) { console.error(error); return; }
-                        const { data: { publicUrl } } = supabase.storage.from('messages-media').getPublicUrl(path);
-                        try {
-                          const msg = await sendMessage(activeChat.id, '', {
-                            messageType: isVideo ? 'video' : 'image',
-                            mediaUrl: publicUrl,
-                          } as any);
-                          setChats(prev => prev.map(c => {
-                            if (c.id !== activeChat.id) return c;
-                            if (c.messages.some(m => m.id === msg.id)) return c;
-                            return { ...c, messages: [...c.messages, msg] };
-                          }));
-                        } catch (err) {
-                          console.error('Failed to send attachment:', err);
-                        }
-                      }}
-                    />
-                  </label>
-                )}
-
-                {isRecording ? (
-                  <div className="flex-1 flex items-center gap-2 px-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-error animate-pulse" />
-                    <span className="text-xs font-bold text-error">{formatDuration(recordingDuration)}</span>
-                    <div className="flex-1 flex items-center gap-[2px] h-6">
-                      {Array.from({ length: 30 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="w-[2px] bg-error/30 rounded-full animate-pulse"
-                          style={{
-                            height: `${Math.sin(Date.now() / 200 + i) * 50 + 50}%`,
-                            animationDelay: `${i * 30}ms`
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={typeInput}
-                    onChange={(e) => {
-                      setTypeInput(e.target.value);
-                      emitTyping();
-                    }}
-                    placeholder="Type a message..."
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    className="flex-1 bg-transparent border-none text-[15px] text-on-surface py-2 focus:ring-0 outline-none placeholder:text-outline-variant"
-                  />
-                )}
-
-                {/* Reply button (shown when replyToMessage is set but no text typed yet) */}
-                {replyToMessage && !typeInput && !isRecording && (
-                  <button
-                    onClick={handleSendMessage}
-                    className="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition-all shrink-0"
-                    aria-label="Send message"
-                  >
-                    <Send className="w-4 h-4 fill-white text-white ml-0.5" />
-                  </button>
-                )}
-
-                {/* Microphone / Send toggle */}
-                {!typeInput.trim() && !isRecording && !replyToMessage ? (
-                  <button
-                    onMouseDown={startRecording}
-                    onMouseUp={stopRecording}
-                    onMouseLeave={() => { if (isRecording) stopRecording(); }}
-                    onTouchStart={startRecording}
-                    onTouchEnd={stopRecording}
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-outline hover:text-primary hover:bg-surface-container transition-colors shrink-0"
-                    title="Hold to record voice message"
-                  >
-                    <Mic className="w-4.5 h-4.5" />
-                  </button>
-                ) : isRecording ? (
-                  <button
-                    onClick={stopRecording}
-                    className="w-10 h-10 bg-error text-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition-all shrink-0 animate-pulse"
-                    aria-label="Stop recording"
-                  >
-                    <MicOff className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <motion.button
-                    onClick={handleSendMessage}
-                    disabled={!typeInput.trim()}
-                    whileTap={{ scale: 0.88, rotate: 12 }}
-                    className="w-10 h-10 bg-primary disabled:opacity-40 text-white rounded-full flex items-center justify-center shadow-md transition-all shrink-0"
-                    aria-label="Send message"
-                  >
-                    <Send className="w-4 h-4 fill-white text-white ml-0.5" />
-                  </motion.button>
-                )}
-              </div>
-            </footer>
+            <MessageInput
+              ref={inputRef}
+              activeChat={activeChat}
+              typeInput={typeInput}
+              isRecording={isRecording}
+              recordingDuration={recordingDuration}
+              replyToMessage={replyToMessage}
+              showEmojiPicker={showEmojiPicker}
+              onTypeInputChange={setTypeInput}
+              onToggleEmojiPicker={() => setShowEmojiPicker(!showEmojiPicker)}
+              onSendMessage={handleSendMessage}
+              onStartRecording={startRecording}
+              onStopRecording={stopRecording}
+              onClearReply={() => setReplyToMessage(null)}
+              onEmitTyping={emitTyping}
+              onAttachmentSent={handleAttachmentSent}
+            />
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-outline">
@@ -1167,9 +701,48 @@ export default function MessagesPage() {
           isOpen={true}
           onClose={() => { setContextMenuChatId(null); setContextMenuUser(null); }}
           items={[
-            { icon: <BellOff size={18} />, label: 'Mute Notifications', onClick: () => { setContextMenuChatId(null); setContextMenuUser(null); } },
-            { icon: <Trash2 size={18} />, label: 'Clear Chat', onClick: () => { setContextMenuChatId(null); setContextMenuUser(null); }, destructive: true },
-            { icon: <Ban size={18} />, label: 'Block User', onClick: () => { setContextMenuChatId(null); setContextMenuUser(null); }, destructive: true },
+            { icon: <BellOff size={18} />, label: 'Mute Notifications', onClick: async () => {
+              const conv = chats.find(c => c.id === contextMenuChatId);
+              if (conv) {
+                const isP1 = (conv as any).participant1 === currentUser.id;
+                await (supabase as any).from('conversations').update(
+                  isP1 ? { is_muted1: true } : { is_muted2: true }
+                ).eq('id', conv.id);
+                setChats(prev => prev.map(c => c.id === conv.id ? { ...c, isMuted: true } : c));
+              }
+              setContextMenuChatId(null); setContextMenuUser(null);
+            }},
+            { icon: <Trash2 size={18} />, label: 'Clear Chat', onClick: async () => {
+              if (contextMenuChatId) {
+                try {
+                  await (supabase.from('messages') as any).delete()
+                    .eq('conversation_id', contextMenuChatId)
+                    .or(`sender_id.eq.${currentUser.id},recipient_id.eq.${currentUser.id}`);
+                  setChats(prev => prev.filter(c => c.id !== contextMenuChatId));
+                  if (activeChatId === contextMenuChatId) {
+                    setActiveChatId(null);
+                    setMobileChatOpen(false);
+                  }
+                } catch (err) { console.error('Clear chat failed:', err); }
+              }
+              setContextMenuChatId(null); setContextMenuUser(null);
+            }, destructive: true },
+            { icon: <Ban size={18} />, label: 'Block User', onClick: async () => {
+              if (contextMenuUser) {
+                try {
+                  await supabase.from('user_blocks').insert({
+                    blocker_id: currentUser.id,
+                    blocked_id: contextMenuUser.id,
+                  });
+                  setChats(prev => prev.filter(c => c.user.id !== contextMenuUser.id));
+                  if (activeChatId && chats.find(c => c.id === activeChatId)?.user.id === contextMenuUser.id) {
+                    setActiveChatId(null);
+                    setMobileChatOpen(false);
+                  }
+                } catch (err) { console.error('Block user failed:', err); }
+              }
+              setContextMenuChatId(null); setContextMenuUser(null);
+            }, destructive: true },
             { icon: <Flag size={18} />, label: 'Report', onClick: () => {
               if (contextMenuUser) {
                 setReportUserId(contextMenuUser.id);
@@ -1202,46 +775,13 @@ export default function MessagesPage() {
         onSelect={handleGifSelect}
       />
 
-      <AnimatePresence>
-        {showEmojiPicker && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/20 overflow-hidden"
-          >
-            <div className="flex items-center gap-1 px-2 py-1.5 overflow-x-auto border-b border-outline-variant/20 shrink-0">
-              {EMOJI_CATEGORIES.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedEmojiCategory(cat)}
-                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition-all ${
-                    selectedEmojiCategory === cat
-                      ? 'bg-primary text-white'
-                      : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
-                  }`}
-                >
-                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                </button>
-              ))}
-            </div>
-            <div className="grid grid-cols-8 gap-0.5 p-2 max-h-48 overflow-y-auto">
-              {(allEmojis.length > 0
-                ? allEmojis.filter(e => e.category === selectedEmojiCategory)
-                : QUICK_REACTIONS.map(e => ({ char: e, name: e, category: '', group: '', htmlCode: [], unicode: [] } as EmojiItem))
-              ).map((emoji, i) => (
-                <button
-                  key={`${emoji.name}-${i}`}
-                  onClick={() => handleEmojiSelect(emoji)}
-                  className="w-9 h-9 flex items-center justify-center text-xl hover:bg-surface-container rounded-lg transition-colors"
-                >
-                  {emoji.char}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <EmojiPickerPanel
+        isOpen={showEmojiPicker}
+        allEmojis={allEmojis}
+        selectedEmojiCategory={selectedEmojiCategory}
+        onSelectCategory={setSelectedEmojiCategory}
+        onSelectEmoji={handleEmojiSelect}
+      />
     </div>
   );
 }

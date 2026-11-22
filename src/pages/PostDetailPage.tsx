@@ -99,11 +99,15 @@ export default function PostDetailPage() {
         user_id: currentUser.id,
         content: text,
         reply_to_id: replyingTo.id,
+        likes_count: 0,
       });
       setReplyingTo(null);
-      window.location.reload();
+      const updated = await getPostById(post.id);
+      if (updated) setFetchedPost(updated);
     } else {
       await handleAddComment(post.id, text);
+      const updated = await getPostById(post.id);
+      if (updated) setFetchedPost(updated);
     }
   };
 
@@ -145,13 +149,21 @@ export default function PostDetailPage() {
 
   const menuItems: BottomSheetMenuItem[] = post ? (isOwnPost
     ? [
-        { icon: <Edit3 className="w-5 h-5" />, label: 'Edit Post', onClick: () => { setShowMenu(false); } },
+        { icon: <Edit3 className="w-5 h-5" />, label: 'Edit Post', onClick: () => { setShowMenu(false); navigate('/edit-profile'); } },
         { icon: <Copy className="w-5 h-5" />, label: 'Copy Link', onClick: handleCopyLink },
         { icon: <Trash2 className="w-5 h-5" />, label: 'Delete Post', onClick: handleDelete, destructive: true },
       ]
     : [
         { icon: <Flag className="w-5 h-5" />, label: 'Report Post', onClick: () => { setShowMenu(false); setShowReportModal(true); } },
-        { icon: <Ban className="w-5 h-5" />, label: 'Not Interested', onClick: () => setShowMenu(false) },
+        { icon: <Ban className="w-5 h-5" />, label: 'Not Interested', onClick: async () => {
+          if (post) {
+            try {
+              await (supabase.from('hidden_posts' as any) as any).insert({ user_id: currentUser.id, post_id: post.id });
+            } catch (_) {}
+          }
+          setShowMenu(false);
+          navigate(-1);
+        } },
         { icon: <Copy className="w-5 h-5" />, label: 'Copy Link', onClick: handleCopyLink },
       ]) : [];
 
@@ -254,7 +266,10 @@ export default function PostDetailPage() {
                 <span className="text-xs font-bold">{(post.likes || 0).toLocaleString()}</span>
               </button>
 
-              <button className="flex items-center space-x-1.5 text-on-surface-variant hover:text-primary transition-colors">
+              <button
+                onClick={() => document.getElementById('comments-section')?.scrollIntoView({ behavior: 'smooth' })}
+                className="flex items-center space-x-1.5 text-on-surface-variant hover:text-primary transition-colors"
+              >
                 <MessageCircle className="w-5 h-5" />
                 <span className="text-xs font-bold">{post.commentsList.length}</span>
               </button>
@@ -282,7 +297,7 @@ export default function PostDetailPage() {
         </article>
 
         {/* COMMENTS LOG SECTION */}
-        <section className="px-4 py-3">
+        <section id="comments-section" className="px-4 py-3">
           <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">
             Comments ({post.commentsList.length})
           </h4>

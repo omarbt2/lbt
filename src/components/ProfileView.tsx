@@ -90,16 +90,27 @@ export default function ProfileView({
   useEffect(() => {
     if (!user?.id || !canViewPosts) return;
     setReelsLoading(true);
-    supabase
-      .from('reels')
-      .select('id, video_url, thumbnail_url, likes_count, views_count, caption')
-      .eq('user_id', user.id)
-      .eq('is_archived', false)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('reels')
+          .select('id, video_url, thumbnail_url, likes_count, views_count, caption')
+          .eq('user_id', user.id)
+          .eq('is_archived', false)
+          .order('created_at', { ascending: false });
+        if (error) {
+          console.error('Failed to load reels:', error.message);
+          setProfileReels([]);
+          return;
+        }
         setProfileReels(data || []);
+      } catch (err) {
+        console.error('Failed to load reels:', err);
+        setProfileReels([]);
+      } finally {
         setReelsLoading(false);
-      });
+      }
+    })();
   }, [user?.id, canViewPosts]);
 
   const loadMorePosts = useCallback(async () => {
@@ -137,7 +148,7 @@ export default function ProfileView({
     try {
       const url = await uploadFile('avatars', file);
       await supabase.from('profiles').update({ cover_url: url }).eq('id', user.id);
-      window.location.reload();
+      user.cover_url = url;
     } catch (err) {
       console.error('Cover upload failed:', err);
     }
@@ -247,12 +258,9 @@ export default function ProfileView({
 
   const handleBlock = async () => {
     setShowProfileMenu(false);
-    const confirmBlock = window.confirm(`Block @${user.username}? They won't be able to see your posts or follow you.`);
-    if (!confirmBlock) return;
     try {
       await blockUser(user.id);
       setIsBlockedUser(true);
-      onStartMessage && onStartMessage(user);
     } catch (err) {
       console.error('Block failed:', err);
     }
@@ -296,8 +304,8 @@ export default function ProfileView({
 
   return (
     <div className="flex flex-col animate-fadeIn" id="profile_screen">
-      {/* COVER PHOTO — 300px full-width */}
-      <section className="relative h-[300px] w-full overflow-hidden">
+      {/* COVER PHOTO — Responsive, prevents layout thrashing */}
+      <section className="relative h-48 md:h-64 lg:h-72 w-full overflow-hidden">
         {user.cover_url ? (
           <img
             src={user.cover_url}
@@ -307,7 +315,7 @@ export default function ProfileView({
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/60 to-primary" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 
         {isOwnProfile && (
           <>
@@ -318,13 +326,14 @@ export default function ProfileView({
               className="hidden"
               onChange={handleCoverUpload}
             />
-            <button
+            <motion.button
+              whileTap={{ scale: 0.92 }}
               onClick={() => coverInputRef.current?.click()}
-              className="absolute top-4 right-4 z-20 bg-black/50 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 hover:bg-black/70 transition-all cursor-pointer"
+              className="absolute top-4 right-4 z-20 bg-black/40 backdrop-blur-xl text-white text-xs font-bold px-4 py-2 rounded-full flex items-center gap-2 hover:bg-black/60 transition-all cursor-pointer border border-white/10"
             >
-              <Camera className="w-3.5 h-3.5" />
-              {user.cover_url ? 'Change Cover' : 'Add Cover'}
-            </button>
+              <Camera className="w-4 h-4" />
+              <span className="hidden sm:inline">{user.cover_url ? 'Change Cover' : 'Add Cover'}</span>
+            </motion.button>
           </>
         )}
       </section>
@@ -335,21 +344,21 @@ export default function ProfileView({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, ease: [0.25, 0.1, 0.25, 1] }}
       >
-      {/* AVATAR OVERLAPPING COVER */}
-      <div className="relative z-10 -mt-12 flex justify-center">
+      {/* AVATAR OVERLAPPING COVER — absolute positioned to prevent layout thrashing */}
+      <div className="relative z-10 -mt-12 md:-mt-14 flex justify-center">
         <div className="relative">
-          <div className="w-24 h-24 rounded-full border-2 border-white bg-surface shadow-lg overflow-hidden">
+          <div className="w-24 h-24 md:w-28 md:h-28 rounded-full border-4 border-surface-container-lowest dark:border-surface-container-low shadow-xl overflow-hidden">
             <Avatar
               src={user.avatar}
               userId={user.id}
               name={user.name}
               size="xl"
-              className="w-24 h-24 border-2 border-white bg-surface shadow-lg"
+              className="w-full h-full"
             />
           </div>
           {user.is_verified && (
-            <div className="absolute -bottom-0.5 -right-0.5 bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center border-2 border-white shadow-sm">
-              <Check className="w-3 h-3" strokeWidth={3} />
+            <div className="absolute -bottom-0.5 -right-0.5 bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center border-2 border-surface-container-lowest dark:border-surface-container-low shadow-sm">
+              <Check className="w-3.5 h-3.5" strokeWidth={3} />
             </div>
           )}
         </div>
@@ -380,7 +389,7 @@ export default function ProfileView({
           className="text-center"
         >
           <div className="text-lg font-black text-on-surface">{formatCount(user.posts_count ?? profilePosts.length)}</div>
-          <div className="text-[9px] font-bold text-outline uppercase tracking-wider">Posts</div>
+          <div className="text-xs font-bold text-outline uppercase tracking-wider">Posts</div>
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -390,7 +399,7 @@ export default function ProfileView({
           onClick={() => openFollowModal('followers')}
         >
           <div className="text-lg font-black text-on-surface">{formatCount(user.followersCount)}</div>
-          <div className="text-[9px] font-bold text-outline uppercase tracking-wider hover:underline">Followers</div>
+          <div className="text-xs font-bold text-outline uppercase tracking-wider hover:underline">Followers</div>
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -400,13 +409,13 @@ export default function ProfileView({
           onClick={() => openFollowModal('following')}
         >
           <div className="text-lg font-black text-on-surface">{formatCount(user.followingCount)}</div>
-          <div className="text-[9px] font-bold text-outline uppercase tracking-wider hover:underline">Following</div>
+          <div className="text-xs font-bold text-outline uppercase tracking-wider hover:underline">Following</div>
         </motion.div>
       </div>
 
       {/* BIO */}
       {user.bio && (
-        <p className="text-xs text-on-surface-variant max-w-sm font-medium leading-relaxed mt-3 mx-auto text-center px-6">
+        <p className="text-sm text-on-surface-variant max-w-sm font-medium leading-relaxed mt-3 mx-auto text-center px-6">
           {user.bio}
         </p>
       )}

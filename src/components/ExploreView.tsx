@@ -164,8 +164,6 @@ export default function ExploreView({ onSelectHashtag, onPostSelect, onViewProfi
     }
   }, [followingMap]);
 
-  const aspectRatios = ['aspect-[4/5]', 'aspect-[3/4]', 'aspect-[1/1]', 'aspect-[4/3]'];
-
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const q = e.target.value;
     setSearchQuery(q);
@@ -359,35 +357,25 @@ export default function ExploreView({ onSelectHashtag, onPostSelect, onViewProfi
             ))}
           </div>
         ) : (
-          <div className="columns-2 sm:columns-3 gap-0.5 space-y-0.5" id="explore_gallery">
+        <div className="columns-2 sm:columns-3 gap-[2px]" id="explore_gallery">
             {filteredItems.map((item, idx) => (
               <div
                 key={item.id}
                 onClick={() => onPostSelect(item.id)}
-                className="relative group overflow-hidden break-inside-avoid cursor-pointer"
+                className="break-inside-avoid mb-[2px] relative group overflow-hidden cursor-pointer bg-surface-container"
               >
-                <div className={`relative w-full overflow-hidden ${aspectRatios[idx % aspectRatios.length]}`}>
-                  <img
-                    src={item.media_urls?.[0]}
-                    alt={item.caption || 'Post'}
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=80'; }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                    <div
-                      className="flex items-center space-x-2 mb-1.5 cursor-pointer"
-                      onClick={(e) => { e.stopPropagation(); if (item.profiles?.id) onViewProfile(item.profiles.id); }}
-                    >
-                      <img
-                        src={item.profiles?.avatar_url || getDefaultAvatar(item.profiles?.id || '')}
-                        alt={item.profiles?.display_name}
-                        className="w-6 h-6 rounded-full border border-white/50"
-                      />
-                      <span className="text-white font-semibold text-[11px] truncate">
-                        {item.profiles?.display_name || 'Creator'}
-                      </span>
-                    </div>
-                    <p className="text-white font-medium text-[11px] line-clamp-1">{item.caption}</p>
+                <img
+                  src={item.media_urls?.[0]}
+                  alt={item.caption || 'Post'}
+                  className="w-full object-cover aspect-square group-hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
+                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=80'; }}
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <div className="flex items-center gap-4 text-white">
+                    <span className="flex items-center gap-1 text-sm font-bold">
+                      <Heart className="w-4 h-4 fill-white" /> {item.likes_count || 0}
+                    </span>
                   </div>
                 </div>
               </div>

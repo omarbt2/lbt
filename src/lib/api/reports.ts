@@ -9,22 +9,18 @@ export async function reportContent(
   reporterId: string,
   description?: string
 ): Promise<void> {
-  const { error } = await (supabase.from as any)('reports').insert({
+  const { error } = await supabase.from('reports').insert({
     reporter_id: reporterId,
-    post_id: reportedId,
+    reported_id: reportedId,
+    reported_user_id: reportType === 'user' ? reportedId : null,
+    post_id: ['post', 'reel'].includes(reportType) ? reportedId : null,
+    type: reportType,
     reason,
+    status: 'pending',
     description: description || '',
   });
 
   if (error) throw error;
-
-  await (supabase.from as any)('notifications').insert({
-    recipient_id: reportedId,
-    user_id: reporterId,
-    actor_id: reporterId,
-    type: 'system',
-    post_id: reportType === 'post' || reportType === 'reel' ? reportedId : null,
-  });
 }
 
 export const REPORT_REASONS = [

@@ -24,5 +24,6 @@
     "noEmit": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true
-  }
+  },
+  "exclude": ["lbt-fixes"]
 }

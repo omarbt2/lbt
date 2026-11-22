@@ -139,45 +139,6 @@ export function useRealtimeTyping(
   }, [conversationId, currentUserId, onTypingChange]);
 }
 
-export function useRealtimeCalls(
-  userId: string | null,
-  onIncomingCall: (call: any) => void
-) {
-  useEffect(() => {
-    if (!userId) return;
-
-    const channel = supabase
-      .channel(`user_calls_${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'calls',
-          filter: `receiver_id=eq.${userId}`,
-        },
-        async (payload) => {
-          const call = payload.new;
-          if (call.status !== 'ringing') return;
-
-          const { data: caller } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', call.caller_id)
-            .maybeSingle();
-
-          onIncomingCall({
-            ...call,
-            callerProfile: caller,
-          });
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [userId, onIncomingCall]);
-}
-
 export function useRealtimeFeed(
   userId: string | null,
   onFeedChange: () => void

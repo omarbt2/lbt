@@ -16,7 +16,7 @@ export interface Collection {
 export async function getCollections(): Promise<Collection[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('collections')
     .select('*')
     .eq('user_id', user.id)
@@ -28,7 +28,7 @@ export async function getCollections(): Promise<Collection[]> {
 export async function createCollection(name: string): Promise<Collection> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('collections')
     .insert({ user_id: user.id, name, posts_count: 0 })
     .select('*')
@@ -38,7 +38,7 @@ export async function createCollection(name: string): Promise<Collection> {
 }
 
 export async function deleteCollection(id: string): Promise<void> {
-  const { error } = await (supabase as any).from('collections').delete().eq('id', id);
+  const { error } = await supabase.from('collections').delete().eq('id', id);
   if (error) throw error;
 }
 
@@ -46,9 +46,9 @@ export async function getSavedPostsByCollection(collectionId: string | null): Pr
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
-  let query = (supabase as any)
+  let query = supabase
     .from('saved_posts')
-    .select('post_id, collection_id, posts(*, profiles(*))')
+    .select('post_id, collection_id, posts(*, profiles!posts_user_id_fkey(*))')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
@@ -86,7 +86,7 @@ export async function getSavedPostsByCollection(collectionId: string | null): Pr
 export async function movePostToCollection(postId: string, collectionId: string | null): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('saved_posts')
     .update({ collection_id: collectionId })
     .eq('post_id', postId)

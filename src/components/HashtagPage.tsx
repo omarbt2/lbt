@@ -29,7 +29,7 @@ export default function HashtagPage() {
 
     try {
       const { data, error } = await (supabase as any).rpc('get_posts_by_hashtag', {
-        p_tag: tag,
+        p_hashtag: tag,
         p_limit: PAGE,
         p_offset: currentOffset,
       });

@@ -26,19 +26,44 @@ export async function updateProfile(data: {
   website?: string;
   phone?: string;
   dob?: string | null;
+  date_of_birth?: string | null;
   gender?: string | null;
   is_private?: boolean;
+  status_emoji?: string | null;
+  status_text?: string | null;
+  status_expires_at?: string | null;
 }): Promise<User> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const updatePayload: Database['public']['Tables']['profiles']['Update'] = { ...data };
+  const updatePayload: any = {};
 
-  const resolvedName = data.display_name || data.name;
-  if (resolvedName) {
-    updatePayload.display_name = resolvedName;
-    updatePayload.name = resolvedName;
-    updatePayload.full_name = resolvedName;
+  if (data.display_name !== undefined) updatePayload.display_name = data.display_name;
+  if (data.username !== undefined) updatePayload.username = data.username;
+  if (data.bio !== undefined) updatePayload.bio = data.bio;
+  if (data.avatar_url !== undefined) updatePayload.avatar_url = data.avatar_url;
+  if (data.cover_url !== undefined) updatePayload.cover_url = data.cover_url;
+  if (data.website !== undefined) updatePayload.website = data.website;
+  if (data.phone !== undefined) updatePayload.phone = data.phone;
+  if (data.gender !== undefined) updatePayload.gender = data.gender;
+  if (data.is_private !== undefined) updatePayload.is_private = data.is_private;
+  if (data.status_emoji !== undefined) updatePayload.status_emoji = data.status_emoji;
+  if (data.status_text !== undefined) updatePayload.status_text = data.status_text;
+  if (data.status_expires_at !== undefined) updatePayload.status_expires_at = data.status_expires_at;
+
+  if (data.date_of_birth !== undefined) {
+    updatePayload.date_of_birth = data.date_of_birth;
+  } else if (data.dob !== undefined) {
+    updatePayload.date_of_birth = data.dob;
+  }
+
+  if (data.display_name || data.name) {
+    updatePayload.display_name = data.display_name || data.name;
+    updatePayload.full_name = data.display_name || data.name;
+  }
+
+  if (Object.keys(updatePayload).length === 0) {
+    throw new Error('No fields to update');
   }
 
   const { data: updated, error } = await supabase
@@ -55,7 +80,26 @@ export async function updateProfile(data: {
 export async function searchProfiles(query: string): Promise<User[]> {
   if (!query || !query.trim()) return [];
 
-  const q = query.trim();
+  // BUG #3 FIX: raw user input was interpolated directly into a PostgREST
+  // `.or()` filter string. Characters like `,`, `(`, `)`, `%`, and `*` have
+  // special meaning in PostgREST filter syntax and could be used to inject
+  // additional filter clauses (e.g. `,id.eq.<other-user-id>` or wildcard
+  // abuse). We strip any character that isn't safe inside an `ilike` pattern
+  // and escape PostgREST/ilike special characters before building the filter.
+  const sanitized = query
+    .trim()
+    .slice(0, 50) // cap length defensively
+    .replace(/[^\p{L}\p{N}\s_.-]/gu, ''); // allow letters, numbers, space, _, ., -
+
+  if (!sanitized) return [];
+
+  // Escape PostgREST filter special characters (comma, parentheses) and
+  // ilike wildcards (% and _) so the value is treated as a literal substring.
+  const escaped = sanitized
+    .replace(/[%_]/g, (m) => `\\${m}`)
+    .replace(/[,()]/g, '');
+
+  const q = escaped;
 
   const { data, error } = await supabase
     .from('profiles')
@@ -80,12 +124,12 @@ export async function getProfilePosts(
   const { data: { user } } = await supabase.auth.getUser();
   const viewerId = user?.id || null;
 
-  const { data, error } = await supabase.rpc('get_profile_posts' as any, {
+  const { data, error } = await supabase.rpc('get_profile_posts', {
     p_profile_id: userId,
     p_viewer_id: viewerId,
     p_limit: limit,
     p_offset: offset,
-  } as any);
+  });
 
   if (error || !data) {
     // Fallback to direct query if RPC not available
@@ -140,7 +184,7 @@ async function getProfilePostsFallback(
 ): Promise<Post[]> {
   const { data: postsData, error } = await supabase
     .from('posts')
-    .select('*, profiles(*)')
+    .select('*, profiles!posts_user_id_fkey(*)')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);

@@ -570,9 +570,6 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
                         media_urls: reel.thumbnail_url ? [reel.thumbnail_url] : [],
                         media_type: 'repost',
                         tags: [],
-                        likes_count: 0,
-                        comments_count: 0,
-                        shares_count: 0,
                         repost_of: reel.id,
                         is_repost: true,
                       });

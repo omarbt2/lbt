@@ -10,6 +10,8 @@ interface NoteInputModalProps {
 
 export default function NoteInputModal({ isOpen, onClose, currentUser }: NoteInputModalProps) {
   const [noteText, setNoteText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handlePost = async () => {
     if (!noteText.trim() || !currentUser?.id || isSaving) return;

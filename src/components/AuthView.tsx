@@ -248,16 +248,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
               </div>
 
               <div className="space-y-1">
-                <div className="flex justify-between items-center pl-1">
-                  <label className="text-xs font-bold text-on-surface-variant" htmlFor="login_password">Password</label>
-                  <button
-                    type="button"
-                    onClick={() => { setResetEmail(email); setErrorNotice(null); setAuthNotice(null); setScreen('reset'); }}
-                    className="lbt-auth-forgot" id="forgotPassword"
-                  >
-                    Forgotten password?
-                  </button>
-                </div>
+                <label className="text-xs font-bold text-on-surface-variant block pl-1" htmlFor="login_password">Password</label>
                 <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl flex items-center px-3.5 py-2.5 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
                   <Lock className="w-4.5 h-4.5 text-outline mr-2" />
                   <input
@@ -287,6 +278,15 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
                 {isSubmitting ? 'Logging in...' : 'Log In'}
               </button>
             </form>
+
+            <button
+              type="button"
+              onClick={() => { setResetEmail(email); setErrorNotice(null); setAuthNotice(null); setScreen('reset'); }}
+              className="lbt-auth-forgot"
+              id="forgotPassword"
+            >
+              Forgotten password?
+            </button>
 
             <div className="lbt-auth-divider" />
             <button

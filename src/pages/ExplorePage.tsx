@@ -19,6 +19,7 @@ export default function ExplorePage() {
   const [exploreItems, setExploreItems] = useState<any[]>([]);
   const [isLoadingExplore, setIsLoadingExplore] = useState(true);
   const [peopleResults, setPeopleResults] = useState<(User & { isFollowingUser?: boolean })[]>([]);
+  const [postResults, setPostResults] = useState<any[]>([]);
   const [isSearchingPeople, setIsSearchingPeople] = useState(false);
   const [peopleSearched, setPeopleSearched] = useState(false);
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
@@ -125,33 +126,37 @@ export default function ExplorePage() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (searchQuery.trim().length >= 2) {
+    const query = searchQuery.trim();
+    let cancelled = false;
+    if (query.length >= 2) {
       setIsSearchingPeople(true);
       setPeopleSearched(false);
       debounceRef.current = setTimeout(async () => {
-        const results = await searchProfiles(searchQuery);
-        const filtered = results.filter(u => u.id !== currentUser?.id);
-        setPeopleResults(filtered);
-
-        const newMap: Record<string, boolean> = {};
-        for (const person of filtered) {
-          newMap[person.id] = await isFollowing(person.id);
+        const safeQuery = query.replace(/[,%()]/g, ' ').replace(/[%_]/g, '').trim().slice(0, 50);
+        const tagQuery = safeQuery.startsWith('#') ? safeQuery.slice(1) : '';
+        try {
+          const [people, postsResponse] = await Promise.all([
+            tagQuery ? Promise.resolve([] as User[]) : searchProfiles(safeQuery.replace(/^@/, '')),
+            tagQuery
+              ? supabase.from('posts').select('id, caption, media_urls, media_type, likes_count, created_at, profiles(id, username, display_name, avatar_url)').contains('tags', [tagQuery]).order('created_at', { ascending: false }).limit(20)
+              : supabase.from('posts').select('id, caption, media_urls, media_type, likes_count, created_at, profiles(id, username, display_name, avatar_url)').ilike('caption', '%' + safeQuery + '%').order('created_at', { ascending: false }).limit(20),
+          ]);
+          if (cancelled) return;
+          const filtered = people.filter(person => person.id !== currentUser?.id);
+          setPeopleResults(filtered);
+          setPostResults(postsResponse.data || []);
+          const followingEntries = await Promise.all(filtered.map(async person => [person.id, await isFollowing(person.id)] as const));
+          if (!cancelled) setFollowingMap(Object.fromEntries(followingEntries));
+        } catch (error) {
+          if (!cancelled) { console.error('Explore search failed:', error); setPeopleResults([]); setPostResults([]); }
+        } finally {
+          if (!cancelled) { setIsSearchingPeople(false); setPeopleSearched(true); }
         }
-        setFollowingMap(newMap);
-
-        setIsSearchingPeople(false);
-        setPeopleSearched(true);
       }, 300);
     } else {
-      setPeopleResults([]);
-      setIsSearchingPeople(false);
-      setPeopleSearched(false);
+      setPeopleResults([]); setPostResults([]); setIsSearchingPeople(false); setPeopleSearched(false);
     }
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => { cancelled = true; if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [searchQuery, currentUser?.id]);
 
   const handleFollowToggle = useCallback(async (targetId: string) => {
@@ -230,14 +235,29 @@ export default function ExplorePage() {
                 </div>
               ))}
             </div>
-          ) : peopleSearched && peopleResults.length === 0 ? (
+          ) : peopleSearched && peopleResults.length === 0 && postResults.length === 0 ? (
             <div className="text-center py-12">
               <Compass className="w-8 h-8 text-outline mx-auto opacity-40 mb-2" />
-              <p className="text-sm text-on-surface-variant">No people found for "{searchQuery}"</p>
+              <p className="text-sm text-on-surface-variant">No matching people or posts for "{searchQuery}"</p>
             </div>
           ) : peopleSearched ? (
-            <div className="flex flex-col gap-2">
-              {peopleResults.map((person, idx) => (
+            <div className="flex flex-col gap-4">
+              {postResults.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="px-1 text-xs font-bold text-on-surface-variant">Posts</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {postResults.map(post => (
+                      <button key={post.id} onClick={() => onPostSelect(post.id)} className="relative aspect-square overflow-hidden rounded-2xl bg-surface-container text-left">
+                        {post.media_urls?.[0] ? (post.media_type === 'video' ? <video src={post.media_urls[0]} muted playsInline preload="metadata" className="h-full w-full object-cover" /> : <img src={post.media_urls[0]} alt={post.caption || 'Post'} loading="lazy" className="h-full w-full object-cover" />) : <span className="p-3 text-xs text-on-surface line-clamp-4">{post.caption}</span>}
+                        {post.media_urls?.[0] && <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-[10px] text-white line-clamp-2">{post.caption}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {peopleResults.length > 0 && <div className="flex flex-col gap-2">
+                <h3 className="px-1 text-xs font-bold text-on-surface-variant">People</h3>
+                {peopleResults.map((person, idx) => (
                 <motion.div
                   key={person.id}
                   initial={{ opacity: 0, y: 8 }}
@@ -277,6 +297,7 @@ export default function ExplorePage() {
                   </div>
                 </motion.div>
               ))}
+              </div>}
             </div>
           ) : null}
         </section>

@@ -155,6 +155,10 @@ export default function CreatePostView({
   };
 
   const handlePublish = async () => {
+    if (isReelMode && (!selectedFile || !selectedFile.type.startsWith('video/'))) {
+      setPublishError('A reel needs a video file. Choose a video before publishing.');
+      return;
+    }
     if (!canPublish) return;
     setIsPublishing(true);
     setPublishError(null);

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
-import { Session } from '@supabase/supabase-js';
+import { Session, User as SupabaseAuthUser } from '@supabase/supabase-js';
 import { getDefaultAvatar } from '../lib/defaultAvatars';
 
 // Auth listener guard - ensure only ONE listener ever exists.
@@ -76,6 +76,50 @@ export function mapProfileToUser(profile: any): User {
   };
 }
 
+async function ensureProfileForAuthUser(authUser: SupabaseAuthUser) {
+  const { data: existing, error: lookupError } = await supabase
+    .from('profiles').select('*').eq('id', authUser.id).maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing) return existing;
+
+  const metadata = (authUser.user_metadata || {}) as Record<string, unknown>;
+  const rawUsername = typeof metadata.username === 'string' ? metadata.username.toLowerCase().trim() : '';
+  const fallbackUsername = `user_${authUser.id.replace(/-/g, '').slice(0, 10)}`;
+  const preferredUsername = /^[a-z0-9_]{3,30}$/.test(rawUsername) ? rawUsername : fallbackUsername;
+  const displayName = (typeof metadata.name === 'string' && metadata.name.trim())
+    || (typeof metadata.full_name === 'string' && metadata.full_name.trim())
+    || preferredUsername;
+
+  // An account created while email confirmation is enabled has no session
+  // at signup time, so the client cannot insert its profile until first login.
+  // Try the supplied username first; if another account claimed it in the
+  // meantime, use a stable unique fallback so the Auth account is not orphaned.
+  for (const username of [preferredUsername, fallbackUsername]) {
+    const { error: insertError } = await supabase.from('profiles').insert({
+      id: authUser.id,
+      username,
+      display_name: displayName,
+      avatar_url: getDefaultAvatar(authUser.id),
+      bio: 'LBT member.',
+      followers_count: 0,
+      following_count: 0,
+    });
+    if (!insertError) {
+      const { data: created, error: createdError } = await supabase
+        .from('profiles').select('*').eq('id', authUser.id).single();
+      if (createdError) throw createdError;
+      return created;
+    }
+    if (insertError.code !== '23505') throw insertError;
+
+    const { data: racedProfile, error: racedError } = await supabase
+      .from('profiles').select('*').eq('id', authUser.id).maybeSingle();
+    if (racedError) throw racedError;
+    if (racedProfile) return racedProfile;
+  }
+
+  throw new Error('Your account exists, but LBT could not create its profile. Please contact support.');
+}
 export const useAuthStore = create<AuthState>()((set) => ({
   currentUser: null,
   session: null,
@@ -93,16 +137,8 @@ export const useAuthStore = create<AuthState>()((set) => ({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .maybeSingle();
-        if (profile) {
-          set({ session, currentUser: mapProfileToUser(profile) });
-        } else {
-          set({ session, currentUser: null });
-        }
+        const profile = await ensureProfileForAuthUser(session.user);
+        set({ session, currentUser: mapProfileToUser(profile), pendingVerification: false, pendingEmail: null });
       } else {
         set({ session: null, currentUser: null });
       }
@@ -115,19 +151,22 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
     // Guard: only ONE auth listener ever exists
     if (authListenerUnsubscribe) return;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .maybeSingle();
-        if (profile) {
-          set({ session, currentUser: mapProfileToUser(profile), pendingVerification: false });
-        }
-      } else {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
         set({ session: null, currentUser: null });
+        return;
       }
+
+      // Do not await Supabase queries inside onAuthStateChange: the auth client
+      // holds an internal lock while dispatching this event.
+      setTimeout(() => {
+        void ensureProfileForAuthUser(session.user).then(profile => {
+          set({ session, currentUser: mapProfileToUser(profile), pendingVerification: false, pendingEmail: null });
+        }).catch(error => {
+          console.error('Could not initialize the signed-in LBT profile:', error);
+          set({ session, currentUser: null });
+        });
+      }, 0);
     });
     authListenerUnsubscribe = () => subscription.unsubscribe();
     syncModuleState();
@@ -164,17 +203,8 @@ export const useAuthStore = create<AuthState>()((set) => ({
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       if (data.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .maybeSingle();
-        if (profile) {
-          set({ session: data.session, currentUser: mapProfileToUser(profile) });
-        } else {
-          // Profile not found — user exists in auth but not in profiles
-          set({ session: data.session, currentUser: null });
-        }
+        const profile = await ensureProfileForAuthUser(data.user);
+        set({ session: data.session, currentUser: mapProfileToUser(profile), pendingVerification: false, pendingEmail: null });
       }
     } catch (err) {
       throw err;
@@ -217,30 +247,16 @@ export const useAuthStore = create<AuthState>()((set) => ({
       if (!data.user) throw new Error('Sign-up failed: user was not created.');
 
       if (!data.session) {
+        // Email confirmation is enabled: profile insertion must wait until
+        // the user verifies the address and signs in for the first session.
         set({ pendingVerification: true, pendingEmail: email, isLoading: false });
         const verifyError = new Error('VERIFY_EMAIL');
         (verifyError as any).code = 'VERIFY_EMAIL';
         throw verifyError;
       }
 
-      const defaultAvatar = getDefaultAvatar(data.user.id);
-      const { error: profileError } = await supabase.from('profiles').insert([{
-        id: data.user.id,
-        username: username.toLowerCase(),
-        display_name: name,
-        avatar_url: defaultAvatar,
-        bio: 'LBT member.',
-        followers_count: 0,
-        following_count: 0,
-      }]);
-
-      if (profileError) {
-        if (profileError.code === '23505') {
-          throw new Error('This username is already taken. Please choose another.');
-        }
-        await supabase.auth.signOut();
-        throw new Error(`Profile creation failed: ${profileError.message}`);
-      }
+      const profile = await ensureProfileForAuthUser(data.user);
+      set({ session: data.session, currentUser: mapProfileToUser(profile), pendingVerification: false, pendingEmail: null });
 
       const { data: profile } = await supabase
         .from('profiles')

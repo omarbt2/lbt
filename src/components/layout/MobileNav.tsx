@@ -11,7 +11,6 @@ import './MobileNav.css';
 
 interface MobileNavProps {
   navVisible: boolean;
-  isReelsPage: boolean;
   unreadMessages: number;
   showCreateMenu: boolean;
   setShowCreateMenu: (show: boolean | ((prev: boolean) => boolean)) => void;

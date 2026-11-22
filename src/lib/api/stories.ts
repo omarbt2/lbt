@@ -15,7 +15,7 @@ export async function getActiveStories(): Promise<StoryGroup[]> {
   const { data: storiesData, error } = await supabase
     .from('stories')
     .select(`
-      id, user_id, media_url, media_type, caption, expires_at, created_at, views_count,
+      id, user_id, media_url, media_type, caption, audience, close_friends_only, expires_at, created_at, views_count,
       profiles(id, username, display_name, avatar_url)
     `)
     .gt('expires_at', new Date().toISOString())
@@ -121,6 +121,7 @@ export async function createStory(
       caption: options?.caption || null,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       audience: options?.audience || 'public',
+      close_friends_only: options?.audience === 'close_friends',
     })
     .select('*, profiles!stories_user_id_fkey(*)')
     .single();

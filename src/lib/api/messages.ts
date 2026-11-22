@@ -36,6 +36,7 @@ function mapRowToMessage(m: any): Message {
     reply_to: m.reply_to ? mapRowToMessage(m.reply_to) : undefined,
     reactions_count: m.reactions_count || 0,
     reactions: m.reactions || [],
+    expires_at: m.expires_at || null,
     timeLabel: formatTimeLabel(m.created_at),
   };
 }
@@ -57,6 +58,8 @@ export async function getConversationMessages(
       reactions:message_reactions(id, message_id, user_id, emoji, created_at)
     `)
     .eq('conversation_id', conversationId)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+    .or('message_type.is.null,message_type.neq.call')
     .order('created_at', { ascending: false })
     .range(from, to);
 

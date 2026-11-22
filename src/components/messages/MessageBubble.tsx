@@ -45,7 +45,7 @@ function MessageBubble({
   onLongPressEnd,
 }: MessageBubbleProps) {
   // Call history is no longer part of LBT messaging; voice notes remain supported.
-  if (m.message_type === 'call') return null;
+  if (m.message_type === 'call' || (m.message_type as string) === 'video') return null;
 
   return (
     <motion.div
@@ -141,13 +141,6 @@ function MessageBubble({
           {m.imageUrl && (
             <div className="rounded-2xl overflow-hidden border border-outline-variant bg-surface p-1 shadow-sm max-w-xs">
               <img src={m.imageUrl} alt="Shared" className="w-full h-auto rounded-xl cursor-pointer" onClick={() => window.open(m.imageUrl, '_blank')} />
-            </div>
-          )}
-
-          {/* Video message */}
-          {(m as any).message_type === 'video' && (m as any).video_url && (
-            <div className="rounded-2xl overflow-hidden border border-outline-variant bg-surface p-1 shadow-sm max-w-[220px]">
-              <video src={(m as any).video_url} controls className="w-full rounded-xl" />
             </div>
           )}
 

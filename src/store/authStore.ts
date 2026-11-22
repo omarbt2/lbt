@@ -257,16 +257,6 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
       const profile = await ensureProfileForAuthUser(data.user);
       set({ session: data.session, currentUser: mapProfileToUser(profile), pendingVerification: false, pendingEmail: null });
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .maybeSingle();
-
-      if (profile) {
-        set({ session: data.session, currentUser: mapProfileToUser(profile), pendingVerification: false });
-      }
     } catch (err) {
       throw err;
     } finally {

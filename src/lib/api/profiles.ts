@@ -45,7 +45,7 @@ export async function updateProfile(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const updatePayload: Record<string, any> = {};
+  const updatePayload: Database['public']['Tables']['profiles']['Update'] = {};
   const privatePayload: Record<string, string | null> = {};
 
   if (data.display_name !== undefined) updatePayload.display_name = data.display_name;

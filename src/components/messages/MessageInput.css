@@ -328,3 +328,11 @@
   color: rgba(255,255,255,.58);
 }
 
+
+
+.lbt-composer-error {
+  margin: 7px 4px 0;
+  color: var(--color-error, #b84e43);
+  font-size: 11px;
+  font-weight: 600;
+}

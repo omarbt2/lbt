@@ -299,9 +299,8 @@ export default function SettingsPage() {
 
   const handleCardUpgradeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ccNum || !ccName) return;
-    setProSuccess(true);
-    setTimeout(() => { setProSuccess(false); setActiveSubpage(null); }, 2500);
+    setProSuccess(false);
+    triggerToast('LBT Pro payments are not connected yet. No charge was made.', 'error');
   };
 
   const toggleNotifLikes = () => { const next = !notifLikes; setNotifLikes(next); updateNotifPref('notif_likes', next); };

@@ -97,18 +97,6 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
     return (
       <footer className="lbt-chat-composer-footer">
         <div className={`container-ia-chat lbt-chat-composer ${isRecording ? 'is-recording' : ''}`}>
-          <div className="container-upload-files" aria-label="Attach an image">
-            <button type="button" className="upload-file" title="Take a photo" aria-label="Take a photo" onClick={() => cameraPickerRef.current?.click()}>
-              <Camera />
-            </button>
-            <button type="button" className="upload-file" title="Choose an image" aria-label="Choose an image" onClick={() => imagePickerRef.current?.click()}>
-              <ImageIcon />
-            </button>
-            <button type="button" className="upload-file" title="Browse images" aria-label="Browse images" onClick={() => imagePickerRef.current?.click()}>
-              <Folder />
-            </button>
-          </div>
-
           <input
             ref={cameraPickerRef}
             type="file"
@@ -136,6 +124,7 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
             value={typeInput}
             placeholder="Message..."
             className="input-text"
+            required
             aria-label="Write a message"
             onChange={(e) => {
               onTypeInputChange(e.target.value);
@@ -149,6 +138,18 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
             }}
             disabled={isRecording}
           />
+
+          <div className="container-upload-files" aria-label="Attach an image">
+            <button type="button" className="upload-file" title="Take a photo" aria-label="Take a photo" onClick={() => cameraPickerRef.current?.click()}>
+              <Camera />
+            </button>
+            <button type="button" className="upload-file" title="Choose an image" aria-label="Choose an image" onClick={() => imagePickerRef.current?.click()}>
+              <ImageIcon />
+            </button>
+            <button type="button" className="upload-file" title="Browse images" aria-label="Browse images" onClick={() => imagePickerRef.current?.click()}>
+              <Folder />
+            </button>
+          </div>
 
           <button
             type="button"

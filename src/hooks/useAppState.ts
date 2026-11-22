@@ -91,22 +91,38 @@ export function useAppState() {
 
   useEffect(() => {
     if (!currentUser?.id) return;
+    let active = true;
     const fetchUnread = async () => {
-      const { data } = await (supabase as any).rpc('get_unread_messages_count', {
-        p_user_id: currentUser.id,
-      });
-      setUnreadMessages((data as number) ?? 0);
+      const { count, error } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_read', false)
+        .neq('sender_id', currentUser.id)
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+        .neq('message_type', 'call')
+        .neq('message_type', 'video');
+      if (!active) return;
+      if (error) {
+        console.error('Unread message count failed:', error);
+        return;
+      }
+      setUnreadMessages(count ?? 0);
     };
-    fetchUnread();
+    void fetchUnread();
+    const intervalId = window.setInterval(() => { void fetchUnread(); }, 60000);
     const channel = supabase
       .channel('unread-messages')
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'messages',
-      }, () => fetchUnread())
+      }, () => { void fetchUnread(); })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      void supabase.removeChannel(channel);
+    };
   }, [currentUser?.id]);
 
   const showPermissionDenied = useCallback((_type: 'camera' | 'microphone') => {}, []);

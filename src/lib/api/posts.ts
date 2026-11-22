@@ -420,6 +420,8 @@ export async function createPost(postData: {
       media_urls: cleanMediaUrls,
       media_type: mediaType,
       tags: postData.tags || [],
+      close_friends_only: postData.close_friends_only ?? false,
+      visibility: 'public',
       likes_count: 0,
       comments_count: 0,
       shares_count: 0,

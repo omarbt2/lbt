@@ -6,7 +6,10 @@ export function useStorage() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime'];
+  const ALLOWED_TYPES = new Set([
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif',
+    'video/mp4', 'video/quicktime', 'video/webm', 'video/3gpp', 'video/x-m4v',
+  ]);
   const MAX_SIZE_MB = 50;
 
   async function compressImage(file: File, maxWidth = 1080): Promise<File> {
@@ -22,7 +25,11 @@ export function useStorage() {
         canvas.toBlob(
           (blob) => {
             URL.revokeObjectURL(url);
-            resolve(new File([blob!], file.name, { type: 'image/jpeg' }));
+            if (!blob) {
+              resolve(file);
+              return;
+            }
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }));
           },
           'image/jpeg',
           0.85
@@ -41,14 +48,19 @@ export function useStorage() {
     file: File,
     folder?: string
   ): Promise<string> {
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      throw new Error('Unsupported file type.');
+    const normalizedType = (file.type || '').split(';', 1)[0].trim().toLowerCase();
+    if (!ALLOWED_TYPES.has(normalizedType)) {
+      throw new Error('Unsupported file type. Use JPG, PNG, WebP, GIF, AVIF, MP4, MOV or WebM.');
     }
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
       throw new Error(`File must be under ${MAX_SIZE_MB}MB.`);
     }
 
-    if (file.type.startsWith('image/')) {
+    const keepOriginalQuality = typeof localStorage !== 'undefined'
+      && localStorage.getItem('lbt_high_quality_uploads') !== 'false';
+
+    // Preserve GIF animation and original image quality when the user enables it.
+    if (normalizedType.startsWith('image/') && normalizedType !== 'image/gif' && !keepOriginalQuality) {
       file = await compressImage(file);
     }
 

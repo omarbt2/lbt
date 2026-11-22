@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Pause, Check, CheckCheck, PhoneIncoming, PhoneOutgoing } from 'lucide-react';
+import { Play, Pause, Check, CheckCheck } from 'lucide-react';
 import { Avatar } from '../ui/Avatar';
 import LinkPreviewCard from '../ui/LinkPreviewCard';
 import { extractUrls } from '../../lib/api/linkPreview';
@@ -44,22 +44,8 @@ function MessageBubble({
   onLongPressStart,
   onLongPressEnd,
 }: MessageBubbleProps) {
-  if (m.message_type === 'call' || /voice call|video call/i.test(m.text || '')) {
-    const isOutgoing = m.senderId === currentUser.id;
-    return (
-      <div className="flex justify-center my-3">
-        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container text-on-surface-variant text-xs border border-outline-variant/20">
-          {isOutgoing
-            ? <PhoneOutgoing className="w-3 h-3" />
-            : <PhoneIncoming className="w-3 h-3" />
-          }
-          <span>{m.text}</span>
-          <span className="opacity-50">·</span>
-          <span className="opacity-50">{m.timeLabel}</span>
-        </div>
-      </div>
-    );
-  }
+  // Call history is no longer part of LBT messaging; voice notes remain supported.
+  if (m.message_type === 'call') return null;
 
   return (
     <motion.div

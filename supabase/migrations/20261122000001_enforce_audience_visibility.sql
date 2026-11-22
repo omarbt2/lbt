@@ -206,8 +206,7 @@ CREATE OR REPLACE FUNCTION public.lbt_can_add_close_friend(p_friend_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
-  SELECT auth.uid() IS NOT NULL
+AS $1  SELECT auth.uid() IS NOT NULL
     AND p_friend_id <> auth.uid()
     AND EXISTS (
       SELECT 1
@@ -248,8 +247,7 @@ CREATE OR REPLACE FUNCTION public.lbt_is_blocked_from(p_owner_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
-  SELECT auth.uid() IS NOT NULL AND EXISTS (
+AS $1  SELECT auth.uid() IS NOT NULL AND EXISTS (
     SELECT 1 FROM public.user_blocks b
     WHERE (b.blocker_id = p_owner_id AND b.blocked_id = auth.uid())
        OR (b.blocker_id = auth.uid() AND b.blocked_id = p_owner_id)
@@ -260,8 +258,7 @@ CREATE OR REPLACE FUNCTION public.lbt_profile_is_private(p_owner_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
-  SELECT COALESCE(
+AS $1  SELECT COALESCE(
     (SELECT p.is_private FROM public.profiles p WHERE p.id = p_owner_id),
     false
   );
@@ -271,8 +268,7 @@ CREATE OR REPLACE FUNCTION public.lbt_follows_owner(p_owner_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
-  SELECT auth.uid() IS NOT NULL AND EXISTS (
+AS $1  SELECT auth.uid() IS NOT NULL AND EXISTS (
     SELECT 1 FROM public.follows f
     WHERE f.follower_id = auth.uid() AND f.following_id = p_owner_id
   );
@@ -282,8 +278,7 @@ CREATE OR REPLACE FUNCTION public.lbt_is_close_friend_of(p_owner_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
-  SELECT auth.uid() IS NOT NULL AND EXISTS (
+AS $1  SELECT auth.uid() IS NOT NULL AND EXISTS (
     SELECT 1 FROM public.close_friends cf
     WHERE cf.user_id = p_owner_id AND cf.friend_id = auth.uid()
   );
@@ -293,8 +288,7 @@ CREATE OR REPLACE FUNCTION public.lbt_can_add_close_friend(p_friend_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
-  SELECT auth.uid() IS NOT NULL
+AS $1  SELECT auth.uid() IS NOT NULL
     AND p_friend_id <> auth.uid()
     AND EXISTS (
       SELECT 1 FROM public.follows f

@@ -100,7 +100,13 @@ export async function getPosts(
     if (error) { console.error('get_feed error:', error); return []; }
 
     return (data || []).map((p: any): Post => {
-      const profile = resolveProfile(p.profiles, p.user_id);
+      const profile = resolveProfile({
+        id: p.user_id,
+        username: p.username,
+        display_name: p.display_name,
+        avatar_url: p.avatar_url,
+        is_verified: p.is_verified,
+      }, p.user_id);
       return {
         id: p.id,
         user: profile
@@ -145,53 +151,12 @@ export async function getPosts(
         mediaType: (p.media_type as 'image' | 'video' | 'carousel') || 'image',
         likes: p.likes_count,
         commentsCount: p.comments_count,
-        hasLiked: p.has_liked ?? false,
-        hasBookmarked: p.has_bookmarked ?? false,
+        hasLiked: p.is_liked ?? false,
+        hasBookmarked: p.is_saved ?? false,
         tags: p.tags || [],
-        commentsList: (p.comments || []).map((c: any): Comment => {
-          const cProfile = resolveProfile(c.profiles || c.user_profile, c.user_id);
-          return {
-            id: c.id,
-            user: cProfile
-              ? {
-                  id: cProfile.id,
-                  name: cProfile.display_name || cProfile.username || 'Unknown',
-                  username: cProfile.username,
-                  avatar: cProfile.avatar_url
-                    || getDefaultAvatar(cProfile.id || cProfile.username || 'user'),
-                  bio: cProfile.bio || '',
-                  cover_url: cProfile.cover_url || '',
-                  website: cProfile.website || '',
-                  phone: cProfile.phone || '',
-                  is_private: cProfile.is_private ?? false,
-                  is_verified: cProfile.is_verified ?? false,
-                  posts_count: cProfile.posts_count ?? 0,
-                  followersCount: cProfile.followers_count ?? 0,
-                  followingCount: cProfile.following_count ?? 0,
-                  isFollowing: false,
-                }
-              : {
-                  id: c.user_id || '',
-                  name: 'Unknown',
-                  username: '',
-              avatar: getDefaultAvatar('user'),
-                  bio: '',
-                  cover_url: '',
-                  website: '',
-                  phone: '',
-                  is_private: false,
-                  is_verified: false,
-                  posts_count: 0,
-                  followersCount: 0,
-                  followingCount: 0,
-                  isFollowing: false,
-                },
-            content: c.content,
-            likes: c.likes_count,
-            timeLabel: formatTimeLabel(c.created_at),
-            hasLiked: false,
-          };
-        }),
+        // The live get_feed RPC does not return comment rows. The UI still
+        // receives the authoritative comments_count and loads comments on demand.
+        commentsList: [],
       };
     });
   }

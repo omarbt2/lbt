@@ -312,7 +312,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -16, scale: 0.97 }}
             transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-            className="bg-surface-container-lowest/75 backdrop-blur-xl border border-outline-variant/30 rounded-3xl p-6 shadow-[0_12px_40px_rgba(0,0,0,0.04)]"
+            className="lbt-auth-card"
           >
             <div className="flex flex-col gap-2 mb-6">
               <div className="flex justify-between text-xs font-bold">
@@ -486,7 +486,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -16, scale: 0.97 }}
             transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
-            className="bg-surface-container-lowest/75 backdrop-blur-xl border border-outline-variant/30 rounded-3xl p-6 shadow-[0_12px_40px_rgba(0,0,0,0.04)]"
+            className="lbt-auth-card"
           >
             <button 
               onClick={() => setScreen('login')}

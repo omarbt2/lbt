@@ -506,6 +506,8 @@ export default function AddStoryView({ onClose, onStoryAdded }: AddStoryProps) {
       setVideoPreviewUrl(null);
     } else {
       setStoryError('Choose an image or video file.');
+      event.target.value = '';
+      return;
     }
     event.target.value = '';
     setStoryError(null);

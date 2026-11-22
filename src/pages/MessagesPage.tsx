@@ -73,6 +73,31 @@ export default function MessagesPage() {
   const audioElementsRef = useRef<Record<string, HTMLAudioElement>>({});
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Hide disappearing messages immediately in an already-open conversation.
+  // The database cron job remains responsible for physical deletion.
+  useEffect(() => {
+    const cleanupExpiredFromView = () => {
+      const now = Date.now();
+      setChats((currentChats) => {
+        let changed = false;
+        const nextChats = currentChats.map((chat) => {
+          const visibleMessages = chat.messages.filter((message) => {
+            if (!message.expires_at) return true;
+            const expiresAt = Date.parse(message.expires_at);
+            return !Number.isFinite(expiresAt) || expiresAt > now;
+          });
+          if (visibleMessages.length === chat.messages.length) return chat;
+          changed = true;
+          return { ...chat, messages: visibleMessages };
+        });
+        return changed ? nextChats : currentChats;
+      });
+    };
+    cleanupExpiredFromView();
+    const intervalId = window.setInterval(cleanupExpiredFromView, 5000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
   const activeChat = chats.find((c) => c.id === activeChatId) || chats[0];
 
   const loadAllChats = async () => {

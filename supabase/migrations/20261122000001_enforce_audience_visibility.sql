@@ -317,13 +317,15 @@ CREATE POLICY stories_select_authenticated
 
 -- ---------------------------------------------------------------------------
 -- 4. Posts visibility
--- Remove both live SELECT policies, including the unrestricted anon policy.
--- Anonymous access is retained only for public posts on public accounts.
+-- Remove both live SELECT policies. This app requires authentication; disable
+-- anonymous table reads rather than infer privacy through another RLS table.
 -- ---------------------------------------------------------------------------
 
 DROP POLICY IF EXISTS posts_select_auth ON public.posts;
 DROP POLICY IF EXISTS posts_select_anon ON public.posts;
 DROP POLICY IF EXISTS posts_select_authenticated ON public.posts;
+REVOKE SELECT ON TABLE public.posts, public.stories FROM anon, PUBLIC;
+GRANT SELECT ON TABLE public.posts, public.stories TO authenticated;
 
 CREATE POLICY posts_select_authenticated
   ON public.posts
@@ -386,18 +388,6 @@ CREATE POLICY posts_select_authenticated
           )
         )
       )
-    )
-  );
-
-CREATE POLICY posts_select_anon
-  ON public.posts
-  FOR SELECT TO anon
-  USING (
-    COALESCE(visibility, 'public') = 'public'
-    AND COALESCE(close_friends_only, false) = false
-    AND NOT COALESCE(
-      (SELECT pr.is_private FROM public.profiles pr WHERE pr.id = posts.user_id),
-      false
     )
   );
 

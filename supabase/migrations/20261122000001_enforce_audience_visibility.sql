@@ -202,7 +202,7 @@ CREATE POLICY close_friends_select_related
   FOR SELECT TO authenticated
   USING (user_id = (SELECT auth.uid()));
 
-CREATE OR REPLACE FUNCTION public.lbt_can_add_close_friend(p_friend_id uuid)
+CREATE OR REPLACE FUNCTION private.lbt_can_add_close_friend(p_friend_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
@@ -229,7 +229,7 @@ CREATE POLICY close_friends_insert_followers
   WITH CHECK (
     user_id = (SELECT auth.uid())
     AND friend_id <> (SELECT auth.uid())
-    AND public.lbt_can_add_close_friend(friend_id)
+    AND private.lbt_can_add_close_friend(friend_id)
   );
 
 CREATE POLICY close_friends_delete_owner
@@ -240,11 +240,18 @@ CREATE POLICY close_friends_delete_owner
 REVOKE ALL ON TABLE public.close_friends FROM anon, PUBLIC;
 GRANT SELECT, INSERT, DELETE ON TABLE public.close_friends TO authenticated;
 
+-- Keep helper RPCs in a non-exposed schema so authenticated clients cannot
+-- call them directly to probe arbitrary users' relationships. Ensure the
+-- private schema is not added to PostgREST's exposed schemas.
+CREATE SCHEMA IF NOT EXISTS private;
+REVOKE ALL ON SCHEMA private FROM PUBLIC, anon;
+GRANT USAGE ON SCHEMA private TO authenticated;
+
 -- RLS policies cannot reliably inspect other users' follow/block rows because
 -- those tables have their own RLS. These narrowly scoped SECURITY DEFINER
 -- predicates always bind the viewer to auth.uid(); callers cannot probe an
 -- arbitrary pair of users.
-CREATE OR REPLACE FUNCTION public.lbt_is_blocked_from(p_owner_id uuid)
+CREATE OR REPLACE FUNCTION private.lbt_is_blocked_from(p_owner_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
@@ -256,7 +263,7 @@ SELECT auth.uid() IS NOT NULL AND EXISTS (
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public.lbt_profile_is_private(p_owner_id uuid)
+CREATE OR REPLACE FUNCTION private.lbt_profile_is_private(p_owner_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
@@ -267,7 +274,7 @@ SELECT COALESCE(
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public.lbt_follows_owner(p_owner_id uuid)
+CREATE OR REPLACE FUNCTION private.lbt_follows_owner(p_owner_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
@@ -278,7 +285,7 @@ SELECT auth.uid() IS NOT NULL AND EXISTS (
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public.lbt_is_close_friend_of(p_owner_id uuid)
+CREATE OR REPLACE FUNCTION private.lbt_is_close_friend_of(p_owner_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
@@ -289,7 +296,7 @@ SELECT auth.uid() IS NOT NULL AND EXISTS (
   );
 $$;
 
-CREATE OR REPLACE FUNCTION public.lbt_can_add_close_friend(p_friend_id uuid)
+CREATE OR REPLACE FUNCTION private.lbt_can_add_close_friend(p_friend_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public
@@ -307,16 +314,16 @@ SELECT auth.uid() IS NOT NULL
     );
 $$;
 
-REVOKE ALL ON FUNCTION public.lbt_is_blocked_from(uuid) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.lbt_profile_is_private(uuid) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.lbt_follows_owner(uuid) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.lbt_is_close_friend_of(uuid) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.lbt_can_add_close_friend(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.lbt_is_blocked_from(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.lbt_profile_is_private(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.lbt_follows_owner(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.lbt_is_close_friend_of(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.lbt_can_add_close_friend(uuid) TO authenticated;
+REVOKE ALL ON FUNCTION private.lbt_is_blocked_from(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION private.lbt_profile_is_private(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION private.lbt_follows_owner(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION private.lbt_is_close_friend_of(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION private.lbt_can_add_close_friend(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.lbt_is_blocked_from(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.lbt_profile_is_private(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.lbt_follows_owner(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.lbt_is_close_friend_of(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.lbt_can_add_close_friend(uuid) TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 3. Stories visibility
@@ -338,29 +345,29 @@ CREATE POLICY stories_select_authenticated
     AND (
       user_id = (SELECT auth.uid())
       OR (
-        NOT public.lbt_is_blocked_from(stories.user_id)
+        NOT private.lbt_is_blocked_from(stories.user_id)
         AND (
           (
             COALESCE(audience, 'public') = 'public'
             AND COALESCE(close_friends_only, false) = false
             AND (
-              NOT public.lbt_profile_is_private(stories.user_id)
-              OR public.lbt_follows_owner(stories.user_id)
+              NOT private.lbt_profile_is_private(stories.user_id)
+              OR private.lbt_follows_owner(stories.user_id)
             )
           )
           OR (
             COALESCE(audience, 'public') = 'followers'
             AND COALESCE(close_friends_only, false) = false
-            AND public.lbt_follows_owner(stories.user_id)
+            AND private.lbt_follows_owner(stories.user_id)
           )
           OR (
             (
               COALESCE(audience, 'public') = 'close_friends'
               OR COALESCE(close_friends_only, false) = true
             )
-            AND public.lbt_is_close_friend_of(stories.user_id)
+            AND private.lbt_is_close_friend_of(stories.user_id)
             AND (
-              NOT public.lbt_profile_is_private(stories.user_id)
+              NOT private.lbt_profile_is_private(stories.user_id)
               OR EXISTS (
                 SELECT 1
                 FROM public.follows f
@@ -392,26 +399,26 @@ CREATE POLICY posts_select_authenticated
   USING (
     user_id = (SELECT auth.uid())
     OR (
-      NOT public.lbt_is_blocked_from(posts.user_id)
+      NOT private.lbt_is_blocked_from(posts.user_id)
       AND (
         (
           COALESCE(visibility, 'public') = 'public'
           AND COALESCE(close_friends_only, false) = false
           AND (
-            NOT public.lbt_profile_is_private(posts.user_id)
-            OR public.lbt_follows_owner(posts.user_id)
+            NOT private.lbt_profile_is_private(posts.user_id)
+            OR private.lbt_follows_owner(posts.user_id)
           )
         )
         OR (
           COALESCE(visibility, 'public') = 'followers'
           AND COALESCE(close_friends_only, false) = false
-          AND public.lbt_follows_owner(posts.user_id)
+          AND private.lbt_follows_owner(posts.user_id)
         )
         OR (
           COALESCE(close_friends_only, false) = true
-          AND public.lbt_is_close_friend_of(posts.user_id)
+          AND private.lbt_is_close_friend_of(posts.user_id)
           AND (
-            NOT public.lbt_profile_is_private(posts.user_id)
+            NOT private.lbt_profile_is_private(posts.user_id)
             OR EXISTS (
               SELECT 1
               FROM public.follows f
@@ -539,21 +546,21 @@ BEGIN
         COALESCE(p.visibility, 'public') = 'public'
         AND COALESCE(p.close_friends_only, false) = false
         AND (
-          NOT public.lbt_profile_is_private(p.user_id)
-          OR public.lbt_follows_owner(p.user_id)
+          NOT private.lbt_profile_is_private(p.user_id)
+          OR private.lbt_follows_owner(p.user_id)
         )
       )
       OR (
         COALESCE(p.visibility, 'public') = 'followers'
         AND COALESCE(p.close_friends_only, false) = false
-        AND public.lbt_follows_owner(p.user_id)
+        AND private.lbt_follows_owner(p.user_id)
       )
       OR (
         COALESCE(p.close_friends_only, false) = true
-        AND public.lbt_is_close_friend_of(p.user_id)
+        AND private.lbt_is_close_friend_of(p.user_id)
         AND (
-          NOT public.lbt_profile_is_private(p.user_id)
-          OR public.lbt_follows_owner(p.user_id)
+          NOT private.lbt_profile_is_private(p.user_id)
+          OR private.lbt_follows_owner(p.user_id)
         )
       )
     )

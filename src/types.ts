@@ -82,6 +82,7 @@ export interface Message {
   reply_to?: Message;
   reactions_count?: number;
   reactions?: MessageReaction[];
+  expires_at?: string | null;
 }
 
 export interface MessageReaction {

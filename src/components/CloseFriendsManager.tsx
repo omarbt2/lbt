@@ -49,13 +49,15 @@ export default function CloseFriendsManager() {
     });
     try {
       if (isCurrentlyCF) {
-        await (supabase as any).from('close_friends')
+        const { error } = await (supabase as any).from('close_friends')
           .delete()
           .eq('user_id', currentUser.id)
           .eq('friend_id', friendId);
+        if (error) throw error;
       } else {
-        await (supabase as any).from('close_friends')
+        const { error } = await (supabase as any).from('close_friends')
           .insert({ user_id: currentUser.id, friend_id: friendId });
+        if (error) throw error;
       }
     } catch (err) {
       console.error('Failed to toggle close friend:', err);

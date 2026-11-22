@@ -417,7 +417,7 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
               style={{ scrollSnapAlign: 'start' }}
             >
               {/* Video */}
-              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-black" onClick={(e) => handleDoubleTap(e, reel.id)}>
+              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-black" onDoubleClick={(e) => handleDoubleTap(e, reel.id)}>
                 {!loadedStates[idx] && (
                   <div className="absolute inset-0 bg-black animate-pulse flex items-center justify-center z-10">
                     {reel.thumbnail_url ? (

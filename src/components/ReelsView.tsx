@@ -71,6 +71,7 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
   const interactedRef = useRef(false);
+  const lastTouchTapRef = useRef(0);
   const isMutedRef = useRef(isMuted);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
@@ -221,16 +222,27 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
     }
   };
 
-  const handleDoubleTap = (e: React.MouseEvent, reelId: string) => {
+  const handleDoubleTap = (e: React.MouseEvent | React.TouchEvent, reelId: string) => {
     if (!interactedRef.current) {
       interactedRef.current = true;
       const video = videoRefs.current.get(activeIdx);
       if (video) video.play().catch(() => {});
     }
     const rect = e.currentTarget.getBoundingClientRect();
-    setDoubleTapPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    const point = 'changedTouches' in e ? e.changedTouches[0] : e;
+    setDoubleTapPos({ x: point.clientX - rect.left, y: point.clientY - rect.top });
     setTimeout(() => setDoubleTapPos(null), 800);
     if (!(likedReels[reelId] ?? false)) handleLike(reelId);
+  };
+
+  const handleReelTouchEnd = (event: React.TouchEvent<HTMLDivElement>, reelId: string) => {
+    const now = Date.now();
+    if (now - lastTouchTapRef.current < 300) {
+      lastTouchTapRef.current = 0;
+      handleDoubleTap(event, reelId);
+    } else {
+      lastTouchTapRef.current = now;
+    }
   };
 
   const loadComments = async (reelId: string) => {
@@ -417,7 +429,7 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
               style={{ scrollSnapAlign: 'start' }}
             >
               {/* Video */}
-              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-black" onDoubleClick={(e) => handleDoubleTap(e, reel.id)}>
+              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-black" onDoubleClick={(e) => handleDoubleTap(e, reel.id)} onTouchEnd={(e) => handleReelTouchEnd(e, reel.id)}>
                 {!loadedStates[idx] && (
                   <div className="absolute inset-0 bg-black animate-pulse flex items-center justify-center z-10">
                     {reel.thumbnail_url ? (

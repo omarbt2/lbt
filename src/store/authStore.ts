@@ -67,6 +67,9 @@ export function mapProfileToUser(profile: any): User {
     cover_url: profile.cover_url || '',
     website: profile.website || '',
     phone: profile.phone || '',
+    dob: profile.dob || null,
+    date_of_birth: profile.date_of_birth || profile.dob || null,
+    gender: profile.gender || null,
     is_private: profile.is_private ?? false,
     is_verified: profile.is_verified ?? false,
     posts_count: profile.posts_count ?? 0,
@@ -76,11 +79,18 @@ export function mapProfileToUser(profile: any): User {
   };
 }
 
+async function attachOwnPrivateProfileData(profile: any) {
+  const { data, error } = await (supabase.rpc as any)('get_my_profile_private_data');
+  if (error) throw error;
+  const privateData = Array.isArray(data) ? data[0] : data;
+  return { ...profile, ...(privateData || {}) };
+}
+
 async function ensureProfileForAuthUser(authUser: SupabaseAuthUser) {
   const { data: existing, error: lookupError } = await supabase
     .from('profiles').select('*').eq('id', authUser.id).maybeSingle();
   if (lookupError) throw lookupError;
-  if (existing) return existing;
+  if (existing) return await attachOwnPrivateProfileData(existing);
 
   const metadata = (authUser.user_metadata || {}) as Record<string, unknown>;
   const rawUsername = typeof metadata.username === 'string' ? metadata.username.toLowerCase().trim() : '';
@@ -108,14 +118,14 @@ async function ensureProfileForAuthUser(authUser: SupabaseAuthUser) {
       const { data: created, error: createdError } = await supabase
         .from('profiles').select('*').eq('id', authUser.id).single();
       if (createdError) throw createdError;
-      return created;
+      return await attachOwnPrivateProfileData(created);
     }
     if (insertError.code !== '23505') throw insertError;
 
     const { data: racedProfile, error: racedError } = await supabase
       .from('profiles').select('*').eq('id', authUser.id).maybeSingle();
     if (racedError) throw racedError;
-    if (racedProfile) return racedProfile;
+    if (racedProfile) return await attachOwnPrivateProfileData(racedProfile);
   }
 
   throw new Error('Your account exists, but LBT could not create its profile. Please contact support.');

@@ -211,18 +211,7 @@ CREATE POLICY close_friends_insert_followers
   WITH CHECK (
     user_id = (SELECT auth.uid())
     AND friend_id <> (SELECT auth.uid())
-    AND EXISTS (
-      SELECT 1
-      FROM public.follows f
-      WHERE f.follower_id = friend_id
-        AND f.following_id = user_id
-    )
-    AND NOT EXISTS (
-      SELECT 1
-      FROM public.user_blocks b
-      WHERE (b.blocker_id = user_id AND b.blocked_id = friend_id)
-         OR (b.blocker_id = friend_id AND b.blocked_id = user_id)
-    )
+    AND public.lbt_can_add_close_friend(friend_id)
   );
 
 CREATE POLICY close_friends_delete_owner
@@ -232,6 +221,71 @@ CREATE POLICY close_friends_delete_owner
 
 REVOKE ALL ON TABLE public.close_friends FROM anon, PUBLIC;
 GRANT SELECT, INSERT, DELETE ON TABLE public.close_friends TO authenticated;
+
+-- RLS policies cannot reliably inspect other users' follow/block rows because
+-- those tables have their own RLS. These narrowly scoped SECURITY DEFINER
+-- predicates always bind the viewer to auth.uid(); callers cannot probe an
+-- arbitrary pair of users.
+CREATE OR REPLACE FUNCTION public.lbt_is_blocked_from(p_owner_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+  SELECT auth.uid() IS NOT NULL AND EXISTS (
+    SELECT 1 FROM public.user_blocks b
+    WHERE (b.blocker_id = p_owner_id AND b.blocked_id = auth.uid())
+       OR (b.blocker_id = auth.uid() AND b.blocked_id = p_owner_id)
+  );
+$;
+
+CREATE OR REPLACE FUNCTION public.lbt_follows_owner(p_owner_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+  SELECT auth.uid() IS NOT NULL AND EXISTS (
+    SELECT 1 FROM public.follows f
+    WHERE f.follower_id = auth.uid() AND f.following_id = p_owner_id
+  );
+$;
+
+CREATE OR REPLACE FUNCTION public.lbt_is_close_friend_of(p_owner_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+  SELECT auth.uid() IS NOT NULL AND EXISTS (
+    SELECT 1 FROM public.close_friends cf
+    WHERE cf.user_id = p_owner_id AND cf.friend_id = auth.uid()
+  );
+$;
+
+CREATE OR REPLACE FUNCTION public.lbt_can_add_close_friend(p_friend_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+  SELECT auth.uid() IS NOT NULL
+    AND p_friend_id <> auth.uid()
+    AND EXISTS (
+      SELECT 1 FROM public.follows f
+      WHERE f.follower_id = p_friend_id AND f.following_id = auth.uid()
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM public.user_blocks b
+      WHERE (b.blocker_id = auth.uid() AND b.blocked_id = p_friend_id)
+         OR (b.blocker_id = p_friend_id AND b.blocked_id = auth.uid())
+    );
+$;
+
+REVOKE ALL ON FUNCTION public.lbt_is_blocked_from(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.lbt_follows_owner(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.lbt_is_close_friend_of(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.lbt_can_add_close_friend(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.lbt_is_blocked_from(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.lbt_follows_owner(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.lbt_is_close_friend_of(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.lbt_can_add_close_friend(uuid) TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 3. Stories visibility
@@ -253,12 +307,7 @@ CREATE POLICY stories_select_authenticated
     AND (
       user_id = (SELECT auth.uid())
       OR (
-        NOT EXISTS (
-          SELECT 1
-          FROM public.user_blocks b
-          WHERE (b.blocker_id = stories.user_id AND b.blocked_id = (SELECT auth.uid()))
-             OR (b.blocker_id = (SELECT auth.uid()) AND b.blocked_id = stories.user_id)
-        )
+        NOT public.lbt_is_blocked_from(stories.user_id)
         AND (
           (
             COALESCE(audience, 'public') = 'public'
@@ -268,35 +317,20 @@ CREATE POLICY stories_select_authenticated
                 (SELECT pr.is_private FROM public.profiles pr WHERE pr.id = stories.user_id),
                 false
               )
-              OR EXISTS (
-                SELECT 1
-                FROM public.follows f
-                WHERE f.follower_id = (SELECT auth.uid())
-                  AND f.following_id = stories.user_id
-              )
+              OR public.lbt_follows_owner(stories.user_id)
             )
           )
           OR (
             COALESCE(audience, 'public') = 'followers'
             AND COALESCE(close_friends_only, false) = false
-            AND EXISTS (
-              SELECT 1
-              FROM public.follows f
-              WHERE f.follower_id = (SELECT auth.uid())
-                AND f.following_id = stories.user_id
-            )
+            AND public.lbt_follows_owner(stories.user_id)
           )
           OR (
             (
               COALESCE(audience, 'public') = 'close_friends'
               OR COALESCE(close_friends_only, false) = true
             )
-            AND EXISTS (
-              SELECT 1
-              FROM public.close_friends cf
-              WHERE cf.user_id = stories.user_id
-                AND cf.friend_id = (SELECT auth.uid())
-            )
+            AND public.lbt_is_close_friend_of(stories.user_id)
             AND (
               NOT COALESCE(
                 (SELECT pr.is_private FROM public.profiles pr WHERE pr.id = stories.user_id),
@@ -333,12 +367,7 @@ CREATE POLICY posts_select_authenticated
   USING (
     user_id = (SELECT auth.uid())
     OR (
-      NOT EXISTS (
-        SELECT 1
-        FROM public.user_blocks b
-        WHERE (b.blocker_id = posts.user_id AND b.blocked_id = (SELECT auth.uid()))
-           OR (b.blocker_id = (SELECT auth.uid()) AND b.blocked_id = posts.user_id)
-      )
+      NOT public.lbt_is_blocked_from(posts.user_id)
       AND (
         (
           COALESCE(visibility, 'public') = 'public'
@@ -348,32 +377,17 @@ CREATE POLICY posts_select_authenticated
               (SELECT pr.is_private FROM public.profiles pr WHERE pr.id = posts.user_id),
               false
             )
-            OR EXISTS (
-              SELECT 1
-              FROM public.follows f
-              WHERE f.follower_id = (SELECT auth.uid())
-                AND f.following_id = posts.user_id
-            )
+            OR public.lbt_follows_owner(posts.user_id)
           )
         )
         OR (
           COALESCE(visibility, 'public') = 'followers'
           AND COALESCE(close_friends_only, false) = false
-          AND EXISTS (
-            SELECT 1
-            FROM public.follows f
-            WHERE f.follower_id = (SELECT auth.uid())
-              AND f.following_id = posts.user_id
-          )
+          AND public.lbt_follows_owner(posts.user_id)
         )
         OR (
           COALESCE(close_friends_only, false) = true
-          AND EXISTS (
-            SELECT 1
-            FROM public.close_friends cf
-            WHERE cf.user_id = posts.user_id
-              AND cf.friend_id = (SELECT auth.uid())
-          )
+          AND public.lbt_is_close_friend_of(posts.user_id)
           AND (
             NOT COALESCE(
               (SELECT pr.is_private FROM public.profiles pr WHERE pr.id = posts.user_id),

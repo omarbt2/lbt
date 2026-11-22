@@ -657,7 +657,9 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
                 )}
               </div>
               <div className="border-t border-white/10 pt-4 mt-2 flex gap-3 items-center">
-                <input type="text" value={commentInput} onChange={(e) => setCommentInput(e.target.value)} placeholder="Add a comment..." className="flex-1 bg-white/10 outline-none text-sm text-white rounded-full px-4 py-2.5 border border-white/15 focus:border-primary" onKeyDown={(e) => e.key === 'Enter' && handleAddComment()} />
+                <div className="lbt-comment-composer lbt-reel-comment-composer">
+                  <input type="text" value={commentInput} onChange={(e) => setCommentInput(e.target.value)} placeholder="Add a comment..." className="lbt-comment-composer-field" onKeyDown={(e) => e.key === 'Enter' && handleAddComment()} />
+                </div>
                 <button onClick={handleAddComment} disabled={!commentInput.trim()} className="w-10 h-10 bg-primary disabled:opacity-50 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 shrink-0">
                   <Send className="w-4 h-4" />
                 </button>

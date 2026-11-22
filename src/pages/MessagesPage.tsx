@@ -126,9 +126,10 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!currentUser?.id || chats.length === 0) return;
+    let active = true;
     const fetchUnread = async () => {
       const ids = chats.map(c => c.id);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('messages')
         .select('conversation_id')
         .in('conversation_id', ids)
@@ -137,14 +138,19 @@ export default function MessagesPage() {
         .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
         .neq('message_type', 'call')
         .neq('message_type', 'video');
-      if (!data) return;
+      if (!active || error || !data) return;
       const counts: Record<string, number> = {};
-      data.forEach((m: any) => {
-        counts[m.conversation_id] = (counts[m.conversation_id] || 0) + 1;
+      data.forEach((message: any) => {
+        counts[message.conversation_id] = (counts[message.conversation_id] || 0) + 1;
       });
-      setChats(prev => prev.map(c => ({ ...c, unreadCount: counts[c.id] || 0 })));
+      setChats(prev => prev.map(chat => ({ ...chat, unreadCount: counts[chat.id] || 0 })));
     };
-    fetchUnread();
+    void fetchUnread();
+    const intervalId = window.setInterval(() => { void fetchUnread(); }, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
   }, [chats.length, currentUser?.id]);
 
   useEffect(() => {

@@ -97,7 +97,7 @@ export default function SettingsView({
       await updateProfile({
         display_name: editName,
         username: editUsername.toLowerCase(),
-        avatar_url: editPic,
+        avatar_url: editPic || undefined,
         bio: editBio,
         phone: phoneNum ? `${phonePrefix} ${phoneNum}` : null,
         dob: dob || null,

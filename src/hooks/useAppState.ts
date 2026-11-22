@@ -308,9 +308,6 @@ export function useAppState() {
         media_urls: [],
         media_type: 'repost',
         tags: [],
-        likes_count: 0,
-        comments_count: 0,
-        shares_count: 0,
         repost_of: repostTargetPost.id,
         is_repost: true,
       });

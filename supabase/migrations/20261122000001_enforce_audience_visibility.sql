@@ -1,6 +1,16 @@
 -- LBT: enforce post/story audience and close-friends visibility.
 -- Idempotent schema changes; safe to apply after the existing 2026-06 migrations.
 
+-- The UI stores a three-state mention audience, not a boolean.
+ALTER TABLE public.profiles
+  ALTER COLUMN allow_mentions TYPE text
+  USING CASE
+    WHEN allow_mentions IS TRUE THEN 'everyone'
+    WHEN allow_mentions IS FALSE THEN 'nobody'
+    ELSE 'everyone'
+  END;
+ALTER TABLE public.profiles ALTER COLUMN allow_mentions SET DEFAULT 'everyone';
+
 CREATE TABLE IF NOT EXISTS public.close_friends (
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   friend_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,

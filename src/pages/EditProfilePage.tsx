@@ -20,8 +20,8 @@ export default function EditProfilePage() {
     if (p.startsWith('0')) return p.slice(1);
     return p.replace(/\D/g, '').slice(-9);
   });
-  const [gender, setGender] = useState('Male');
-  const [dateOfBirth, setDateOfBirth] = useState(() => (currentUser as any).date_of_birth || '');
+  const [gender, setGender] = useState(currentUser.gender || '');
+  const [dateOfBirth, setDateOfBirth] = useState(() => currentUser.date_of_birth || currentUser.dob || '');
   const [isPrivate, setIsPrivate] = useState(currentUser.is_private ?? false);
 
   const STATUS_EMOJIS = ['😊', '🔥', '💤', '🎵', '💼', '📸', '🎮', '📚', '✈️', '🍕', '💻', '🎨', '💪', '🌙', '☀️'];

@@ -81,14 +81,16 @@
   opacity: .9;
 }
 
-.lbt-chat-composer .input-text:focus {
+.lbt-chat-composer .input-text:focus,
+.lbt-chat-composer .input-text:valid {
   border-color: color-mix(in srgb, var(--color-primary, #c96f52) 42%, var(--color-outline-variant, #b8b5ad));
   background: var(--color-surface-container-lowest, #fcfbf8);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #c96f52) 10%, transparent), 0 8px 24px rgba(0,0,0,.045);
   padding-left: 14px;
 }
 
-.lbt-chat-composer .input-text:focus ~ .container-upload-files {
+.lbt-chat-composer .input-text:focus ~ .container-upload-files,
+.lbt-chat-composer .input-text:valid ~ .container-upload-files {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -139,7 +141,8 @@
   background: color-mix(in srgb, var(--color-primary, #c96f52) 10%, transparent);
 }
 
-.lbt-chat-composer .input-text:focus ~ .label-files {
+.lbt-chat-composer .input-text:focus ~ .label-files,
+.lbt-chat-composer .input-text:valid ~ .label-files {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -323,4 +326,8 @@
 }
 .lbt-reel-comment-composer input::placeholder {
   color: rgba(255,255,255,.58);
+}
+
+.lbt-auth-page {
+  background-color: #f0f2f5 !important;
 }

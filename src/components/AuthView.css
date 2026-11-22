@@ -251,3 +251,7 @@
   .lbt-auth-login-button { min-height: 48px; font-size: 17px; }
   .lbt-auth-create-button { min-height: 46px; font-size: 15px; }
 }
+
+.lbt-auth-page {
+  background-color: #f0f2f5 !important;
+}

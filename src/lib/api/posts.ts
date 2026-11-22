@@ -154,8 +154,8 @@ export async function getPosts(
         hasLiked: p.is_liked ?? false,
         hasBookmarked: p.is_saved ?? false,
         tags: p.tags || [],
-        // The live get_feed RPC does not return comment rows. The UI still
-        // receives the authoritative comments_count and loads comments on demand.
+        // The live get_feed RPC returns comments_count, not comment rows.
+        // Keep the count accurate; comment previews require a separate query.
         commentsList: [],
       };
     });

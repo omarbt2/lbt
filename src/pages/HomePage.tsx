@@ -50,7 +50,7 @@ export default function HomePage() {
   const {
     posts, postsLoading, postsError, loadMore, refresh,
     handleLikeToggle, handleBookmarkToggle, handleAddComment, handleDeletePost,
-    currentUser, storyGroups, triggerToast, setShowAddStoryModal, handleViewStory,
+    currentUser, storyGroups, triggerToast, setShowAddStoryModal, setShowNoteInput, handleViewStory,
     postMenuPostId, setPostMenuPostId,
     setRepostTargetPost, setShowRepostModal,
   } = useOutletContext<OutletContextType>();
@@ -208,7 +208,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <NotesBar currentUser={{ id: currentUser.id, name: currentUser.name, avatar: currentUser.avatar || '' }} />
+      <NotesBar currentUser={{ id: currentUser.id, name: currentUser.name, avatar: currentUser.avatar || '' }} onOpenNoteModal={() => setShowNoteInput(true)} />
 
       <section className="flex flex-col gap-3 py-4 px-1">
         <div className="flex items-center gap-3 px-1">

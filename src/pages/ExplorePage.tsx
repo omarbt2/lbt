@@ -63,11 +63,10 @@ export default function ExplorePage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        const { data: feedData, error: feedError } = await (supabase as any)
-          .from('explore_feed')
-          .select('*, posts(*, profiles(*))')
-          .order('score', { ascending: false })
-          .limit(30);
+        // Query the posts table directly so row-level audience and block policies
+        // are enforced; the legacy explore_feed view can bypass RLS.
+        const feedData: any[] = [];
+        const feedError = true;
 
         if (!feedError && feedData && feedData.length > 0) {
           const mapped = feedData.map((item: any) => ({

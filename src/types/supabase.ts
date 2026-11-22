@@ -41,7 +41,7 @@ export interface Database {
           notif_dms: boolean | null
           notif_followers: boolean | null
           hide_activity: boolean | null
-          allow_mentions: boolean | null
+          allow_mentions: string | null
           is_following: boolean | null
           created_at: string
         }
@@ -76,7 +76,7 @@ export interface Database {
           notif_dms?: boolean | null
           notif_followers?: boolean | null
           hide_activity?: boolean | null
-          allow_mentions?: boolean | null
+          allow_mentions?: string | null
           is_following?: boolean | null
           created_at?: string
         }
@@ -111,7 +111,7 @@ export interface Database {
           notif_dms?: boolean | null
           notif_followers?: boolean | null
           hide_activity?: boolean | null
-          allow_mentions?: boolean | null
+          allow_mentions?: string | null
           is_following?: boolean | null
           created_at?: string
         }

@@ -1,9 +1,13 @@
-import React, { forwardRef } from 'react';
+/* From Uiverse.io by Uiverse — adapted for LBT Social chat messages.
+ * Original input pattern supplied by the project owner; voice control is a voice-note recorder only.
+ */
+import React, { forwardRef, useRef } from 'react';
 import { motion } from 'motion/react';
-import { Paperclip, Smile, Mic, MicOff, Send, ImageIcon } from 'lucide-react';
+import { Camera, Folder, Image as ImageIcon, Mic, MicOff, Plus, Send, Smile } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { sendMessage } from '../../lib/api/messages';
 import type { Chat } from '../../types';
+import './MessageInput.css';
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -36,141 +40,171 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
       isRecording,
       recordingDuration,
       replyToMessage,
-      showEmojiPicker,
       onTypeInputChange,
       onToggleEmojiPicker,
       onSendMessage,
       onStartRecording,
       onStopRecording,
-      onClearReply,
       onEmitTyping,
       onAttachmentSent,
     },
     ref
   ) => {
+    const imagePickerRef = useRef<HTMLInputElement>(null);
+    const cameraPickerRef = useRef<HTMLInputElement>(null);
+
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
+      e.target.value = '';
       if (!file || !activeChat) return;
-      const ext = file.name.split('.').pop();
-      const isVideo = file.type.startsWith('video/');
+      if (!file.type.startsWith('image/')) return;
+      if (file.size > 15 * 1024 * 1024) {
+        console.error('Image is larger than the 15 MB message limit.');
+        return;
+      }
+
+      const ext = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
       const path = `messages/${activeChat.id}/${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('messages-media').upload(path, file);
-      if (error) { console.error(error); return; }
+      const { error: uploadError } = await supabase.storage
+        .from('messages-media')
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) {
+        console.error('Image upload failed:', uploadError);
+        return;
+      }
+
       const { data: { publicUrl } } = supabase.storage.from('messages-media').getPublicUrl(path);
       try {
         const msg = await sendMessage(activeChat.id, '', {
-          messageType: isVideo ? 'video' : 'image',
+          messageType: 'image',
           mediaUrl: publicUrl,
-        } as any);
+        });
         onAttachmentSent(msg);
       } catch (err) {
-        console.error('Failed to send attachment:', err);
+        console.error('Failed to send image:', err);
       }
     };
 
+    const startVoiceNote = (e: React.PointerEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      if (!isRecording) onStartRecording();
+    };
+
+    const stopVoiceNote = () => {
+      if (isRecording) onStopRecording();
+    };
+
     return (
-      <footer className="p-4 bg-transparent border-t border-outline-variant/30 shrink-0">
-        <div className="bg-surface-container-lowest/95 dark:bg-surface-container/95 border border-outline-variant/30 backdrop-blur-md rounded-full flex items-center p-1.5 gap-2 shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-          <button className="w-9 h-9 rounded-full flex items-center justify-center text-outline hover:text-primary hover:bg-surface-container transition-colors shrink-0" aria-label="Attach file">
-            <Paperclip className="w-4.5 h-4.5" />
+      <footer className="lbt-chat-composer-footer">
+        <div className={`container-ia-chat lbt-chat-composer ${isRecording ? 'is-recording' : ''}`}>
+          <div className="container-upload-files" aria-label="Attach an image">
+            <button type="button" className="upload-file" title="Take a photo" aria-label="Take a photo" onClick={() => cameraPickerRef.current?.click()}>
+              <Camera />
+            </button>
+            <button type="button" className="upload-file" title="Choose an image" aria-label="Choose an image" onClick={() => imagePickerRef.current?.click()}>
+              <ImageIcon />
+            </button>
+            <button type="button" className="upload-file" title="Browse images" aria-label="Browse images" onClick={() => imagePickerRef.current?.click()}>
+              <Folder />
+            </button>
+          </div>
+
+          <input
+            ref={cameraPickerRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="lbt-composer-file-input"
+            onChange={handleImageUpload}
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+          <input
+            ref={imagePickerRef}
+            type="file"
+            accept="image/*"
+            className="lbt-composer-file-input"
+            onChange={handleImageUpload}
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+
+          <input
+            ref={ref}
+            type="text"
+            name="input-text"
+            value={typeInput}
+            placeholder="Message..."
+            className="input-text"
+            aria-label="Write a message"
+            onChange={(e) => {
+              onTypeInputChange(e.target.value);
+              onEmitTyping();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                onSendMessage();
+              }
+            }}
+            disabled={isRecording}
+          />
+
+          <button
+            type="button"
+            className="label-files"
+            aria-label="Attach an image"
+            title="Attach image"
+            onClick={() => imagePickerRef.current?.click()}
+          >
+            <Plus />
           </button>
 
-          {!isRecording && (
+          <button
+            type="button"
+            className="lbt-emoji-trigger"
+            aria-label="Open emoji picker"
+            title="Emoji"
+            onClick={onToggleEmojiPicker}
+            disabled={isRecording}
+          >
+            <Smile />
+          </button>
+
+          {!typeInput.trim() && !replyToMessage && (
             <button
-              onClick={onToggleEmojiPicker}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-outline hover:text-primary hover:bg-surface-container transition-colors shrink-0"
-              title="Emoji"
+              type="button"
+              className="label-voice"
+              aria-label={isRecording ? 'Stop voice message recording' : 'Hold to record a voice message'}
+              title={isRecording ? 'Stop recording' : 'Hold to record a voice message'}
+              onPointerDown={startVoiceNote}
+              onPointerUp={stopVoiceNote}
+              onPointerCancel={stopVoiceNote}
+              onPointerLeave={stopVoiceNote}
             >
-              <Smile className="w-4.5 h-4.5" />
+              {isRecording ? <MicOff className="icon-voice" /> : <Mic className="icon-voice" />}
             </button>
           )}
 
-          {!isRecording && (
-            <label className="w-9 h-9 flex items-center justify-center rounded-full bg-surface-container-highest cursor-pointer shrink-0" title="Send image or video">
-              <ImageIcon className="w-4 h-4 text-outline" />
-              <input
-                type="file"
-                accept="image/*,video/*"
-                className="hidden"
-                onChange={handleImageUpload}
-              />
-            </label>
-          )}
-
-          {isRecording ? (
-            <div className="flex-1 flex items-center gap-2 px-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-error animate-pulse" />
-              <span className="text-xs font-bold text-error">{formatDuration(recordingDuration)}</span>
-              <div className="flex-1 flex items-center gap-[2px] h-6">
-                {Array.from({ length: 30 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-[2px] bg-error/30 rounded-full animate-pulse"
-                    style={{
-                      height: `${Math.sin(Date.now() / 200 + i) * 50 + 50}%`,
-                      animationDelay: `${i * 30}ms`
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <input
-              ref={ref}
-              type="text"
-              value={typeInput}
-              onChange={(e) => {
-                onTypeInputChange(e.target.value);
-                onEmitTyping();
-              }}
-              placeholder="Type a message..."
-              onKeyDown={(e) => e.key === 'Enter' && onSendMessage()}
-              className="flex-1 bg-transparent border-none text-[15px] text-on-surface py-2 focus:ring-0 outline-none placeholder:text-outline-variant"
-            />
-          )}
-
-          {/* Reply button (shown when replyToMessage is set but no text typed yet) */}
-          {replyToMessage && !typeInput && !isRecording && (
-            <button
-              onClick={onSendMessage}
-              className="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition-all shrink-0"
-              aria-label="Send message"
-            >
-              <Send className="w-4 h-4 fill-white text-white ml-0.5" />
-            </button>
-          )}
-
-          {/* Microphone / Send toggle */}
-          {!typeInput.trim() && !isRecording && !replyToMessage ? (
-            <button
-              onMouseDown={onStartRecording}
-              onMouseUp={onStopRecording}
-              onMouseLeave={() => { if (isRecording) onStopRecording(); }}
-              onTouchStart={onStartRecording}
-              onTouchEnd={onStopRecording}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-outline hover:text-primary hover:bg-surface-container transition-colors shrink-0"
-              title="Hold to record voice message"
-            >
-              <Mic className="w-4.5 h-4.5" />
-            </button>
-          ) : isRecording ? (
-            <button
-              onClick={onStopRecording}
-              className="w-10 h-10 bg-error text-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition-all shrink-0 animate-pulse"
-              aria-label="Stop recording"
-            >
-              <MicOff className="w-4 h-4" />
-            </button>
-          ) : (
+          {(typeInput.trim() || replyToMessage) && !isRecording && (
             <motion.button
-              onClick={onSendMessage}
-              disabled={!typeInput.trim()}
-              whileTap={{ scale: 0.88, rotate: 12 }}
-              className="w-10 h-10 bg-primary disabled:opacity-40 text-white rounded-full flex items-center justify-center shadow-md transition-all shrink-0"
+              type="button"
+              className="label-text"
               aria-label="Send message"
+              title="Send message"
+              onClick={onSendMessage}
+              disabled={!typeInput.trim() && !replyToMessage}
+              whileTap={{ scale: 0.9 }}
             >
-              <Send className="w-4 h-4 fill-white text-white ml-0.5" />
+              <Send />
             </motion.button>
+          )}
+
+          {isRecording && (
+            <div className="lbt-recording-status" role="status">
+              <span className="lbt-recording-dot" />
+              Recording voice message · {formatDuration(recordingDuration)}
+            </div>
           )}
         </div>
       </footer>

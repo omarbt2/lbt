@@ -72,6 +72,8 @@ export default function MessagesPage() {
   const typingActiveRef = useRef(false);
   const audioElementsRef = useRef<Record<string, HTMLAudioElement>>({});
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recordingStopRequestedRef = useRef(false);
+  const recordingStartedAtRef = useRef<number | null>(null);
 
   // Hide disappearing messages immediately in an already-open conversation.
   // The database cron job remains responsible for physical deletion.
@@ -374,73 +376,110 @@ export default function MessagesPage() {
   };
 
   const startRecording = async () => {
+    recordingStopRequestedRef.current = false;
+    const chatIdAtStart = activeChatId;
+    const senderIdAtStart = currentUser.id;
+    if (!chatIdAtStart || !senderIdAtStart || typeof MediaRecorder === 'undefined') {
+      showPermissionDenied('microphone');
+      return;
+    }
+
+    let stream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // A quick pointer-up may happen before the microphone permission prompt
+      // resolves. In that case, do not unexpectedly begin recording later.
+      if (recordingStopRequestedRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
+      const mimeType = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+      ].find(type => MediaRecorder.isTypeSupported(type));
+      const mediaRecorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      recordingStartedAtRef.current = Date.now();
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const duration = recordingDuration;
+        stream?.getTracks().forEach(track => track.stop());
+        const recordedType = mediaRecorder.mimeType || mimeType || 'audio/webm';
+        const blob = new Blob(audioChunksRef.current, { type: recordedType });
+        const startedAt = recordingStartedAtRef.current;
+        const duration = startedAt ? Math.max(1, Math.round((Date.now() - startedAt) / 1000)) : 1;
+        recordingStartedAtRef.current = null;
         setRecordingDuration(0);
 
-        if (!activeChatId) return;
+        if (!blob.size || recordingStopRequestedRef.current && duration < 1) return;
 
         try {
-          const fileName = `voice/${currentUser.id}/${Date.now()}.webm`;
+          const extension = recordedType.includes('mp4') ? 'm4a' : 'webm';
+          const fileName = `voice/${senderIdAtStart}/${Date.now()}.${extension}`;
           const { error: uploadError } = await supabase.storage
             .from('voice-messages')
-            .upload(fileName, blob, { contentType: 'audio/webm' });
+            .upload(fileName, blob, { contentType: recordedType });
 
-          if (uploadError) {
-            console.error('Upload error:', uploadError);
-            return;
-          }
+          if (uploadError) throw uploadError;
 
           const { data: urlData } = supabase.storage
             .from('voice-messages')
             .getPublicUrl(fileName);
 
-          if (!urlData?.publicUrl) {
-            console.error('Failed to get voice message URL');
-            return;
-          }
+          if (!urlData?.publicUrl) throw new Error('Could not create a voice message URL.');
 
-          const voiceMsg = await sendMessage(activeChatId, '', {
+          const voiceMsg = await sendMessage(chatIdAtStart, '', {
             messageType: 'voice',
             voiceUrl: urlData.publicUrl,
             voiceDuration: duration,
+            expiresAt: disappearingEnabled
+              ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+              : undefined,
           });
 
-          setChats(prev => prev.map(c => {
-            if (c.id !== activeChatId) return c;
-            if (c.messages.some(m => m.id === voiceMsg.id)) return c;
-            return { ...c, messages: [...c.messages, voiceMsg] };
+          setChats(prev => prev.map(chat => {
+            if (chat.id !== chatIdAtStart) return chat;
+            if (chat.messages.some(message => message.id === voiceMsg.id)) return chat;
+            return { ...chat, messages: [...chat.messages, voiceMsg] };
           }));
-        } catch (e: any) {
-          console.error('Failed to send voice message:', e?.message || e);
+        } catch (error: any) {
+          console.error('Failed to send voice message:', error?.message || error);
         }
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error('Voice recording failed:', event);
+        stream?.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingDuration(0);
       recordingTimerRef.current = setInterval(() => {
-        setRecordingDuration(prev => prev + 1);
-      }, 1000);
-    } catch (e) {
-      console.error('Microphone access denied:', e);
+        const startedAt = recordingStartedAtRef.current;
+        setRecordingDuration(startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0);
+      }, 250);
+    } catch (error) {
+      stream?.getTracks().forEach(track => track.stop());
+      recordingStartedAtRef.current = null;
+      console.error('Microphone access or recording failed:', error);
       showPermissionDenied('microphone');
     }
   };
 
   const stopRecording = () => {
+    recordingStopRequestedRef.current = true;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }

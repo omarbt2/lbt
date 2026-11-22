@@ -86,7 +86,7 @@ function AppLayout() {
   const state = useAppState();
   const { currentUser, location, isReelsPage } = state;
 
-  const TAB_ORDER = ['/', '/explore', '/reels', '/messages', '/profile/me'];
+  const TAB_ORDER = ['/', '/explore', '/reels', '/messages'];
   const swipeStartXRef = React.useRef(0);
   const swipeStartYRef = React.useRef(0);
 

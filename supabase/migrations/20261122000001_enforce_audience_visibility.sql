@@ -1,23 +1,18 @@
 -- LBT: enforce post/story audience and close-friends visibility.
 -- Idempotent schema changes; safe to apply after the existing 2026-06 migrations.
 
+-- These columns are used by the current client but were missing from the
+-- historical migrations. Add them before setting defaults or creating policies.
 ALTER TABLE public.posts
-  ALTER COLUMN visibility SET DEFAULT 'public',
-  ALTER COLUMN close_friends_only SET DEFAULT false;
+  ADD COLUMN IF NOT EXISTS visibility text NOT NULL DEFAULT 'public',
+  ADD COLUMN IF NOT EXISTS close_friends_only boolean NOT NULL DEFAULT false;
 
 ALTER TABLE public.stories
-  ALTER COLUMN audience SET DEFAULT 'public',
-  ALTER COLUMN close_friends_only SET DEFAULT false;
+  ADD COLUMN IF NOT EXISTS audience text NOT NULL DEFAULT 'public',
+  ADD COLUMN IF NOT EXISTS close_friends_only boolean NOT NULL DEFAULT false;
 
--- The UI stores a three-state mention audience, not a boolean.
 ALTER TABLE public.profiles
-  ALTER COLUMN allow_mentions TYPE text
-  USING CASE
-    WHEN allow_mentions IS TRUE THEN 'everyone'
-    WHEN allow_mentions IS FALSE THEN 'nobody'
-    ELSE 'everyone'
-  END;
-ALTER TABLE public.profiles ALTER COLUMN allow_mentions SET DEFAULT 'everyone';
+  ADD COLUMN IF NOT EXISTS allow_mentions text NOT NULL DEFAULT 'everyone';
 
 CREATE TABLE IF NOT EXISTS public.close_friends (
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -125,6 +120,8 @@ CREATE POLICY posts_select_anon ON public.posts
 
 -- get_feed is SECURITY DEFINER, so it must apply the same audience checks
 -- itself instead of relying on table RLS.
+DROP FUNCTION IF EXISTS public.get_feed(uuid, integer, integer);
+
 CREATE OR REPLACE FUNCTION public.get_feed(
   p_user_id uuid,
   p_limit integer DEFAULT 20,

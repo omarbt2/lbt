@@ -41,7 +41,7 @@ const SUBPAGE_TITLES: Record<Subpage, string> = {
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { currentUser, darkMode, toggleDarkMode, triggerToast } = useOutletContext<OutletContextType>();
-  const { locale, setLocale, textSize: appTextSize, setTextSize: setAppTextSize } = useI18n();
+  const { locale, setLocale, setTextSize: setAppTextSize } = useI18n();
   const onNavigateToInsights = () => navigate('/insights');
   const onLogout = () => {
     if (window.confirm('Are you sure you want to log out?')) {

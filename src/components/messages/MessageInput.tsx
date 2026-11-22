@@ -99,7 +99,8 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
     };
 
     const stopVoiceNote = () => {
-      if (isRecording) onStopRecording();
+      // Always notify the recorder: microphone permission may still be pending.
+      onStopRecording();
     };
 
     return (

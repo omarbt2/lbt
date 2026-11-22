@@ -37,7 +37,7 @@ export async function isFollowing(targetId: string): Promise<boolean> {
 export async function getFollowers(userId: string): Promise<User[]> {
   const { data, error } = await supabase
     .from('follows')
-    .select('profiles:follower_id(id, username, display_name, avatar_url, bio, cover_url, website, phone, is_private, is_verified, posts_count, followers_count, following_count)')
+    .select('profiles:follower_id(id, username, display_name, avatar_url, bio, cover_url, website, is_private, is_verified, posts_count, followers_count, following_count)')
     .eq('following_id', userId)
     .order('created_at', { ascending: false });
   if (error || !data) return [];
@@ -47,7 +47,7 @@ export async function getFollowers(userId: string): Promise<User[]> {
 export async function getFollowing(userId: string): Promise<User[]> {
   const { data, error } = await supabase
     .from('follows')
-    .select('profiles:following_id(id, username, display_name, avatar_url, bio, cover_url, website, phone, is_private, is_verified, posts_count, followers_count, following_count)')
+    .select('profiles:following_id(id, username, display_name, avatar_url, bio, cover_url, website, is_private, is_verified, posts_count, followers_count, following_count)')
     .eq('follower_id', userId)
     .order('created_at', { ascending: false });
   if (error || !data) return [];

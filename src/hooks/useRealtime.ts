@@ -20,6 +20,10 @@ export function useRealtimeMessages(
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
+          const incoming = payload.new as any;
+          if (incoming.message_type === 'call') return;
+          if (incoming.expires_at && new Date(incoming.expires_at).getTime() <= Date.now()) return;
+
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
@@ -58,6 +62,7 @@ export function useRealtimeMessages(
             reply_to: replyTo,
             reactions_count: payload.new.reactions_count || 0,
             reactions: [],
+            expires_at: payload.new.expires_at || null,
             timeLabel: 'Just now',
           });
         }

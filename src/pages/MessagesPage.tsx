@@ -131,7 +131,10 @@ export default function MessagesPage() {
         .select('conversation_id')
         .in('conversation_id', ids)
         .eq('is_read', false)
-        .neq('sender_id', currentUser.id);
+        .neq('sender_id', currentUser.id)
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+        .neq('message_type', 'call')
+        .neq('message_type', 'video');
       if (!data) return;
       const counts: Record<string, number> = {};
       data.forEach((m: any) => {
@@ -503,8 +506,10 @@ export default function MessagesPage() {
   };
 
   const handleMessageLongPress = (messageId: string) => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = setTimeout(() => {
-      setReactionPickerMessageId(reactionPickerMessageId === messageId ? null : messageId);
+      setReactionPickerMessageId(messageId);
+      longPressTimerRef.current = null;
     }, 500);
   };
 

@@ -95,7 +95,9 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   const handleReactionLongPress = useCallback((postId: string) => {
+    longPressTriggeredRef.current = false;
     longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
       setReactionPickerPostId(postId);
     }, 500);
   }, []);
@@ -150,6 +152,7 @@ export default function HomePage() {
   const [reactionPickerPostId, setReactionPickerPostId] = useState<string | null>(null);
   const [postReactions, setPostReactions] = useState<Record<string, { emoji: string; count: number; has_reacted: boolean }[]>>({});
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   const onTouchStart = useCallback((e: TouchEvent) => {
     const scrollEl = document.getElementById('root');
@@ -368,7 +371,10 @@ export default function HomePage() {
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <button
-                    onClick={() => handleLikeToggle(post.id)}
+                    onClick={() => {
+                      if (longPressTriggeredRef.current) { longPressTriggeredRef.current = false; return; }
+                      handleLikeToggle(post.id);
+                    }}
                     onMouseDown={() => handleReactionLongPress(post.id)}
                     onMouseUp={handleReactionPressEnd}
                     onMouseLeave={handleReactionPressEnd}

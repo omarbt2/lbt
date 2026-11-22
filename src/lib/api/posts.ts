@@ -388,9 +388,6 @@ export async function createPost(postData: {
       tags: postData.tags || [],
       close_friends_only: postData.close_friends_only ?? false,
       visibility: postData.visibility || 'public',
-      likes_count: 0,
-      comments_count: 0,
-      shares_count: 0,
     } as any)
     .select('*, profiles!posts_user_id_fkey(*)')
     .single();

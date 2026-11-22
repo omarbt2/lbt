@@ -20,7 +20,6 @@ export interface Database {
           cover_url: string | null
           bio: string | null
           website: string | null
-          phone: string | null
           is_private: boolean | null
           is_verified: boolean | null
           is_online: boolean | null
@@ -30,9 +29,6 @@ export interface Database {
           following_count: number
           blocked_count: number | null
           muted_count: number | null
-          dob: string | null
-          date_of_birth: string | null
-          gender: string | null
           status_emoji: string | null
           status_text: string | null
           status_expires_at: string | null
@@ -55,7 +51,6 @@ export interface Database {
           cover_url?: string | null
           bio?: string | null
           website?: string | null
-          phone?: string | null
           is_private?: boolean | null
           is_verified?: boolean | null
           is_online?: boolean | null
@@ -65,9 +60,6 @@ export interface Database {
           following_count?: number
           blocked_count?: number | null
           muted_count?: number | null
-          dob?: string | null
-          date_of_birth?: string | null
-          gender?: string | null
           status_emoji?: string | null
           status_text?: string | null
           status_expires_at?: string | null
@@ -90,7 +82,6 @@ export interface Database {
           cover_url?: string | null
           bio?: string | null
           website?: string | null
-          phone?: string | null
           is_private?: boolean | null
           is_verified?: boolean | null
           is_online?: boolean | null
@@ -100,9 +91,6 @@ export interface Database {
           following_count?: number
           blocked_count?: number | null
           muted_count?: number | null
-          dob?: string | null
-          date_of_birth?: string | null
-          gender?: string | null
           status_emoji?: string | null
           status_text?: string | null
           status_expires_at?: string | null

@@ -18,7 +18,10 @@ Branch: `fix/lbt-social-ux-and-reel-interactions`
 - Applied `20261122200259_lbt_rpc_messaging_and_view_security` and `20261122200354_lbt_trigger_function_acl_and_reaction_update`: tightened conversation/message membership checks, restricted reactions and view rows, scoped caller-bound RPCs, removed duplicate unread-count triggers, and removed Data API execution from trigger-only functions.
 - Applied `20261122200849_lbt_private_profile_personal_data`: moved `phone`, `dob`, `date_of_birth`, and `gender` into the non-exposed `private.profile_private_data` table, copied existing values, exposed owner-only get/update RPCs, then dropped the sensitive columns from `public.profiles`.
 - Applied `20261122200900_lbt_reconcile_message_unread_counters`: fixed read-trigger recalculation and reconciled stored unread counts against unread message rows.
-- All five additional migration source files are committed under `supabase/migrations/` with matching versions. No Auth users or user-generated content were deleted.
+- Applied `20261122201311_lbt_private_profile_rls_defense_policy`: added a defense-in-depth owner-only RLS policy to the private profile data table while retaining revoked direct table privileges.
+- Applied `20261122201447_lbt_enforce_private_follow_requests_and_blocked_dm_access` and `20261122201558_lbt_secure_follow_acceptance_and_blocked_dm_reads`: blocked direct follows of private accounts, allowed accepted follow requests to create the relationship, and hid conversation/message history after a block.
+- Applied `20261122201939_lbt_restrict_profile_column_writes` and `20261122202015_lbt_restrict_profile_and_message_mutations`: limited profile INSERT/UPDATE to user-editable fields, removed direct message UPDATE access, and limited direct notification UPDATE to `is_read`.
+- Matching migration files for all applied versions are committed under `supabase/migrations/`. No Auth users or user-generated content were deleted.
 - Consolidated the settings entry point so Personal Information opens the dedicated Edit Profile page.
 - Persisted appearance/media preferences locally, applied autoplay/data-saver choices to feed and reel playback, and connected language/text-size settings to the app i18n provider.
 - Fixed privacy preference rollback when database updates fail and aligned the mention-audience setting with its actual three-state values.
@@ -29,7 +32,7 @@ Branch: `fix/lbt-social-ux-and-reel-interactions`
 
 ## Important environment limitations
 
-- The connected Supabase project `chat` (`nopnxlhknrrsttouevxd`, eu-west-1) is active. The audience, RPC/messaging, private-profile-data, trigger-ACL and unread-count migrations are applied directly and confirmed in migration history. Verification confirms zero sensitive columns remain in `public.profiles`, prior phone/date/gender values were moved to the private table, anonymous roles cannot execute the private-data RPCs, and all conversation unread counters match the message rows. No Auth users or user-generated content were deleted.
+- The connected Supabase project `chat` (`nopnxlhknrrsttouevxd`, eu-west-1) is active. The audience, RPC/messaging, private-profile-data, trigger-ACL and unread-count migrations are applied directly and confirmed in migration history. Verification confirms zero sensitive columns remain in `public.profiles`, prior phone/date/gender values were moved to the private table, anon and authenticated roles cannot read the private table directly, anon cannot execute private-data RPCs, and all conversation unread counters match the message rows. Direct message UPDATE is revoked; notification UPDATE is limited to `is_read`; profile updates cannot change verification or aggregate counters. No Auth users or user-generated content were deleted.
 - Added `.github/workflows/quality.yml` to run locked dependency installation, TypeScript checking, the production web/server build, Capacitor Android sync, and a debug APK build on pushes and pull requests. The TypeScript, production web build, Capacitor sync, and Android debug APK build passed on commit `3d4f4cb9bc9ce0fd0c6a9018e312b92fb1b96b78`; GitHub Actions uploaded the `lbt-android-debug` artifact. Later migration-only commits have new CI runs; check the latest run before merging. This is a CI build, not a real-device verification.
 - A local dependency install, TypeScript check, Vite production build, Android Gradle build, and real-device tests have not been executed from this environment.
 - Camera capabilities (4K/1080p availability, optical zoom, torch, microphone, MediaRecorder codecs, and recording quality) vary by device/WebView. The implementation uses browser APIs with capability fallbacks; it is not a replacement for the native Snapchat camera pipeline.
@@ -41,6 +44,7 @@ Branch: `fix/lbt-social-ux-and-reel-interactions`
 - Supabase Security Advisor still reports some SECURITY DEFINER RPCs. The remaining functions have explicit caller/ownership checks and are retained where the client or trusted trigger path needs privileged access; do not blanket-revoke their EXECUTE grants.
 - Auth leaked-password protection is still disabled in Supabase Auth settings and must be enabled in the Dashboard.
 - Performance Advisor continues to report pre-existing unindexed foreign keys, RLS initplan notices, duplicate indexes and permissive policy overlap on unrelated tables. Those require a separate table-by-table cleanup rather than broad policy deletion.
+- Auth leaked-password protection is a project-level Auth setting; it has not been changed from this migration pass.
 
 ## Required pre-release verification
 

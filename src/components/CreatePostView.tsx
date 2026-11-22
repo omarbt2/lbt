@@ -85,9 +85,9 @@ export default function CreatePostView({
       setPublishError(isReelMode ? 'Choose a video file to create a reel.' : 'Choose an image or video file.');
       return;
     }
-    const maxBytes = validVideo ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
+    const maxBytes = validVideo ? 50 * 1024 * 1024 : 25 * 1024 * 1024;
     if (file.size > maxBytes) {
-      setPublishError(validVideo ? 'Videos must be smaller than 100 MB.' : 'Images must be smaller than 25 MB.');
+      setPublishError(validVideo ? 'Videos must be smaller than 50 MB.' : 'Images must be smaller than 25 MB.');
       return;
     }
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);

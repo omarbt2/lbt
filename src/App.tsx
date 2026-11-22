@@ -125,6 +125,7 @@ function AppLayout() {
     liveNotifications: state.liveNotifications,
     showAddStoryModal: state.showAddStoryModal,
     setShowAddStoryModal: state.setShowAddStoryModal,
+    setShowNoteInput: state.setShowNoteInput,
     handleStoryAdded: state.handleStoryAdded,
     handleViewStory: state.handleViewStory,
     handleMarkAllNotificationsAsRead: state.handleMarkAllNotificationsAsRead,
@@ -139,7 +140,7 @@ function AppLayout() {
     state.loadMore, state.refresh,
     state.handleLikeToggle, state.handleBookmarkToggle, state.handleAddComment, state.handleDeletePost,
     state.storyGroups, state.liveNotifications,
-    state.showAddStoryModal, state.setShowAddStoryModal,
+    state.showAddStoryModal, state.setShowAddStoryModal, state.setShowNoteInput,
     state.handleStoryAdded, state.handleViewStory, state.handleMarkAllNotificationsAsRead,
     state.postMenuPostId, state.setPostMenuPostId,
     state.showPermissionDenied,
@@ -376,13 +377,13 @@ function AppLayout() {
 
       <MobileNav
         navVisible={state.navVisible}
-        isReelsPage={isReelsPage}
         unreadMessages={state.unreadMessages}
         showCreateMenu={state.showCreateMenu}
         setShowCreateMenu={state.setShowCreateMenu}
         setCreatePostType={state.setCreatePostType}
         setShowCreatePost={state.setShowCreatePost}
         setShowNoteInput={state.setShowNoteInput}
+        setShowAddStoryModal={state.setShowAddStoryModal}
       />
 
       <NoteInputModal

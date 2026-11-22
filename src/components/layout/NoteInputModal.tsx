@@ -20,6 +20,7 @@ export default function NoteInputModal({ isOpen, onClose, currentUser }: NoteInp
         content: noteText.trim(),
         expires_at: expiresAt,
       }, { onConflict: 'user_id' });
+      window.dispatchEvent(new Event('lbt:notes-updated'));
       onClose();
       setNoteText('');
     } catch (e) {

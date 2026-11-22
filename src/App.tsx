@@ -52,7 +52,7 @@ function LoadingSpinner() {
   return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
-        <img src="/web/icon-192.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
+        <img src="/logo.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
         <div className="w-5 h-5 border-2 border-gray-200 border-t-black dark:border-t-white rounded-full animate-spin" />
       </div>
     </div>
@@ -67,7 +67,7 @@ function NotFoundPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
       <div className="flex flex-col items-center gap-4 text-center">
-        <img src="/web/icon-192.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
+        <img src="/logo.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
         <h1 className="text-2xl font-bold text-on-surface">Page Not Found</h1>
         <p className="text-outline text-sm">The page you're looking for doesn't exist.</p>
         <a href="/" className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium">

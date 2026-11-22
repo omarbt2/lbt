@@ -339,12 +339,23 @@ export default function HomePage() {
                 onClick={() => navigate('/post/' + post.id)}
                 className="w-full relative aspect-square sm:aspect-[4/3] bg-surface-container-lowest cursor-pointer overflow-hidden -mx-4 md:mx-0 w-[calc(100%+2rem)] md:w-full rounded-2xl md:rounded-none group shadow-inner"
               >
-                <img
-                  src={post.imageUrl}
-                  alt={post.caption ? `Photo by ${post.user.name}: ${post.caption.slice(0, 50)}` : `Photo by ${post.user.name}`}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
-                />
+                {post.mediaType === 'video' ? (
+                  <video
+                    src={post.imageUrl}
+                    className="w-full h-full object-cover"
+                    controls
+                    playsInline
+                    preload="metadata"
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                ) : (
+                  <img
+                    src={post.imageUrl}
+                    alt={post.caption ? `Photo by ${post.user.name}: ${post.caption.slice(0, 50)}` : `Photo by ${post.user.name}`}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                  />
+                )}
                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <span className="text-white text-xs font-bold bg-black/50 px-4 py-2 rounded-full backdrop-blur-md">
                     View post

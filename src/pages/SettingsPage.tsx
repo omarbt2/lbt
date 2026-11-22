@@ -292,7 +292,8 @@ export default function SettingsPage() {
       const { error } = await supabase.auth.updateUser({ email: editEmail.trim() });
       if (error) throw error;
       setIsEmailVerifying(false);
-      setIsEmailVerified(true);
+      setIsEmailVerified(false);
+      setSaveFeedback('Confirmation email requested. Verify it from your inbox before the address changes.');
     } catch (err: any) {
       setSaveFeedback(err?.message || 'Failed to send verification email');
       setIsEmailVerifying(false);

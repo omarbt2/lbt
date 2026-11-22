@@ -488,8 +488,8 @@ export default function AddStoryView({ onClose, onStoryAdded }: AddStoryProps) {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.type.startsWith('video/')) {
-      if (file.size > 100 * 1024 * 1024) {
-        setStoryError('Choose a video smaller than 100 MB.');
+      if (file.size > 50 * 1024 * 1024) {
+        setStoryError('Choose a video smaller than 50 MB.');
         event.target.value = '';
         return;
       }

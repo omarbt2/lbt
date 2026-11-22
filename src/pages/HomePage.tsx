@@ -348,7 +348,9 @@ export default function HomePage() {
                     className="w-full h-full object-cover"
                     controls
                     playsInline
-                    preload="metadata"
+                    muted
+                    autoPlay={localStorage.getItem('lbt_auto_play') !== 'false' && localStorage.getItem('lbt_data_saver') !== 'true'}
+                    preload={localStorage.getItem('lbt_data_saver') === 'true' ? 'none' : 'metadata'}
                     onClick={(event) => event.stopPropagation()}
                   />
                 ) : (

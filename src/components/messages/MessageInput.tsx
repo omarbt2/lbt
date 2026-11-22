@@ -1,7 +1,7 @@
 /* From Uiverse.io by Uiverse — adapted for LBT Social chat messages.
  * Original input pattern supplied by the project owner; voice control is a voice-note recorder only.
  */
-import React, { forwardRef, useRef } from 'react';
+import React, { forwardRef, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Camera, Folder, Image as ImageIcon, Mic, MicOff, Plus, Send, Smile } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -52,36 +52,44 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
   ) => {
     const imagePickerRef = useRef<HTMLInputElement>(null);
     const cameraPickerRef = useRef<HTMLInputElement>(null);
+    const [uploadError, setUploadError] = useState<string | null>(null);
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       e.target.value = '';
+      setUploadError(null);
       if (!file || !activeChat) return;
-      if (!file.type.startsWith('image/')) return;
+      if (!file.type.startsWith('image/')) {
+        setUploadError('Please choose an image file.');
+        return;
+      }
       if (file.size > 15 * 1024 * 1024) {
-        console.error('Image is larger than the 15 MB message limit.');
+        setUploadError('Images must be 15 MB or smaller.');
         return;
       }
 
-      const ext = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
-      const path = `messages/${activeChat.id}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('messages-media')
-        .upload(path, file, { contentType: file.type, upsert: false });
-      if (uploadError) {
-        console.error('Image upload failed:', uploadError);
-        return;
-      }
-
-      const { data: { publicUrl } } = supabase.storage.from('messages-media').getPublicUrl(path);
       try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) throw new Error('Sign in again before attaching an image.');
+
+        const ext = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
+        // chat-media is the provisioned Supabase bucket. The first path segment
+        // is the authenticated uploader ID, matching the existing storage policy.
+        const path = `${user.id}/${activeChat.id}/${Date.now()}.${ext}`;
+        const { error: storageError } = await supabase.storage
+          .from('chat-media')
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (storageError) throw storageError;
+
+        const { data: { publicUrl } } = supabase.storage.from('chat-media').getPublicUrl(path);
         const msg = await sendMessage(activeChat.id, '', {
           messageType: 'image',
           mediaUrl: publicUrl,
         });
         onAttachmentSent(msg);
-      } catch (err) {
-        console.error('Failed to send image:', err);
+      } catch (err: any) {
+        console.error('Image attachment failed:', err);
+        setUploadError(err?.message || 'Could not attach this image. Please try again.');
       }
     };
 
@@ -208,6 +216,9 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
             </div>
           )}
         </div>
+        {uploadError && (
+          <p className="lbt-composer-error" role="alert">{uploadError}</p>
+        )}
       </footer>
     );
   }

@@ -200,7 +200,7 @@ export default function SettingsPage() {
 
   const updateProfileField = async (field: string, value: any) => {
     const { error } = await (supabase.from('profiles') as any).update({ [field]: value }).eq('id', currentUser.id);
-    if (error) console.error(`Failed to update profile field "${field}":`, error.message);
+    if (error) throw error;
   };
 
   // --- FAQ state ---

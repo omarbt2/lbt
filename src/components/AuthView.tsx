@@ -178,7 +178,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
   }
 
   return (
-    <div className="min-h-screen bg-surface-container-low font-sans text-on-surface flex flex-col items-center justify-center p-6 bg-radial-gradient from-primary/10 to-transparent">
+    <div className="lbt-auth-page min-h-screen bg-surface-container-low font-sans text-on-surface flex flex-col items-center justify-center p-6 bg-radial-gradient from-primary/10 to-transparent">
       <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-surface-container-low rounded-full blur-3xl pointer-events-none" />
 

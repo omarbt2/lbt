@@ -1140,6 +1140,18 @@ export interface Database {
           created_at: string
         }[]
       }
+      mark_messages_read: {
+        Args: {
+          p_conversation_id: string
+        }
+        Returns: void
+      }
+      mark_messages_seen: {
+        Args: {
+          p_conversation_id: string
+        }
+        Returns: void
+      }
       get_unread_messages_count: {
         Args: {
           p_user_id: string

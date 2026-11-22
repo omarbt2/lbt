@@ -125,7 +125,7 @@ export async function getPosts(
               posts_count: profile.posts_count ?? 0,
               followersCount: profile.followers_count ?? 0,
               followingCount: profile.following_count ?? 0,
-              isFollowing: false,
+              isFollowing: p.is_following ?? false,
             }
           : {
               id: p.user_id || '',

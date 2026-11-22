@@ -221,21 +221,14 @@ export async function removeReaction(messageId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const { error } = await supabase
     .from('message_reactions')
     .delete()
     .eq('message_id', messageId)
     .eq('user_id', user.id);
 
-  const { count } = await supabase
-    .from('message_reactions')
-    .select('*', { count: 'exact', head: true })
-    .eq('message_id', messageId);
-
-  await supabase
-    .from('messages')
-    .update({ reactions_count: count || 0 })
-    .eq('id', messageId);
+  if (error) throw error;
+  // The database trigger decrements reactions_count for the deleted row.
 }
 
 export async function upsertTypingIndicator(conversationId: string): Promise<void> {

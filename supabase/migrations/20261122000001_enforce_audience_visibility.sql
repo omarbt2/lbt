@@ -392,7 +392,8 @@ CREATE POLICY posts_select_authenticated
           AND private.lbt_follows_owner(posts.user_id)
         )
         OR (
-          COALESCE(close_friends_only, false) = true
+          COALESCE(visibility, 'public') <> 'private'
+          AND COALESCE(close_friends_only, false) = true
           AND private.lbt_is_close_friend_of(posts.user_id)
           AND (
             NOT private.lbt_profile_is_private(posts.user_id)
@@ -528,7 +529,8 @@ BEGIN
         AND private.lbt_follows_owner(p.user_id)
       )
       OR (
-        COALESCE(p.close_friends_only, false) = true
+        COALESCE(p.visibility, 'public') <> 'private'
+        AND COALESCE(p.close_friends_only, false) = true
         AND private.lbt_is_close_friend_of(p.user_id)
         AND (
           NOT private.lbt_profile_is_private(p.user_id)

@@ -38,6 +38,12 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Dependency security audit
+        continue-on-error: true
+        run: |
+          npm audit --json > npm-audit.json || true
+          node -e "const r=require('./npm-audit.json'); console.log('npm audit summary:', JSON.stringify(r.metadata?.vulnerabilities || r.error || {})); for (const [name, issue] of Object.entries(r.vulnerabilities || {})) console.log(name + ': severity=' + issue.severity + ', direct=' + issue.isDirect + ', fix=' + JSON.stringify(issue.fixAvailable));"
+
       - name: TypeScript check
         run: npm run lint
 

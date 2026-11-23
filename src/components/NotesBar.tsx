@@ -73,7 +73,8 @@ export default function NotesBar({ currentUser, onOpenNoteModal }: NotesBarProps
       <div className="flex gap-3 px-4 py-2 overflow-x-auto no-scrollbar" style={{ scrollbarWidth: 'none' }}>
         {currentUser && (
           <button
-            onClick={() => onOpenNoteModal?.()}
+            type="button"
+            onClick={() => onOpenNoteModal?.()
             className="flex flex-col items-center gap-1.5 flex-shrink-0 group"
           >
             <div className="relative">
@@ -82,7 +83,7 @@ export default function NotesBar({ currentUser, onOpenNoteModal }: NotesBarProps
                 userId={currentUser.id}
                 name={currentUser.name}
                 size="lg"
-                className="w-[60px] h-[60px] border-2 border-primary/50"
+                className="w-[56px] h-[56px] border-2 border-primary/50"
               />
               <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center border-2 border-surface-container-lowest shadow-sm z-20">
                 <span className="text-white text-[11px] font-bold leading-none">+</span>
@@ -98,7 +99,7 @@ export default function NotesBar({ currentUser, onOpenNoteModal }: NotesBarProps
                 </div>
               )}
             </div>
-            <span className="text-[9px] text-on-surface-variant font-medium">
+            <span className="text-[10px] text-on-surface-variant font-medium">
               {myNote ? 'Edit note' : 'Your note'}
             </span>
           </button>

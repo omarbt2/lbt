@@ -52,7 +52,7 @@ export default function HomePage() {
     handleLikeToggle, handleBookmarkToggle, handleAddComment, handleDeletePost,
     currentUser, storyGroups, triggerToast, setShowAddStoryModal, setShowNoteInput, handleViewStory,
     postMenuPostId, setPostMenuPostId,
-    setRepostTargetPost, setShowRepostModal, handleRepostDirect,
+    handleRepostDirect,
   } = useOutletContext<OutletContextType>();
 
   const sentinelRef = useRef<HTMLDivElement>(null);

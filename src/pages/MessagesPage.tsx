@@ -32,7 +32,7 @@ import EmojiPickerPanel from '../components/messages/EmojiPickerPanel';
 const QUICK_EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
 export default function MessagesPage() {
-  const { currentUser, showPermissionDenied } = useOutletContext<OutletContextType>();
+  const { currentUser, showPermissionDenied, triggerToast } = useOutletContext<OutletContextType>();
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [typeInput, setTypeInput] = useState('');
@@ -552,10 +552,11 @@ export default function MessagesPage() {
       }
 
       setReactionPickerMessageId(null);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to toggle reaction:', e);
+      triggerToast(e?.message || 'Could not update reaction. Try again.', 'error');
     }
-  }, [activeChat, currentUser.id]);
+  }, [activeChat, currentUser.id, triggerToast]);
 
   const handleMessageContextMenu = (e: React.MouseEvent, messageId: string) => {
     e.preventDefault();

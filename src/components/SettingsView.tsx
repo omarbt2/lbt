@@ -780,9 +780,9 @@ export default function SettingsView({
 
       {/* Logout confirmation modal */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)}>
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm md:items-center" onClick={() => setShowLogoutConfirm(false)}>
           <div
-            className="w-full max-w-md bg-surface-container rounded-t-3xl p-6 flex flex-col gap-4 mb-0"
+            className="w-full max-w-md bg-surface-container rounded-t-3xl p-6 flex flex-col gap-4 mb-0 md:rounded-3xl"
             onClick={e => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-white/20 rounded-full mx-auto" />

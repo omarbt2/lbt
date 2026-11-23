@@ -33,7 +33,7 @@ interface MessageInputProps {
 }
 
 const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
-  ({ activeChat, typeInput, isRecording, recordingDuration, replyToMessage,
+  ({ activeChat, typeInput, isRecording, recordingDuration,
     onTypeInputChange, onToggleEmojiPicker, onSendMessage, onStartRecording,
     onStopRecording, onEmitTyping, onAttachmentSent }, ref) => {
     const cameraPickerRef = useRef<HTMLInputElement>(null);

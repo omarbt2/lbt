@@ -18,6 +18,7 @@ export interface User {
   followingCount?: number;
   status_emoji?: string | null;
   status_text?: string | null;
+  status_expires_at?: string | null;
   is_online?: boolean | null;
 }
 

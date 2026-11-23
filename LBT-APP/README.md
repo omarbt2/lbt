@@ -1,12 +1,7 @@
-## Created with Capacitor Create App
+# Legacy Capacitor shell
 
-This app was created using [`@capacitor/create-app`](https://github.com/ionic-team/create-capacitor-app),
-and comes with a very minimal shell for building an app.
+This directory contains an earlier Capacitor starter shell retained for reference.
 
-### Running this example
+The active LBT application is maintained at the repository root. Use the root `package.json`, `capacitor.config.ts`, `src/`, and `android/` project for current development.
 
-To run the provided example, you can use `npm start` command.
-
-```bash
-npm start
-```
+Do not install dependencies or build the application from this directory. The legacy platform scaffold should only be removed after any required native platform assets have been migrated to the active project.

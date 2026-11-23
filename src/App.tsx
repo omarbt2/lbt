@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useEffect, useMemo, lazy, Suspense } from 'react';
 import { Routes, Route, Outlet, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { WifiOff } from 'lucide-react';
@@ -11,7 +11,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import BottomSheetMenu from './components/ui/BottomSheetMenu';
 import type { BottomSheetMenuItem } from './components/ui/BottomSheetMenu';
-import OnboardingView from './components/OnboardingView';
 import { IconEdit, IconTrash, IconFlag, IconShare, IconSave, IconArchive } from './components/ui/MenuIcons';
 import { supabase } from './lib/supabase';
 import { requestNotificationPermission, subscribeToPush } from './lib/notifications';
@@ -360,7 +359,7 @@ function AppLayout() {
 
       <div className={`flex max-w-7xl mx-auto w-full relative ${isReelsPage ? 'h-dvh' : 'h-[calc(100dvh-4rem)]'} min-h-0 overflow-x-clip`}>
         <section
-          className={`min-h-0 flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'pb-0 pt-0 px-0' : isPostDetailPage ? 'px-0 pb-0 pt-16 md:pt-0 md:px-6' : 'px-0 pb-20 pt-16 md:pt-0 md:pb-6 md:px-6'}`}
+          className={`lbt-mobile-content-offset min-h-0 flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'lbt-mobile-content--fullbleed pb-0 px-0' : isPostDetailPage ? 'px-0 pb-0 md:px-6' : 'px-0 pb-20 md:pb-6 md:px-6'}`}
           style={{ WebkitOverflowScrolling: 'touch' }}
           onTouchStart={handleSwipeStart}
           onTouchEnd={handleSwipeEnd}
@@ -463,10 +462,6 @@ function AppLayout() {
 
 export default function App() {
   const { initialize } = useAuthStore();
-  const [onboardingComplete, setOnboardingComplete] = useState(() => {
-    return localStorage.getItem('lbt_onboarding_complete') === 'true';
-  });
-
   useEffect(() => { initialize(); }, [initialize]);
 
   useEffect(() => {
@@ -483,13 +478,6 @@ export default function App() {
       });
     }
   }, [currentUser?.id]);
-
-  useEffect(() => {
-    if (currentUser?.id && !onboardingComplete) {
-      localStorage.setItem('lbt_onboarding_complete', 'true');
-      setOnboardingComplete(true);
-    }
-  }, [currentUser?.id, onboardingComplete]);
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -511,15 +499,6 @@ export default function App() {
       (supabase.rpc as any)('update_user_presence', { p_is_online: false });
     };
   }, [currentUser?.id]);
-
-  const handleOnboardingComplete = () => {
-    localStorage.setItem('lbt_onboarding_complete', 'true');
-    setOnboardingComplete(true);
-  };
-
-  if (!onboardingComplete) {
-    return <OnboardingView onComplete={handleOnboardingComplete} />;
-  }
 
   return (
     <I18nProvider>

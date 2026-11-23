@@ -78,6 +78,7 @@ export function mapProfileToUser(profile: any): User {
     isFollowing: profile.is_following ?? false,
     status_emoji: profile.status_emoji ?? null,
     status_text: profile.status_text ?? null,
+    status_expires_at: profile.status_expires_at ?? null,
     is_online: profile.is_online ?? null,
   };
 }

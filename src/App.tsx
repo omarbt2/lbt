@@ -388,7 +388,7 @@ function AppLayout() {
         </section>
       </div>
 
-      {!isReelsPage && !isPostDetailPage && (
+      {!isReelsPage && !isPostDetailPage && !state.showCreatePost && (
       <MobileNav
         navVisible={state.navVisible}
         unreadMessages={state.unreadMessages}

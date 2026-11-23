@@ -114,16 +114,16 @@ export default function MobileNav({
                 aria-label="Create content"
               >
                 <div className="lbt-create-popover-heading">Create something</div>
-                <button type="button" onClick={() => openCreate('post')}>
+                <button type="button" aria-label="Create post" title="Post" onClick={() => openCreate('post')}>
                   <Image aria-hidden="true" /><span>Post</span>
                 </button>
-                <button type="button" onClick={() => openCreate('reel')}>
+                <button type="button" aria-label="Create reel" title="Reel" onClick={() => openCreate('reel')}>
                   <Video aria-hidden="true" /><span>Reel</span>
                 </button>
-                <button type="button" onClick={() => { setShowCreateMenu(false); setShowAddStoryModal(true); }}>
+                <button type="button" aria-label="Create story" title="Story" onClick={() => { setShowCreateMenu(false); setShowAddStoryModal(true); }}>
                   <Camera aria-hidden="true" /><span>Story</span>
                 </button>
-                <button type="button" onClick={() => { setShowCreateMenu(false); setShowNoteInput(true); }}>
+                <button type="button" aria-label="Create note" title="Note" onClick={() => { setShowCreateMenu(false); setShowNoteInput(true); }}>
                   <Zap aria-hidden="true" /><span>Note</span>
                 </button>
               </motion.div>

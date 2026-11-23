@@ -489,8 +489,8 @@ export default function SettingsPage() {
                 <UserIcon className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <span className="text-xs font-bold text-on-surface block">Personal Information</span>
-                <span className="text-[10px] text-outline">Name, username, bio, avatar, cover and status</span>
+                <span className="text-xs font-bold text-on-surface block">Edit Profile</span>
+                <span className="text-[10px] text-outline">Name, username, bio, contact details, photos and status</span>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-outline" />

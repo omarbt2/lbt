@@ -27,13 +27,13 @@ import type { BottomSheetMenuItem } from '../components/ui/BottomSheetMenu';
 type Subpage = 'personal' | 'security' | 'notifications' | 'faq' | 'about' | 'pro' | 'privacy' | 'appearance' | 'media';
 
 const SUBPAGE_TITLES: Record<Subpage, string> = {
-  personal: 'Personal Information',
+  personal: 'Edit Profile',
   security: 'Security & Password',
   notifications: 'Notifications',
   faq: 'Help Center',
   about: 'About LBT',
   pro: 'LBT Pro',
-  privacy: 'Privacy Settings',
+  privacy: 'Privacy & Account',
   appearance: 'Appearance',
   media: 'Media & Data',
 };
@@ -200,8 +200,15 @@ export default function SettingsPage() {
   }, [currentUser?.id]);
 
   const updateProfileField = async (field: string, value: any) => {
-    const { error } = await (supabase.from('profiles') as any).update({ [field]: value }).eq('id', currentUser.id);
+    const { error } = await (supabase.from('profiles') as any)
+      .update({ [field]: value })
+      .eq('id', currentUser.id);
     if (error) throw error;
+    if (field === 'is_private') {
+      useAuthStore.setState((state) => ({
+        currentUser: state.currentUser ? { ...state.currentUser, is_private: Boolean(value) } : state.currentUser,
+      }));
+    }
   };
 
   // --- FAQ state ---
@@ -475,7 +482,7 @@ export default function SettingsPage() {
               </div>
               <div>
                 <span className="text-xs font-bold text-on-surface block">Personal Information</span>
-                <span className="text-[10px] text-outline">Name, bio, email, phone</span>
+                <span className="text-[10px] text-outline">Name, username, bio, avatar, cover and status</span>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-outline" />

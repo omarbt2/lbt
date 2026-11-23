@@ -76,6 +76,9 @@ export function mapProfileToUser(profile: any): User {
     followersCount: profile.followers_count ?? 0,
     followingCount: profile.following_count ?? 0,
     isFollowing: profile.is_following ?? false,
+    status_emoji: profile.status_emoji ?? null,
+    status_text: profile.status_text ?? null,
+    is_online: profile.is_online ?? null,
   };
 }
 

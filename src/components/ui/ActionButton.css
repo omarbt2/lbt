@@ -1,0 +1,175 @@
+.lbt-action-button {
+  --lbt-action-bg: var(--color-primary, #0062ff);
+  --lbt-action-hover-bg: #0055df;
+  --lbt-action-fg: #ffffff;
+  --lbt-action-icon: rgba(255, 255, 255, .72);
+
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
+  min-height: 46px;
+  padding: .62em 1em;
+  padding-left: .9em;
+  border: 0;
+  border-radius: 15px;
+  background: var(--lbt-action-bg);
+  color: var(--lbt-action-fg);
+  fill: var(--lbt-action-icon);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.1;
+  letter-spacing: -.01em;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .18s ease, opacity .18s ease, transform .16s ease, box-shadow .18s ease;
+}
+
+.lbt-action-button--primary {
+  --lbt-action-bg: var(--color-primary, #0062ff);
+  --lbt-action-hover-bg: #0055df;
+  --lbt-action-fg: #ffffff;
+  --lbt-action-icon: rgba(255, 255, 255, .72);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--color-primary, #0062ff) 22%, transparent);
+}
+
+.lbt-action-button--neutral {
+  --lbt-action-bg: var(--color-surface-container, #e5e5ea);
+  --lbt-action-hover-bg: var(--color-surface-container-high, #d1d1d6);
+  --lbt-action-fg: var(--color-on-surface, #242321);
+  --lbt-action-icon: color-mix(in srgb, var(--color-on-surface-variant, #74777f) 76%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-outline-variant, #c7c7cc) 55%, transparent);
+}
+
+.lbt-action-button--dark {
+  --lbt-action-bg: #242321;
+  --lbt-action-hover-bg: #111110;
+  --lbt-action-fg: #f7f6f2;
+  --lbt-action-icon: #9b9999;
+  box-shadow: 0 5px 14px rgba(36, 35, 33, .16);
+}
+
+.lbt-action-button--success {
+  --lbt-action-bg: #3f806a;
+  --lbt-action-hover-bg: #326b58;
+  --lbt-action-fg: #ffffff;
+  --lbt-action-icon: rgba(255, 255, 255, .72);
+}
+
+.lbt-action-button--danger {
+  --lbt-action-bg: #b84e43;
+  --lbt-action-hover-bg: #a33f35;
+  --lbt-action-fg: #ffffff;
+  --lbt-action-icon: rgba(255, 255, 255, .72);
+}
+
+.lbt-action-button--compact {
+  min-height: 40px;
+  padding: .52em .82em;
+  font-size: 12px;
+}
+
+.lbt-action-button--full {
+  width: 100%;
+}
+
+.lbt-action-button > span {
+  display: block;
+  min-width: 0;
+  margin-left: .3em;
+  white-space: nowrap;
+  transition: all .3s ease-in-out;
+}
+
+.lbt-action-button .svg-wrapper-1 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.lbt-action-button .svg-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+}
+
+.lbt-action-button .icon,
+.lbt-action-button .lbt-action-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  transform-origin: center center;
+  transition: transform .3s ease-in-out, fill .3s ease-in-out, color .3s ease-in-out;
+}
+
+.lbt-action-button .svg-wrapper > svg.lbt-action-button-default-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.lbt-action-button:hover:not(:disabled) {
+  background: var(--lbt-action-hover-bg);
+}
+
+.lbt-action-button:hover:not(:disabled) .svg-wrapper {
+  transform: scale(1.25);
+  transition: .5s linear;
+}
+
+.lbt-action-button:hover:not(:disabled) svg {
+  transform: translateX(1.2em) scale(1.1);
+  color: #ffffff;
+}
+.lbt-action-button:hover:not(:disabled) svg.lbt-action-button-default-icon {
+  fill: #ffffff;
+}
+.lbt-action-button:hover:not(:disabled) svg.lbt-action-icon:not(.lbt-action-button-default-icon) {
+  fill: none;
+}
+
+.lbt-action-button:hover:not(:disabled) > span {
+  opacity: 0;
+  transition: .5s linear;
+}
+
+.lbt-action-button:active:not(:disabled) {
+  transform: scale(.95);
+}
+
+.lbt-action-button:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.lbt-action-button:focus-visible {
+  outline: 2px solid var(--color-primary, #0062ff);
+  outline-offset: 3px;
+}
+
+.dark .lbt-action-button--neutral {
+  --lbt-action-bg: var(--color-surface-container-high, #242430);
+  --lbt-action-hover-bg: var(--color-surface-container-highest, #30303e);
+  --lbt-action-fg: var(--color-on-surface, #eaeaf0);
+  --lbt-action-icon: var(--color-on-surface-variant, #9a9aa4);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.07);
+}
+
+@media (max-width: 420px) {
+  .lbt-action-button { min-height: 44px; font-size: 13px; }
+  .lbt-action-button--compact { min-height: 40px; font-size: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lbt-action-button,
+  .lbt-action-button > span,
+  .lbt-action-button .icon,
+  .lbt-action-button .svg-wrapper { transition: none !important; }
+}

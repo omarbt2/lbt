@@ -1,22 +1,28 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Mic, X, Compass } from 'lucide-react';
+import { Search, Mic, X, Compass, UserPlus, UserCheck, LockKeyhole } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { searchProfiles } from '../lib/api/profiles';
 import { followUser, unfollowUser, isFollowing } from '../lib/api/follows';
 import { User } from '../types';
-import { useAuthStore } from '../store/authStore';
+import { mapProfileToUser, useAuthStore } from '../store/authStore';
+import ActionButton from '../components/ui/ActionButton';
 import { Avatar } from '../components/ui/Avatar';
 
 export default function ExplorePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const peopleOnly = new URLSearchParams(location.search).get('filter') === 'people';
   const onSelectHashtag = (tag: string) => navigate('/hashtag/' + tag);
   const onPostSelect = (id: string) => navigate('/post/' + id);
   const onViewProfile = (userId: string) => navigate('/profile/' + userId);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [exploreItems, setExploreItems] = useState<any[]>([]);
+  const [suggestedPeople, setSuggestedPeople] = useState<User[]>([]);
+  const [exploreError, setExploreError] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [isLoadingExplore, setIsLoadingExplore] = useState(true);
   const [peopleResults, setPeopleResults] = useState<(User & { isFollowingUser?: boolean })[]>([]);
   const [postResults, setPostResults] = useState<any[]>([]);
@@ -58,70 +64,77 @@ export default function ExplorePage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchExplore = async () => {
       setIsLoadingExplore(true);
-      const { data: { user } } = await supabase.auth.getUser();
+      setExploreError(null);
 
-      if (user) {
-        // Query the posts table directly so row-level audience and block policies
-        // are enforced; the legacy explore_feed view can bypass RLS.
-        const feedData: any[] = [];
-        const feedError = true;
-
-        if (!feedError && feedData && feedData.length > 0) {
-          const mapped = feedData.map((item: any) => ({
-            ...item.posts,
-            profiles: item.posts?.profiles,
-          })).filter(Boolean);
-          setExploreItems(mapped);
-        } else {
-          const { data: likedPosts } = await supabase
-            .from('likes')
-            .select('post_id, posts(tags)')
-            .eq('user_id', user.id)
-            .limit(50);
-
-          const interactedTags = likedPosts
-            ?.flatMap((lp: any) => (lp.posts as any)?.tags ?? [])
-            .filter(Boolean) ?? [];
-          const uniqueTags = [...new Set(interactedTags)].slice(0, 10);
-
-          if (uniqueTags.length > 0) {
-            const { data: recommended } = await supabase
-              .from('posts')
-              .select('id, caption, category, media_urls, media_type, likes_count, profiles(*)')
-              .overlaps('tags', uniqueTags)
-              .not('media_urls', 'is', null)
-              .order('likes_count', { ascending: false })
-              .limit(30);
-            if (recommended) setExploreItems(recommended);
-          } else {
-            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-            const { data: trending } = await supabase
-              .from('posts')
-              .select('id, caption, category, media_urls, media_type, likes_count, profiles(*)')
-              .not('media_urls', 'is', null)
-              .gte('created_at', weekAgo)
-              .order('likes_count', { ascending: false })
-              .limit(30);
-            if (trending) setExploreItems(trending);
-          }
+      try {
+        if (!currentUser?.id) {
+          setExploreItems([]);
+          setSuggestedPeople([]);
+          return;
         }
-      } else {
-        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        const { data } = await supabase
-          .from('posts')
-          .select('id, caption, category, media_urls, media_type, likes_count, profiles(*)')
-          .not('media_urls', 'is', null)
-          .gte('created_at', weekAgo)
-          .order('likes_count', { ascending: false })
-          .limit(20);
-        if (data) setExploreItems(data);
+
+        // Query the posts table directly. The authenticated SELECT policy
+        // enforces public/follower visibility and hides blocked/private content.
+        // Do not use the legacy explore_feed view, which can bypass RLS.
+        const [postsResult, peopleResult] = await Promise.all([
+          supabase
+            .from('posts')
+            .select('id, user_id, caption, category, media_urls, media_type, likes_count, comments_count, created_at, tags, profiles:profiles!posts_user_id_fkey(id, username, display_name, avatar_url, is_private, is_verified)')
+            .eq('is_archived', false)
+            .order('created_at', { ascending: false })
+            .limit(30),
+          supabase
+            .from('profiles')
+            .select('id, username, display_name, full_name, avatar_url, bio, is_private, is_verified, posts_count, followers_count, following_count, status_emoji, status_text, is_online, last_seen')
+            .neq('id', currentUser.id)
+            .order('followers_count', { ascending: false })
+            .limit(12),
+        ]);
+
+        if (cancelled) return;
+        if (postsResult.error) throw postsResult.error;
+
+        setExploreItems(postsResult.data || []);
+
+        if (peopleResult.error) {
+          console.warn('Could not load creator suggestions:', peopleResult.error.message);
+          setSuggestedPeople([]);
+          return;
+        }
+
+        const people = (peopleResult.data || [])
+          .filter(profile => profile.id !== currentUser.id)
+          .map(profile => mapProfileToUser(profile));
+        setSuggestedPeople(people);
+
+        const followingEntries = await Promise.all(
+          people.map(async person => {
+            try {
+              return [person.id, await isFollowing(person.id)] as const;
+            } catch {
+              return [person.id, false] as const;
+            }
+          })
+        );
+        if (!cancelled) setFollowingMap(prev => ({ ...prev, ...Object.fromEntries(followingEntries) }));
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Explore content failed to load:', error);
+          setExploreError('Explore could not load right now. Check your connection and try again.');
+          setExploreItems([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingExplore(false);
       }
-      setIsLoadingExplore(false);
     };
-    fetchExplore();
-  }, []);
+
+    void fetchExplore();
+    return () => { cancelled = true; };
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -184,6 +197,8 @@ export default function ExplorePage() {
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant pointer-events-none" />
           <input
+            ref={searchInputRef}
+            id="explore-search-input"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -302,7 +317,7 @@ export default function ExplorePage() {
         </section>
       ) : (
         <>
-          {trendingHashtags.length > 0 && (
+          {!peopleOnly && trendingHashtags.length > 0 && (
             <section className="px-4">
               <div className="flex flex-wrap gap-2">
                 {trendingHashtags.map((ht) => (
@@ -320,6 +335,58 @@ export default function ExplorePage() {
             </section>
           )}
 
+          {peopleOnly && (
+            <section className="flex flex-col gap-3 px-4">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[.16em] text-primary">Discover</p>
+                  <h2 className="mt-1 text-base font-bold text-on-surface">Creators to follow</h2>
+                </div>
+                <span className="text-[11px] text-on-surface-variant">{suggestedPeople.length} people</span>
+              </div>
+              {isLoadingExplore ? (
+                <div className="flex flex-col gap-2">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={index} className="h-[76px] rounded-2xl bg-surface-container animate-pulse" />
+                  ))}
+                </div>
+              ) : suggestedPeople.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {suggestedPeople.map(person => (
+                    <div key={person.id} className="flex min-w-0 items-center gap-3 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest/75 p-3">
+                      <button type="button" onClick={() => onViewProfile(person.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                        <Avatar src={person.avatar} userId={person.id} name={person.name} size="md" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-on-surface">{person.name}</span>
+                          <span className="block truncate text-xs text-on-surface-variant">@{person.username}</span>
+                          {person.bio && <span className="mt-0.5 block truncate text-[11px] text-outline">{person.bio}</span>}
+                        </span>
+                      </button>
+                      {person.is_private && <LockKeyhole className="h-4 w-4 shrink-0 text-on-surface-variant" aria-label="Private account" />}
+                      <ActionButton
+                        size="compact"
+                        tone={followingMap[person.id] ? 'neutral' : 'primary'}
+                        icon={followingMap[person.id] ? <UserCheck className="h-5 w-5" /> : <UserPlus className="h-5 w-5" />}
+                        onClick={() => handleFollowToggle(person.id)}
+                      >
+                        {followingMap[person.id] ? 'Following' : 'Follow'}
+                      </ActionButton>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest/65 px-4 py-6">
+                  <p className="text-sm font-semibold text-on-surface">No creator suggestions yet</p>
+                  <p className="mt-1 text-xs leading-relaxed text-on-surface-variant">Search by a name or username to find someone.</p>
+                  <ActionButton className="mt-4" icon={<Search className="h-5 w-5" />} onClick={() => searchInputRef.current?.focus()}>
+                    Search creators
+                  </ActionButton>
+                </div>
+              )}
+            </section>
+          )}
+
+          {!peopleOnly && (
           <section className="flex flex-col gap-3">
             {isLoadingExplore ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 px-4">
@@ -327,11 +394,22 @@ export default function ExplorePage() {
                   <div key={i} className="rounded-2xl bg-[#1a1a22] animate-pulse aspect-square" />
                 ))}
               </div>
+            ) : exploreError ? (
+              <div className="mx-4 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest/70 px-5 py-6">
+                <p className="text-sm font-semibold text-on-surface">Explore is unavailable</p>
+                <p className="mt-1 text-xs text-on-surface-variant">{exploreError}</p>
+                <button type="button" onClick={() => navigate('/explore?filter=people')} className="mt-3 text-xs font-bold text-primary">Find creators</button>
+              </div>
             ) : exploreItems.length === 0 ? (
-              <div className="text-center py-16 px-4">
-                <Compass className="w-10 h-10 text-outline mx-auto opacity-30 mb-3" />
-                <p className="text-sm font-semibold text-on-surface-variant">Nothing to explore yet</p>
-                <p className="text-xs text-outline mt-1">Posts will appear here as people share</p>
+              <div className="mx-4 flex flex-col gap-3 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest/70 px-5 py-6">
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.16em] text-primary">
+                  <Compass className="h-4 w-4" /> Explore
+                </div>
+                <p className="text-base font-semibold text-on-surface">No posts to browse just yet.</p>
+                <p className="text-sm leading-relaxed text-on-surface-variant">Find creators first. Their public posts will appear here as they share.</p>
+                <ActionButton className="self-start" icon={<UserPlus className="h-5 w-5" />} onClick={() => navigate('/explore?filter=people')}>
+                  Find creators
+                </ActionButton>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 px-4" id="explore_gallery">
@@ -384,6 +462,7 @@ export default function ExplorePage() {
               </div>
             )}
           </section>
+          )}
         </>
       )}
     </div>

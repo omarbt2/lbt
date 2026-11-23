@@ -469,6 +469,19 @@ button, a, [role="button"] {
   }
 }
 
+/* Fixed mobile header and page content share the same safe-area offset. */
+.lbt-mobile-content-offset {
+  padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+}
+.lbt-mobile-content-offset.lbt-mobile-content--fullbleed {
+  padding-top: 0;
+}
+@media (min-width: 768px) {
+  .lbt-mobile-content-offset {
+    padding-top: 0;
+  }
+}
+
 /* LBT loading placeholders: warm, theme-aware shimmer instead of flat grey. */
 .skeleton-shimmer {
   background-image: linear-gradient(

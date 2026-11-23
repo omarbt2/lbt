@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, CheckCircle, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, CheckCircle, ArrowRight, ArrowLeft, LogIn, UserPlus, KeyRound, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LbtLogo from './LbtLogo';
 import { useAuthStore } from '../store/authStore';
+import ActionButton from './ui/ActionButton';
 import { supabase } from '../lib/supabase';
 import './AuthView.css';
 
@@ -270,13 +271,9 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="lbt-auth-login-button" id="loginBtn"
-              >
+              <ActionButton type="submit" disabled={isSubmitting} fullWidth icon={<LogIn className="h-5 w-5" />} id="loginBtn">
                 {isSubmitting ? 'Logging in...' : 'Log In'}
-              </button>
+              </ActionButton>
             </form>
 
             <button
@@ -395,13 +392,9 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
                     />
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="lbt-auth-login-button"
-                  >
-                    {isSubmitting ? 'Processing...' : <>Continue <ArrowRight className="w-4.5 h-4.5" /></>}
-                  </button>
+                  <ActionButton type="submit" disabled={isSubmitting} fullWidth icon={<ArrowRight className="h-5 w-5" />}>
+                    {isSubmitting ? 'Processing...' : 'Continue'}
+                  </ActionButton>
                 </>
               ) : (
                 <>
@@ -454,13 +447,9 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
                     />
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="lbt-auth-create-button"
-                  >
-                    {isSubmitting ? 'Creating account...' : 'Create new account'}
-                  </button>
+                  <ActionButton type="submit" disabled={isSubmitting} fullWidth tone="success" icon={<UserPlus className="h-5 w-5" />}>
+                    {isSubmitting ? 'Creating account...' : 'Create account'}
+                  </ActionButton>
                 </>
               )}
             </form>
@@ -534,13 +523,9 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="lbt-auth-login-button"
-              >
-                {isSubmitting ? 'Searching...' : 'Send reset link'}
-              </button>
+              <ActionButton type="submit" disabled={isSubmitting} fullWidth icon={<Send className="h-5 w-5" />}>
+                {isSubmitting ? 'Sending...' : 'Send reset link'}
+              </ActionButton>
             </form>
           </motion.div>
         )}
@@ -587,9 +572,9 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
                 placeholder="Confirm new password"
                 className="lbt-auth-input"
               />
-              <button type="submit" disabled={isSubmitting} className="lbt-auth-login-button">
-                {isSubmitting ? 'Updating...' : 'Save new password'}
-              </button>
+              <ActionButton type="submit" disabled={isSubmitting} fullWidth icon={<KeyRound className="h-5 w-5" />}>
+                {isSubmitting ? 'Updating...' : 'Save password'}
+              </ActionButton>
             </form>
           </motion.div>
         )}

@@ -72,6 +72,7 @@ export default function MessagesPage() {
   const audioElementsRef = useRef<Record<string, HTMLAudioElement>>({});
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordingStopRequestedRef = useRef(false);
+  const recordingDiscardRef = useRef(false);
   const recordingStartedAtRef = useRef<number | null>(null);
 
   // Hide disappearing messages immediately in an already-open conversation.
@@ -378,6 +379,7 @@ export default function MessagesPage() {
 
   const startRecording = async () => {
     recordingStopRequestedRef.current = false;
+    recordingDiscardRef.current = false;
     const chatIdAtStart = activeChatId;
     const senderIdAtStart = currentUser.id;
     if (!chatIdAtStart || !senderIdAtStart || typeof MediaRecorder === 'undefined') {
@@ -422,7 +424,11 @@ export default function MessagesPage() {
         recordingStartedAtRef.current = null;
         setRecordingDuration(0);
 
-        if (!blob.size || recordingStopRequestedRef.current && duration < 1) return;
+        if (recordingDiscardRef.current) {
+          recordingDiscardRef.current = false;
+          return;
+        }
+        if (!blob.size || (recordingStopRequestedRef.current && duration < 1)) return;
 
         try {
           const extension = recordedType.includes('mp4') ? 'm4a' : 'webm';
@@ -486,6 +492,20 @@ export default function MessagesPage() {
       recordingTimerRef.current = null;
     }
     setIsRecording(false);
+  };
+
+  const cancelRecording = () => {
+    recordingDiscardRef.current = true;
+    recordingStopRequestedRef.current = true;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordingDuration(0);
   };
 
   const toggleVoicePlayback = useCallback((msgId: string, url: string) => {
@@ -749,6 +769,7 @@ export default function MessagesPage() {
               onSendMessage={handleSendMessage}
               onStartRecording={startRecording}
               onStopRecording={stopRecording}
+              onCancelRecording={cancelRecording}
               onClearReply={() => setReplyToMessage(null)}
               onEmitTyping={emitTyping}
               onAttachmentSent={handleAttachmentSent}

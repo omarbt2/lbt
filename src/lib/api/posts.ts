@@ -108,7 +108,7 @@ export async function getPosts(
     if (repostSourceIds.length) {
       const { data: sourceRows, error: sourceError } = await supabase
         .from('posts')
-        .select('id, user_id, caption, media_urls, media_type, profiles!posts_user_id_fkey(id, username, display_name, avatar_url, is_verified)')
+        .select('id, user_id, caption, image_url, media_urls, media_type, profiles!posts_user_id_fkey(id, username, display_name, avatar_url, is_verified)')
         .in('id', repostSourceIds);
       if (sourceError) {
         console.warn('Some repost originals are not visible to this viewer:', sourceError.message);
@@ -146,7 +146,7 @@ export async function getPosts(
           isFollowing: false,
         },
         caption: source.caption || '',
-        imageUrl: source.media_urls?.[0] || undefined,
+        imageUrl: source.image_url || source.media_urls?.[0] || undefined,
         mediaType: (source.media_type as 'image' | 'video' | 'carousel') || 'image',
       } : null;
       return {

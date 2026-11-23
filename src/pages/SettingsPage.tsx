@@ -107,12 +107,11 @@ export default function SettingsPage() {
           : /Linux/i.test(userAgent) ? 'Linux device' : 'Web device';
         let deviceKey = localStorage.getItem('lbt_device_key');
         if (!deviceKey) {
-          deviceKey = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : Array.from(crypto.getRandomValues(new Uint8Array(24))).map(v => v.toString(16).padStart(2, '0')).join('');
+          const randomBytes = window.crypto.getRandomValues(new Uint8Array(24));
+          deviceKey = Array.from(randomBytes, (value) => value.toString(16).padStart(2, '0')).join('');
           localStorage.setItem('lbt_device_key', deviceKey);
         }
-        const { error: upsertError } = await (supabase.from('user_devices') as any).upsert({
+        const { error: upsertError } = await (supabase as any).from('user_devices').upsert({
           user_id: currentUser.id,
           device_key: deviceKey,
           device_name: deviceName,
@@ -121,7 +120,7 @@ export default function SettingsPage() {
           last_seen_at: new Date().toISOString(),
         }, { onConflict: 'user_id,device_key' });
         if (upsertError) throw upsertError;
-        const { data, error } = await (supabase.from('user_devices') as any)
+        const { data, error } = await (supabase as any).from('user_devices')
           .select('id, device_key, device_name, platform, browser, last_seen_at')
           .eq('user_id', currentUser.id)
           .order('last_seen_at', { ascending: false });
@@ -172,7 +171,7 @@ export default function SettingsPage() {
 
   const saveAccountSettings = async (patch: Record<string, any>) => {
     if (!currentUser?.id) return;
-    const { error } = await (supabase.from('user_settings') as any).upsert({
+    const { error } = await (supabase as any).from('user_settings').upsert({
       user_id: currentUser.id,
       ...patch,
       updated_at: new Date().toISOString(),
@@ -188,7 +187,7 @@ export default function SettingsPage() {
     let cancelled = false;
     const loadAccountSettings = async () => {
       try {
-        const { data, error } = await (supabase.from('user_settings') as any)
+        const { data, error } = await (supabase as any).from('user_settings')
           .select('*').eq('user_id', currentUser.id).maybeSingle();
         if (error) throw error;
         if (cancelled) return;

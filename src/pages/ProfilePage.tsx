@@ -105,7 +105,11 @@ export default function ProfilePage() {
   }, [user?.id, canViewPosts]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !canViewPosts) {
+      setProfileReels([]);
+      setReelsLoading(false);
+      return;
+    }
     setReelsLoading(true);
     (async () => {
       try {
@@ -120,7 +124,7 @@ export default function ProfilePage() {
       } catch (e) { console.error(e); }
       finally { setReelsLoading(false); }
     })();
-  }, [user?.id]);
+  }, [user?.id, canViewPosts]);
 
   useEffect(() => {
     if (!user?.id) return;

@@ -78,7 +78,7 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
     };
     const stopVoiceNote = () => onStopRecording();
     const hasText = !!typeInput.trim();
-    const canSend = hasText || !!replyToMessage;
+    const canSend = hasText;
 
     return (
       <footer className="lbt-chat-composer-footer">

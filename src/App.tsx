@@ -399,6 +399,7 @@ function AppLayout() {
         setShowNoteInput={state.setShowNoteInput}
         setShowAddStoryModal={state.setShowAddStoryModal}
       />
+      )}
 
       <NoteInputModal
         isOpen={state.showNoteInput}

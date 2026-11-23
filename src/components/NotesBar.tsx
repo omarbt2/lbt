@@ -74,7 +74,7 @@ export default function NotesBar({ currentUser, onOpenNoteModal }: NotesBarProps
         {currentUser && (
           <button
             type="button"
-            onClick={() => onOpenNoteModal?.()
+            onClick={() => onOpenNoteModal?.()}
             className="flex flex-col items-center gap-1.5 flex-shrink-0 group"
           >
             <div className="relative">

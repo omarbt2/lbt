@@ -1,5 +1,5 @@
-/* From Uiverse.io by Uiverse — adapted for LBT Social chat messages.
- * Original input pattern supplied by the project owner; voice control is a voice-note recorder only.
+/* Uiverse-inspired composer supplied by the project owner.
+ * The voice interaction records and sends a voice note only; it never starts a call.
  */
 import React, { forwardRef, useRef, useState } from 'react';
 import { motion } from 'motion/react';
@@ -33,25 +33,12 @@ interface MessageInputProps {
 }
 
 const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
-  (
-    {
-      activeChat,
-      typeInput,
-      isRecording,
-      recordingDuration,
-      replyToMessage,
-      onTypeInputChange,
-      onToggleEmojiPicker,
-      onSendMessage,
-      onStartRecording,
-      onStopRecording,
-      onEmitTyping,
-      onAttachmentSent,
-    },
-    ref
-  ) => {
-    const imagePickerRef = useRef<HTMLInputElement>(null);
+  ({ activeChat, typeInput, isRecording, recordingDuration, replyToMessage,
+    onTypeInputChange, onToggleEmojiPicker, onSendMessage, onStartRecording,
+    onStopRecording, onEmitTyping, onAttachmentSent }, ref) => {
     const cameraPickerRef = useRef<HTMLInputElement>(null);
+    const imagePickerRef = useRef<HTMLInputElement>(null);
+    const folderPickerRef = useRef<HTMLInputElement>(null);
     const [uploadError, setUploadError] = useState<string | null>(null);
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,25 +54,17 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
         setUploadError('Images must be 15 MB or smaller.');
         return;
       }
-
       try {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) throw new Error('Sign in again before attaching an image.');
-
         const ext = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
-        // chat-media is the provisioned Supabase bucket. The first path segment
-        // is the authenticated uploader ID, matching the existing storage policy.
         const path = `${user.id}/${activeChat.id}/${Date.now()}.${ext}`;
         const { error: storageError } = await supabase.storage
           .from('chat-media')
           .upload(path, file, { contentType: file.type, upsert: false });
         if (storageError) throw storageError;
-
         const { data: { publicUrl } } = supabase.storage.from('chat-media').getPublicUrl(path);
-        const msg = await sendMessage(activeChat.id, '', {
-          messageType: 'image',
-          mediaUrl: publicUrl,
-        });
+        const msg = await sendMessage(activeChat.id, '', { messageType: 'image', mediaUrl: publicUrl });
         onAttachmentSent(msg);
       } catch (err: any) {
         console.error('Image attachment failed:', err);
@@ -97,34 +76,30 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
       e.preventDefault();
       if (!isRecording) onStartRecording();
     };
-
-    const stopVoiceNote = () => {
-      // Always notify the recorder: microphone permission may still be pending.
-      onStopRecording();
-    };
+    const stopVoiceNote = () => onStopRecording();
+    const hasText = !!typeInput.trim();
+    const canSend = hasText || !!replyToMessage;
 
     return (
       <footer className="lbt-chat-composer-footer">
         <div className={`container-ia-chat lbt-chat-composer ${isRecording ? 'is-recording' : ''}`}>
-          <input
-            ref={cameraPickerRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="lbt-composer-file-input"
-            onChange={handleImageUpload}
-            tabIndex={-1}
-            aria-hidden="true"
-          />
-          <input
-            ref={imagePickerRef}
-            type="file"
-            accept="image/*"
-            className="lbt-composer-file-input"
-            onChange={handleImageUpload}
-            tabIndex={-1}
-            aria-hidden="true"
-          />
+          <input ref={cameraPickerRef} type="file" accept="image/*" capture="environment"
+            className="lbt-composer-file-input" onChange={handleImageUpload} tabIndex={-1} aria-hidden="true" />
+          <input ref={imagePickerRef} type="file" accept="image/*"
+            className="lbt-composer-file-input" onChange={handleImageUpload} tabIndex={-1} aria-hidden="true" />
+          <input ref={folderPickerRef} type="file" accept="image/*"
+            className="lbt-composer-file-input" onChange={handleImageUpload} tabIndex={-1} aria-hidden="true" />
+
+          <div className="container-upload-files" aria-label="Message attachments">
+            <button type="button" className="upload-file" title="Take a photo" aria-label="Take a photo"
+              onClick={() => cameraPickerRef.current?.click()} disabled={isRecording}><Camera /></button>
+            <button type="button" className="upload-file" title="Choose an image" aria-label="Choose an image"
+              onClick={() => imagePickerRef.current?.click()} disabled={isRecording}><ImageIcon /></button>
+            <button type="button" className="upload-file" title="Browse images" aria-label="Browse images"
+              onClick={() => folderPickerRef.current?.click()} disabled={isRecording}><Folder /></button>
+            <button type="button" className="upload-file" title="Emoji" aria-label="Open emoji picker"
+              onClick={onToggleEmojiPicker} disabled={isRecording}><Smile /></button>
+          </div>
 
           <input
             ref={ref}
@@ -135,10 +110,7 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
             className="input-text"
             required
             aria-label="Write a message"
-            onChange={(e) => {
-              onTypeInputChange(e.target.value);
-              onEmitTyping();
-            }}
+            onChange={(e) => { onTypeInputChange(e.target.value); onEmitTyping(); }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -148,83 +120,53 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
             disabled={isRecording}
           />
 
-          <div className="container-upload-files" aria-label="Attach an image">
-            <button type="button" className="upload-file" title="Take a photo" aria-label="Take a photo" onClick={() => cameraPickerRef.current?.click()}>
-              <Camera />
-            </button>
-            <button type="button" className="upload-file" title="Choose an image" aria-label="Choose an image" onClick={() => imagePickerRef.current?.click()}>
-              <ImageIcon />
-            </button>
-            <button type="button" className="upload-file" title="Browse images" aria-label="Browse images" onClick={() => imagePickerRef.current?.click()}>
-              <Folder />
-            </button>
-          </div>
+          <button type="button" className="label-files" aria-label="Attach an image" title="Attach image"
+            onClick={() => imagePickerRef.current?.click()}><Plus /></button>
 
-          <button
-            type="button"
-            className="label-files"
-            aria-label="Attach an image"
-            title="Attach image"
-            onClick={() => imagePickerRef.current?.click()}
-          >
-            <Plus />
-          </button>
-
-          <button
-            type="button"
-            className="lbt-emoji-trigger"
-            aria-label="Open emoji picker"
-            title="Emoji"
-            onClick={onToggleEmojiPicker}
-            disabled={isRecording}
-          >
-            <Smile />
-          </button>
-
-          {!typeInput.trim() && !replyToMessage && (
+          {!canSend && (
             <button
               type="button"
-              className="label-voice"
-              aria-label={isRecording ? 'Stop voice message recording' : 'Hold to record a voice message'}
-              title={isRecording ? 'Stop recording' : 'Hold to record a voice message'}
+              className={`label-voice ${isRecording ? 'is-recording' : ''}`}
+              aria-label={isRecording ? 'Release to send voice message' : 'Hold to record a voice message'}
+              title={isRecording ? 'Release to send voice message' : 'Hold to record a voice message'}
               onPointerDown={startVoiceNote}
               onPointerUp={stopVoiceNote}
               onPointerCancel={stopVoiceNote}
-              onPointerLeave={stopVoiceNote}
+              onPointerLeave={isRecording ? stopVoiceNote : undefined}
             >
-              {isRecording ? <MicOff className="icon-voice" /> : <Mic className="icon-voice" />}
+              {isRecording ? (
+                <span className="lbt-recording-content">
+                  <span className="ai" aria-hidden="true">
+                    <span className="container">
+                      <span className="c c4" /><span className="c c1" /><span className="c c2" /><span className="c c3" />
+                      <span className="rings" />
+                    </span>
+                    <span className="glass" />
+                  </span>
+                  <span className="lbt-recording-copy">
+                    <strong>Recording voice message</strong>
+                    <small>Release to send · {formatDuration(recordingDuration)}</small>
+                  </span>
+                  <MicOff className="lbt-recording-stop-icon" />
+                </span>
+              ) : (
+                <Mic className="icon-voice" />
+              )}
             </button>
           )}
 
-          {(typeInput.trim() || replyToMessage) && !isRecording && (
-            <motion.button
-              type="button"
-              className="label-text"
-              aria-label="Send message"
-              title="Send message"
-              onClick={onSendMessage}
-              disabled={!typeInput.trim() && !replyToMessage}
-              whileTap={{ scale: 0.9 }}
-            >
+          {canSend && !isRecording && (
+            <motion.button type="button" className="label-text" aria-label="Send message" title="Send message"
+              onClick={onSendMessage} disabled={!canSend} whileTap={{ scale: 0.9 }}>
               <Send />
             </motion.button>
           )}
-
-          {isRecording && (
-            <div className="lbt-recording-status" role="status">
-              <span className="lbt-recording-dot" />
-              Recording voice message · {formatDuration(recordingDuration)}
-            </div>
-          )}
         </div>
-        {uploadError && (
-          <p className="lbt-composer-error" role="alert">{uploadError}</p>
-        )}
+        {uploadError && <p className="lbt-composer-error" role="alert">{uploadError}</p>}
       </footer>
     );
   }
 );
 
 MessageInput.displayName = 'MessageInput';
-
 export default React.memo(MessageInput);

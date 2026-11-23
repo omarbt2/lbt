@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, fix/lbt-social-ux-and-reel-interactions]
+    branches: [main, fix/lbt-social-ux-and-reel-interactions, fix/lbt-central-create-repost-reels-settings-20261123]
 
 permissions:
   contents: read

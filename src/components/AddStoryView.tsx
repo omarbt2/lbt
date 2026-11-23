@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Camera, X, Sun, Type, Users, FlipHorizontal, Palette, Zap,
-  Video, Image as ImageIcon, ZoomIn, RotateCcw, Check, Mic, MicOff
+  Video, Image as ImageIcon, ZoomIn, RotateCcw, Check, Mic, MicOff, Send
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { getPermissionDeniedMessage } from '../lib/permissions';
 import { useStorage } from '../hooks/useStorage';
 import { createStory } from '../lib/api/stories';
 import { STORY_TEMPLATES, StoryTemplate } from '../data/storyTemplates';
+import ActionButton from './ui/ActionButton';
 
 interface AddStoryProps {
   onClose: () => void;
@@ -788,9 +789,9 @@ export default function AddStoryView({ onClose, onStoryAdded }: AddStoryProps) {
           <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFileSelect} />
 
           {hasMedia ? (
-            <button onClick={handlePublish} disabled={isUploading} className="flex h-[76px] min-w-[76px] items-center justify-center rounded-full bg-white px-4 text-black shadow-2xl shadow-black/30 transition active:scale-90 disabled:opacity-60">
-              {isUploading ? <div className="h-6 w-6 animate-spin rounded-full border-2 border-black border-t-transparent" /> : <span className="flex flex-col items-center gap-1 text-xs font-extrabold"><Check className="h-5 w-5" />Share</span>}
-            </button>
+            <ActionButton onClick={handlePublish} disabled={isUploading} tone="neutral" icon={isUploading ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Send className="h-5 w-5" />}>
+              {isUploading ? 'Sharing...' : 'Share story'}
+            </ActionButton>
           ) : cameraMode === 'photo' ? (
             <button onClick={handleCapture} disabled={!hasCameraAccess} aria-label="Take photo" className="relative h-[78px] w-[78px] rounded-full border-[5px] border-white p-[5px] transition active:scale-90 disabled:opacity-40">
               <span className="block h-full w-full rounded-full bg-white" />

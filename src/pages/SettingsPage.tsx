@@ -359,25 +359,6 @@ export default function SettingsPage() {
         title={SUBPAGE_TITLES[activeSubpage]}
         onBack={() => { setActiveSubpage(null); setSearchParams({}); setSaveFeedback(null); setPassFeedback(null); }}
       >
-        {activeSubpage === 'personal' && (
-          <PersonalSettings
-            editPic={editPic} setEditPic={setEditPic}
-            editName={editName} setEditName={setEditName}
-            editUsername={editUsername} setEditUsername={setEditUsername}
-            editBio={editBio} setEditBio={setEditBio}
-            editEmail={editEmail} setEditEmail={setEditEmail}
-            isEmailVerifying={isEmailVerifying} isEmailVerified={isEmailVerified}
-            handleDemoVerifyEmail={handleDemoVerifyEmail}
-            phonePrefix={phonePrefix} setPhonePrefix={setPhonePrefix}
-            phoneNum={phoneNum} setPhoneNum={setPhoneNum}
-            dob={dob} setDob={setDob}
-            gender={gender} setGender={setGender}
-            saveFeedback={saveFeedback}
-            handleSavePersonalInfo={handleSavePersonalInfo}
-            isUsernameTaken={isUsernameTaken}
-          />
-        )}
-
         {activeSubpage === 'security' && (
           <SecuritySettings
             currentPass={currentPass} setCurrentPass={setCurrentPass}

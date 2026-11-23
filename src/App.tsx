@@ -85,6 +85,7 @@ function OutletLayout({ context }: { context: OutletContextType }) {
 function AppLayout() {
   const state = useAppState();
   const { currentUser, location, isReelsPage } = state;
+  const isPostDetailPage = location.pathname.startsWith('/post/');
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -345,7 +346,7 @@ function AppLayout() {
 
       <div className={`flex max-w-7xl mx-auto w-full relative ${isReelsPage ? 'h-dvh' : 'h-[calc(100dvh-4rem)]'} min-h-0 overflow-x-clip`}>
         <section
-          className={`min-h-0 flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'pb-0 pt-0 px-0' : 'px-0 pb-20 pt-16 md:pt-0 md:pb-6 md:px-6'}`}
+          className={`min-h-0 flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'pb-0 pt-0 px-0' : isPostDetailPage ? 'px-0 pb-0 pt-16 md:pt-0 md:px-6' : 'px-0 pb-20 pt-16 md:pt-0 md:pb-6 md:px-6'}`}
           style={{ WebkitOverflowScrolling: 'touch' }}
           onTouchStart={handleSwipeStart}
           onTouchEnd={handleSwipeEnd}
@@ -388,7 +389,7 @@ function AppLayout() {
         </section>
       </div>
 
-      {!isReelsPage && (
+      {!isReelsPage && !isPostDetailPage && (
       <MobileNav
         navVisible={state.navVisible}
         unreadMessages={state.unreadMessages}

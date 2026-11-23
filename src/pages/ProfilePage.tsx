@@ -394,7 +394,7 @@ export default function ProfilePage() {
         transition={{ duration: 0.32, ease: [0.25, 0.1, 0.25, 1] }}
       >
       {/* AVATAR OVERLAPPING COVER */}
-      <div className="relative z-10 -mt-12 flex justify-center">
+      <div className="relative z-10 -mt-12 flex flex-col items-center px-4">
         <div className="relative">
           <div className="w-24 h-24 rounded-full border-2 border-white bg-surface shadow-lg overflow-hidden">
             <Avatar
@@ -411,7 +411,14 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
-        <p className="text-lg font-semibold text-white mt-2 text-center drop-shadow-md">{user.name}</p>
+        <p className="mt-2 text-lg font-bold text-on-surface text-center">{user.name}</p>
+        <p className="mt-0.5 text-xs font-medium text-on-surface-variant text-center">@{user.username}</p>
+        {(user.status_emoji || user.status_text) && (
+          <div className="mt-3 inline-flex max-w-[90%] items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-3.5 py-2 text-xs font-semibold text-on-surface">
+            {user.status_emoji && <span className="text-base leading-none">{user.status_emoji}</span>}
+            {user.status_text && <span className="truncate">{user.status_text}</span>}
+          </div>
+        )}
       </div>
 
       {/* STATS ROW */}

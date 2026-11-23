@@ -226,8 +226,7 @@ function AppLayout() {
                 state.setPostMenuPostId(null);
               }},
               { icon: <Repeat2 className="w-5 h-5" />, label: 'Repost', onClick: () => {
-                state.setRepostTargetPost(menuPost);
-                state.setShowRepostModal(true);
+                void state.handleRepostDirect(menuPost);
                 state.setPostMenuPostId(null);
               }},
               { icon: <BellOff className="w-5 h-5" />, label: 'Mute Account', onClick: async () => {

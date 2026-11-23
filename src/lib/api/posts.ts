@@ -99,6 +99,24 @@ export async function getPosts(
 
     if (error) { console.error('get_feed error:', error); return []; }
 
+    // Resolve original posts through the caller's normal RLS visibility rules.
+    // A repost never copies private media into the repost row.
+    const repostSourceIds = [...new Set((data || [])
+      .filter((p: any) => p.is_repost && p.repost_of)
+      .map((p: any) => p.repost_of as string))];
+    const repostSources = new Map<string, any>();
+    if (repostSourceIds.length) {
+      const { data: sourceRows, error: sourceError } = await supabase
+        .from('posts')
+        .select('id, user_id, caption, media_urls, media_type, profiles!posts_user_id_fkey(id, username, display_name, avatar_url, is_verified)')
+        .in('id', repostSourceIds);
+      if (sourceError) {
+        console.warn('Some repost originals are not visible to this viewer:', sourceError.message);
+      } else {
+        (sourceRows || []).forEach((source: any) => repostSources.set(source.id, source));
+      }
+    }
+
     return (data || []).map((p: any): Post => {
       const profile = resolveProfile({
         id: p.user_id,
@@ -107,6 +125,30 @@ export async function getPosts(
         avatar_url: p.avatar_url,
         is_verified: p.is_verified,
       }, p.user_id);
+      const source = p.is_repost && p.repost_of ? repostSources.get(p.repost_of) : undefined;
+      const sourceProfile = source ? resolveProfile(source.profiles) : null;
+      const repostedPost = source && sourceProfile ? {
+        id: source.id,
+        user: {
+          id: sourceProfile.id,
+          name: sourceProfile.display_name || sourceProfile.username || 'Unknown',
+          username: sourceProfile.username,
+          avatar: sourceProfile.avatar_url || getDefaultAvatar(sourceProfile.id || 'user'),
+          bio: sourceProfile.bio || '',
+          cover_url: sourceProfile.cover_url || '',
+          website: sourceProfile.website || '',
+          phone: sourceProfile.phone || '',
+          is_private: sourceProfile.is_private ?? false,
+          is_verified: sourceProfile.is_verified ?? false,
+          posts_count: sourceProfile.posts_count ?? 0,
+          followersCount: sourceProfile.followers_count ?? 0,
+          followingCount: sourceProfile.following_count ?? 0,
+          isFollowing: false,
+        },
+        caption: source.caption || '',
+        imageUrl: source.media_urls?.[0] || undefined,
+        mediaType: (source.media_type as 'image' | 'video' | 'carousel') || 'image',
+      } : null;
       return {
         id: p.id,
         user: profile
@@ -143,7 +185,11 @@ export async function getPosts(
               followingCount: 0,
               isFollowing: false,
             },
-        caption: p.caption,
+        caption: p.caption || '',
+        is_repost: Boolean(p.is_repost),
+        repost_of: p.repost_of || undefined,
+        repost_caption: p.repost_caption || undefined,
+        repostedPost,
         category: p.category || 'General',
         timeLabel: formatTimeLabel(p.created_at),
         imageUrl: p.image_url || p.media_urls?.[0] || undefined,

@@ -3,7 +3,7 @@
  */
 import React, { forwardRef, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Camera, Folder, Image as ImageIcon, Mic, MicOff, Plus, Send, Smile } from 'lucide-react';
+import { Camera, FolderOpen, Mic, MicOff, Send, Smile, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { sendMessage } from '../../lib/api/messages';
 import type { Chat } from '../../types';
@@ -27,6 +27,7 @@ interface MessageInputProps {
   onSendMessage: () => void;
   onStartRecording: () => void;
   onStopRecording: () => void;
+  onCancelRecording: () => void;
   onClearReply: () => void;
   onEmitTyping: () => void;
   onAttachmentSent: (msg: any) => void;
@@ -35,9 +36,8 @@ interface MessageInputProps {
 const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
   ({ activeChat, typeInput, isRecording, recordingDuration,
     onTypeInputChange, onToggleEmojiPicker, onSendMessage, onStartRecording,
-    onStopRecording, onEmitTyping, onAttachmentSent }, ref) => {
+    onStopRecording, onCancelRecording, onEmitTyping, onAttachmentSent }, ref) => {
     const cameraPickerRef = useRef<HTMLInputElement>(null);
-    const imagePickerRef = useRef<HTMLInputElement>(null);
     const folderPickerRef = useRef<HTMLInputElement>(null);
     const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -85,8 +85,6 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
         <div className={`container-ia-chat lbt-chat-composer ${isRecording ? 'is-recording' : ''}`}>
           <input ref={cameraPickerRef} type="file" accept="image/*" capture="environment"
             className="lbt-composer-file-input" onChange={handleImageUpload} tabIndex={-1} aria-hidden="true" />
-          <input ref={imagePickerRef} type="file" accept="image/*"
-            className="lbt-composer-file-input" onChange={handleImageUpload} tabIndex={-1} aria-hidden="true" />
           <input ref={folderPickerRef} type="file" accept="image/*"
             className="lbt-composer-file-input" onChange={handleImageUpload} tabIndex={-1} aria-hidden="true" />
 
@@ -110,48 +108,38 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
           />
 
           <div className="container-upload-files" aria-label="Message attachments">
-            <button type="button" className="upload-file" title="Take a photo" aria-label="Take a photo"
+            <button type="button" className="upload-file lbt-camera-trigger" title="Take a photo" aria-label="Take a photo"
               onClick={() => cameraPickerRef.current?.click()} disabled={isRecording}><Camera /></button>
-            <button type="button" className="upload-file" title="Choose an image" aria-label="Choose an image"
-              onClick={() => imagePickerRef.current?.click()} disabled={isRecording}><ImageIcon /></button>
-            <button type="button" className="upload-file" title="Browse images" aria-label="Browse images"
-              onClick={() => folderPickerRef.current?.click()} disabled={isRecording}><Folder /></button>
-            <button type="button" className="upload-file" title="Emoji" aria-label="Open emoji picker"
-              onClick={onToggleEmojiPicker} disabled={isRecording}><Smile /></button>
+            <button type="button" className="upload-file lbt-browse-trigger" title="Browse files" aria-label="Browse files"
+              onClick={() => folderPickerRef.current?.click()} disabled={isRecording}><FolderOpen /></button>
           </div>
 
-          <button type="button" className="label-files" aria-label="Attach an image" title="Attach image"
-            onClick={() => imagePickerRef.current?.click()}><Plus /></button>
+          <button type="button" className="lbt-emoji-trigger" aria-label="Open emoji picker" title="Emoji"
+            onClick={onToggleEmojiPicker} disabled={isRecording}><Smile /></button>
 
           {!canSend && (
             <button
               type="button"
               className={`label-voice ${isRecording ? 'is-recording' : ''}`}
-              aria-label={isRecording ? 'Release to send voice message' : 'Hold to record a voice message'}
-              title={isRecording ? 'Release to send voice message' : 'Hold to record a voice message'}
-              onPointerDown={startVoiceNote}
-              onPointerUp={stopVoiceNote}
-              onPointerCancel={stopVoiceNote}
-              onPointerLeave={isRecording ? stopVoiceNote : undefined}
+              aria-label={isRecording ? 'Send voice message' : 'Start voice message'}
+              title={isRecording ? 'Tap to send voice message' : 'Tap to start recording'}
+              onClick={() => isRecording ? onStopRecording() : onStartRecording()}
             >
               {isRecording ? (
                 <span className="lbt-recording-content">
-                  <span className="ai" aria-hidden="true">
-                    <span className="container">
-                      <span className="c c4" /><span className="c c1" /><span className="c c2" /><span className="c c3" />
-                      <span className="rings" />
-                    </span>
-                    <span className="glass" />
-                  </span>
+                  <span className="lbt-recording-dot" />
                   <span className="lbt-recording-copy">
                     <strong>Recording voice message</strong>
-                    <small>Release to send · {formatDuration(recordingDuration)}</small>
+                    <small>Tap to send · {formatDuration(recordingDuration)}</small>
                   </span>
-                  <MicOff className="lbt-recording-stop-icon" />
+                  <Send className="lbt-recording-stop-icon" />
                 </span>
-              ) : (
-                <Mic className="icon-voice" />
-              )}
+              ) : <Mic className="icon-voice" />}
+            </button>
+          )}
+          {isRecording && (
+            <button type="button" className="lbt-recording-cancel" onClick={onCancelRecording} aria-label="Cancel recording" title="Cancel recording">
+              <X />
             </button>
           )}
 

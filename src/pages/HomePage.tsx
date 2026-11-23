@@ -112,13 +112,14 @@ export default function HomePage() {
   const handlePostReaction = useCallback(async (postId: string, emoji: string) => {
     setReactionPickerPostId(null);
     try {
-      await (supabase as any).rpc('toggle_post_reaction', { p_post_id: postId, p_emoji: emoji });
-      const { data } = await (supabase as any).rpc('get_post_reactions', { p_post_id: postId });
-      if (data) {
-        setPostReactions(prev => ({ ...prev, [postId]: data as { emoji: string; count: number; has_reacted: boolean }[] }));
-      }
-    } catch (e) {
+      const { error: toggleError } = await (supabase as any).rpc('toggle_post_reaction', { p_post_id: postId, p_emoji: emoji });
+      if (toggleError) throw toggleError;
+      const { data, error: readError } = await (supabase as any).rpc('get_post_reactions', { p_post_id: postId });
+      if (readError) throw readError;
+      setPostReactions(prev => ({ ...prev, [postId]: (data || []) as { emoji: string; count: number; has_reacted: boolean }[] }));
+    } catch (e: any) {
       console.error('Failed to toggle reaction:', e);
+      triggerToast(e?.message || 'Could not update reaction. Try again.', 'error');
     }
   }, []);
 

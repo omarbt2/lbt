@@ -250,46 +250,28 @@ export default function ProfilePage() {
     }
   };
 
-  const generateQRMatrix = (username: string) => {
-    const size = 21;
-    const matrix = Array(size).fill(0).map(() => Array(size).fill(false));
-    const hash = (str: string, index: number) => {
-      let h = 5381 + index;
-      for (let i = 0; i < str.length; i++) {
-        h = ((h << 5) + h) + str.charCodeAt(i);
-      }
-      return Math.abs(h);
-    };
-    const drawFinder = (rowOffset: number, colOffset: number) => {
-      for (let r = 0; r < 7; r++) {
-        for (let c = 0; c < 7; c++) {
-          const isBorder = r === 0 || r === 6 || c === 0 || c === 6;
-          const isInner = r >= 2 && r <= 4 && c >= 2 && c <= 4;
-          matrix[rowOffset + r][colOffset + c] = isBorder || isInner;
-        }
-      }
-    };
-    drawFinder(0, 0);
-    drawFinder(0, 14);
-    drawFinder(14, 0);
-    const centerStart = 8;
-    const centerEnd = 12;
-    for (let r = 0; r < size; r++) {
-      for (let c = 0; c < size; c++) {
-        const inTopLeft = r < 8 && c < 8;
-        const inTopRight = r < 8 && c >= 13;
-        const inBottomLeft = r >= 13 && c < 8;
-        const inCenter = r >= centerStart && r <= centerEnd && c >= centerStart && c <= centerEnd;
-        if (inTopLeft || inTopRight || inBottomLeft || inCenter) continue;
-        if (r === 6 || c === 6) {
-          matrix[r][c] = (r === 6 ? c : r) % 2 === 0;
-          continue;
-        }
-        const val = hash(username, r * size + c);
-        matrix[r][c] = val % 2 === 0;
-      }
+  const profileUrl = `${window.location.origin}/profile/${encodeURIComponent(user.id)}`;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=512x512&format=png&ecc=H&margin=12&data=${encodeURIComponent(profileUrl)}`;
+
+  const handleDownloadQr = async () => {
+    try {
+      const response = await fetch(qrImageUrl);
+      if (!response.ok) throw new Error('QR image request failed');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = `lbt-profile-${user.username || user.id}.png`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      setQrDownloaded(true);
+      window.setTimeout(() => setQrDownloaded(false), 3000);
+    } catch (error) {
+      console.error('QR download failed:', error);
+      window.open(qrImageUrl, '_blank', 'noopener,noreferrer');
     }
-    return matrix;
   };
 
   const activeFollowList = followersModalType === 'followers' ? followersList : followingList;
@@ -812,17 +794,8 @@ export default function ProfilePage() {
               <p className="text-xs text-white/50">Hold camera to the code to view profile</p>
             </div>
 
-            <div className="relative bg-white p-4.5 rounded-2xl shadow-xl w-48 h-48 flex items-center justify-center border-4 border-primary">
-              <svg viewBox="0 0 21 21" className="w-full h-full text-slate-950 fill-current shape-rendering-crispedges">
-                {generateQRMatrix(user.username || 'anon').map((row, rIdx) =>
-                  row.map((val, cIdx) => val ? (
-                    <rect key={`${rIdx}-${cIdx}`} x={cIdx} y={rIdx} width="1" height="1" />
-                  ) : null)
-                )}
-              </svg>
-              <div className="absolute w-10 h-10 bg-primary text-white rounded-lg flex items-center justify-center shadow-lg border-2 border-white">
-                <span className="font-sans font-black text-[12px] tracking-tighter leading-none">LBT</span>
-              </div>
+            <div className="rounded-2xl bg-white p-3 shadow-xl border-4 border-primary">
+              <img src={qrImageUrl} alt={`QR code linking to ${profileUrl}`} className="block h-48 w-48 object-contain" />
             </div>
 
             <div className="flex items-center gap-2.5 px-4 py-2 bg-white/5 border border-white/10 rounded-2xl w-full justify-center">
@@ -835,26 +808,30 @@ export default function ProfilePage() {
 
             {qrDownloaded && (
               <div className="text-[11px] text-on-surface font-bold bg-surface-container-low border border-outline-variant px-3 py-1.5 rounded-xl w-full animate-fadeIn flex items-center justify-center gap-1.5">
-                <Check className="w-3.5 h-3.5" /> Saved to Gallery!
+                <Check className="w-3.5 h-3.5" /> QR code downloaded.
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-2 w-full mt-1.5">
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(`https://lbt-social.network/user/${user.username}`);
-                  setQrCopied(true);
-                  setTimeout(() => setQrCopied(false), 2000);
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(profileUrl);
+                    setQrCopied(true);
+                    window.setTimeout(() => setQrCopied(false), 2000);
+                  } catch {
+                    window.prompt('Copy your profile link', profileUrl);
+                  }
                 }}
                 className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer border border-white/5 active:scale-95 text-white"
               >
                 {qrCopied ? <><Check className="w-3.5 h-3.5 text-on-surface" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy Link</>}
               </button>
               <button
-                onClick={() => { setQrDownloaded(true); setTimeout(() => setQrDownloaded(false), 3000); }}
+                onClick={handleDownloadQr}
                 className="flex items-center justify-center gap-2 bg-primary hover:bg-primary text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer active:scale-95 text-white shadow-sm"
               >
-                <Share2 className="w-3.5 h-3.5" /> Save QR Code
+                <Share2 className="w-3.5 h-3.5" /> Download QR Code
               </button>
             </div>
 

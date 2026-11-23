@@ -139,7 +139,26 @@ export default function ProfilePage() {
           .not('repost_of', 'is', null)
           .order('created_at', { ascending: false });
         if (error) { console.error('Reposts fetch error:', error); setProfileReposts([]); setRepostsLoading(false); return; }
-        setProfileReposts((reposts as any) || []);
+        const repostRows = (reposts || []) as any[];
+        const originalIds = [...new Set(repostRows.map((row) => row.repost_of).filter(Boolean))] as string[];
+        const originalMedia = new Map<string, any>();
+        if (originalIds.length) {
+          const { data: originals, error: originalsError } = await supabase
+            .from('posts')
+            .select('id, image_url, media_urls')
+            .in('id', originalIds);
+          if (originalsError) console.warn('Some repost originals are not visible:', originalsError.message);
+          (originals || []).forEach((original: any) => originalMedia.set(original.id, original));
+        }
+        setProfileReposts(repostRows.map((row) => {
+          const original = row.repost_of ? originalMedia.get(row.repost_of) : undefined;
+          return {
+            ...row,
+            imageUrl: original?.image_url || original?.media_urls?.[0] || undefined,
+            likes: row.likes_count || 0,
+            commentsCount: row.comments_count || 0,
+          } as Post;
+        }));
       } catch (e) { console.error(e); }
       finally { setRepostsLoading(false); }
     })();
@@ -634,12 +653,19 @@ export default function ProfilePage() {
             onClick={() => onPostSelect(post.id)}
             className="aspect-square overflow-hidden bg-surface-container-highest cursor-pointer hover:opacity-85 transition-opacity relative group"
           >
-            <img
-              src={post.imageUrl}
-              alt="Repost"
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
+            {post.imageUrl ? (
+              <img
+                src={post.imageUrl}
+                alt="Reposted original post"
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-surface-container text-on-surface-variant">
+                <Repeat2 className="w-7 h-7 opacity-50" />
+                <span className="px-2 text-center text-[10px] font-medium">Original post unavailable</span>
+              </div>
+            )}
             <div className="absolute top-1.5 left-1.5 bg-black/60 rounded-full px-1.5 py-0.5 flex items-center gap-0.5">
               <Repeat2 className="w-2.5 h-2.5 text-white" />
               <span className="text-[8px] font-bold text-white">Repost</span>

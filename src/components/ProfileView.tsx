@@ -88,7 +88,11 @@ export default function ProfileView({
   }, [user.id, canViewPosts]);
 
   useEffect(() => {
-    if (!user?.id || !canViewPosts) return;
+    if (!user?.id || !canViewPosts) {
+      setProfileReels([]);
+      setReelsLoading(false);
+      return;
+    }
     setReelsLoading(true);
     (async () => {
       try {

@@ -22,7 +22,6 @@ import MobileHeader from './components/layout/MobileHeader';
 import MobileNav from './components/layout/MobileNav';
 import EditPostModal from './components/layout/EditPostModal';
 import InsightsModal from './components/layout/InsightsModal';
-import RepostModal from './components/layout/RepostModal';
 import NoteInputModal from './components/layout/NoteInputModal';
 import PermissionDeniedDialog from './components/layout/PermissionDeniedDialog';
 import ShareToDmModal from './components/layout/ShareToDmModal';
@@ -436,18 +435,7 @@ function AppLayout() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {state.showRepostModal && state.repostTargetPost && (
-          <RepostModal
-            repostTargetPost={state.repostTargetPost}
-            repostCaption={state.repostCaption}
-            setRepostCaption={state.setRepostCaption}
-            isReposting={state.isReposting}
-            onRepost={state.handleRepost}
-            onClose={() => state.setShowRepostModal(false)}
-          />
-        )}
-      </AnimatePresence>
+
     </div>
   );
 }

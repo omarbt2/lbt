@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Image as ImageIcon,
@@ -62,25 +62,46 @@ export default function CreatePostView({
 
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
   const tagSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isReelMode = type === 'reel';
   const isImageFile = !isReelMode;
 
   const canPublish =
-    isPublishing || isUploading
+    isPublishing || isUploading || (isReelMode && !(selectedFile && selectedFile.type.startsWith('video/')))
       ? false
       : caption.trim().length > 0 || selectedFile !== null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) loadFile(file);
+    e.target.value = '';
   };
 
   const loadFile = (file: File) => {
+    const validImage = file.type.startsWith('image/');
+    const validVideo = file.type.startsWith('video/');
+    if ((isReelMode && !validVideo) || (!isReelMode && !validImage && !validVideo)) {
+      setPublishError(isReelMode ? 'Choose a video file to create a reel.' : 'Choose an image or video file.');
+      return;
+    }
+    const maxBytes = validVideo ? 50 * 1024 * 1024 : 25 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setPublishError(validVideo ? 'Videos must be smaller than 50 MB.' : 'Images must be smaller than 25 MB.');
+      return;
+    }
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    const url = URL.createObjectURL(file);
+    previewUrlRef.current = url;
     setSelectedFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    setImagePreview(url);
+    setPublishError(null);
   };
+
+  useEffect(() => () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+  }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -97,6 +118,8 @@ export default function CreatePostView({
   };
 
   const removeMedia = () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = null;
     setSelectedFile(null);
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -155,6 +178,10 @@ export default function CreatePostView({
   };
 
   const handlePublish = async () => {
+    if (isReelMode && (!selectedFile || !selectedFile.type.startsWith('video/'))) {
+      setPublishError('A reel needs a video file. Choose a video before publishing.');
+      return;
+    }
     if (!canPublish) return;
     setIsPublishing(true);
     setPublishError(null);
@@ -193,7 +220,7 @@ export default function CreatePostView({
         }
       }
 
-      const mediaType = selectedFile && selectedFile.type.startsWith('video/') ? 'video' : (finalMediaUrl ? 'image' : 'text');
+      const mediaType = selectedFile && selectedFile.type.startsWith('video/') ? 'video' : 'image';
 
       const p = await createPost({
         caption: caption.trim(),
@@ -202,6 +229,7 @@ export default function CreatePostView({
         media_type: mediaType as 'image' | 'video' | 'carousel',
         tags: caption.match(/#[a-zA-Z0-9]+/g) || [],
         close_friends_only: closeFriendsOnly,
+        visibility: audience === 'followers' ? 'followers' : 'public',
         collab_user_id: collabUser?.id || null,
       } as any);
 

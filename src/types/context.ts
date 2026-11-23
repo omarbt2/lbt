@@ -20,6 +20,7 @@ export interface OutletContextType {
   liveNotifications: Notification[];
   showAddStoryModal: boolean;
   setShowAddStoryModal: (show: boolean) => void;
+  setShowNoteInput: (show: boolean) => void;
   handleStoryAdded: (imageSrc: string) => Promise<void>;
   handleViewStory: (story: Story) => void;
   handleMarkAllNotificationsAsRead: () => Promise<void>;

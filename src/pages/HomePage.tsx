@@ -50,7 +50,7 @@ export default function HomePage() {
   const {
     posts, postsLoading, postsError, loadMore, refresh,
     handleLikeToggle, handleBookmarkToggle, handleAddComment, handleDeletePost,
-    currentUser, storyGroups, triggerToast, setShowAddStoryModal, handleViewStory,
+    currentUser, storyGroups, triggerToast, setShowAddStoryModal, setShowNoteInput, handleViewStory,
     postMenuPostId, setPostMenuPostId,
     setRepostTargetPost, setShowRepostModal,
   } = useOutletContext<OutletContextType>();
@@ -95,7 +95,9 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   const handleReactionLongPress = useCallback((postId: string) => {
+    longPressTriggeredRef.current = false;
     longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true;
       setReactionPickerPostId(postId);
     }, 500);
   }, []);
@@ -150,6 +152,7 @@ export default function HomePage() {
   const [reactionPickerPostId, setReactionPickerPostId] = useState<string | null>(null);
   const [postReactions, setPostReactions] = useState<Record<string, { emoji: string; count: number; has_reacted: boolean }[]>>({});
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   const onTouchStart = useCallback((e: TouchEvent) => {
     const scrollEl = document.getElementById('root');
@@ -205,7 +208,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <NotesBar currentUser={{ id: currentUser.id, name: currentUser.name, avatar: currentUser.avatar || '' }} />
+      <NotesBar currentUser={{ id: currentUser.id, name: currentUser.name, avatar: currentUser.avatar || '' }} onOpenNoteModal={() => setShowNoteInput(true)} />
 
       <section className="flex flex-col gap-3 py-4 px-1">
         <div className="flex items-center gap-3 px-1">
@@ -339,12 +342,25 @@ export default function HomePage() {
                 onClick={() => navigate('/post/' + post.id)}
                 className="w-full relative aspect-square sm:aspect-[4/3] bg-surface-container-lowest cursor-pointer overflow-hidden -mx-4 md:mx-0 w-[calc(100%+2rem)] md:w-full rounded-2xl md:rounded-none group shadow-inner"
               >
-                <img
-                  src={post.imageUrl}
-                  alt={post.caption ? `Photo by ${post.user.name}: ${post.caption.slice(0, 50)}` : `Photo by ${post.user.name}`}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
-                />
+                {post.mediaType === 'video' ? (
+                  <video
+                    src={post.imageUrl}
+                    className="w-full h-full object-cover"
+                    controls
+                    playsInline
+                    muted
+                    autoPlay={localStorage.getItem('lbt_auto_play') !== 'false' && localStorage.getItem('lbt_data_saver') !== 'true'}
+                    preload={localStorage.getItem('lbt_data_saver') === 'true' ? 'none' : 'metadata'}
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                ) : (
+                  <img
+                    src={post.imageUrl}
+                    alt={post.caption ? `Photo by ${post.user.name}: ${post.caption.slice(0, 50)}` : `Photo by ${post.user.name}`}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                  />
+                )}
                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <span className="text-white text-xs font-bold bg-black/50 px-4 py-2 rounded-full backdrop-blur-md">
                     View post
@@ -357,7 +373,10 @@ export default function HomePage() {
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <button
-                    onClick={() => handleLikeToggle(post.id)}
+                    onClick={() => {
+                      if (longPressTriggeredRef.current) { longPressTriggeredRef.current = false; return; }
+                      handleLikeToggle(post.id);
+                    }}
                     onMouseDown={() => handleReactionLongPress(post.id)}
                     onMouseUp={handleReactionPressEnd}
                     onMouseLeave={handleReactionPressEnd}

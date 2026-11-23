@@ -24,7 +24,7 @@ export default function PermissionDeniedDialog({ type, onClose }: PermissionDeni
         <p className="text-xs text-on-surface-variant text-center">
           {type === 'camera'
             ? 'Camera access is needed to take photos and record stories.'
-            : 'Microphone access is needed to record voice messages and make calls.'}
+            : 'Microphone access is needed only to record and send voice messages.'}
         </p>
         <div className="flex justify-center">
           <button

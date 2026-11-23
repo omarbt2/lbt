@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useState, useEffect } from 'react';
+import { useI18n } from '../lib/i18n/context';
 
 import SettingsShell from '../components/settings/SettingsShell';
 import PersonalSettings from '../components/settings/PersonalSettings';
@@ -40,6 +41,7 @@ const SUBPAGE_TITLES: Record<Subpage, string> = {
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { currentUser, darkMode, toggleDarkMode, triggerToast } = useOutletContext<OutletContextType>();
+  const { locale, setLocale, setTextSize: setAppTextSize } = useI18n();
   const onNavigateToInsights = () => navigate('/insights');
   const onLogout = () => {
     if (window.confirm('Are you sure you want to log out?')) {
@@ -61,8 +63,8 @@ export default function SettingsPage() {
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [phonePrefix, setPhonePrefix] = useState('+1');
   const [phoneNum, setPhoneNum] = useState(currentUser.phone || '');
-  const [dob, setDob] = useState('');
-  const [gender, setGender] = useState('');
+  const [dob, setDob] = useState(currentUser.date_of_birth || currentUser.dob || '');
+  const [gender, setGender] = useState(currentUser.gender || '');
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
 
   // --- Security state ---
@@ -112,17 +114,40 @@ export default function SettingsPage() {
   const [mutedCount, setMutedCount] = useState(0);
 
   // --- Appearance state ---
-  const [textSize, setTextSize] = useState<'small' | 'medium' | 'large'>('medium');
-  const [language, setLanguage] = useState('en');
-  const [autoPlay, setAutoPlay] = useState(true);
+  const [textSize, setTextSize] = useState<'small' | 'medium' | 'large'>(() => (localStorage.getItem('lbt_text_size') as 'small' | 'medium' | 'large') || 'medium');
+  const [language, setLanguage] = useState(locale);
+  const [autoPlay, setAutoPlay] = useState(() => localStorage.getItem('lbt_auto_play') !== 'false');
 
   // --- Media state ---
-  const [dataSaver, setDataSaver] = useState(false);
-  const [highQualityUploads, setHighQualityUploads] = useState(true);
+  const [dataSaver, setDataSaver] = useState(() => localStorage.getItem('lbt_data_saver') === 'true');
+  const [highQualityUploads, setHighQualityUploads] = useState(() => localStorage.getItem('lbt_high_quality_uploads') !== 'false');
 
   // --- DM settings ---
   const [dmFromEveryone, setDmFromEveryone] = useState(true);
   const [dmShowPreview, setDmShowPreview] = useState(true);
+
+  useEffect(() => {
+    localStorage.setItem('lbt_auto_play', String(autoPlay));
+    localStorage.setItem('lbt_data_saver', String(dataSaver));
+    localStorage.setItem('lbt_high_quality_uploads', String(highQualityUploads));
+  }, [autoPlay, dataSaver, highQualityUploads]);
+
+  useEffect(() => {
+    setLanguage(locale);
+  }, [locale]);
+
+  const handleLanguageChange = (next: string) => {
+    const supported = ['en', 'fr', 'ar', 'es'] as const;
+    if (!supported.includes(next as any)) return;
+    const selectedLocale = next as typeof locale;
+    setLanguage(selectedLocale);
+    setLocale(selectedLocale);
+  };
+
+  const handleTextSizeChange = (next: 'small' | 'medium' | 'large') => {
+    setTextSize(next);
+    setAppTextSize(next);
+  };
 
   const updateNotifPref = async (field: string, value: boolean) => {
     const { error } = await (supabase.from('profiles') as any).update({ [field]: value }).eq('id', currentUser.id);
@@ -176,7 +201,7 @@ export default function SettingsPage() {
 
   const updateProfileField = async (field: string, value: any) => {
     const { error } = await (supabase.from('profiles') as any).update({ [field]: value }).eq('id', currentUser.id);
-    if (error) console.error(`Failed to update profile field "${field}":`, error.message);
+    if (error) throw error;
   };
 
   // --- FAQ state ---
@@ -223,16 +248,16 @@ export default function SettingsPage() {
     if (!editName.trim() || !editUsername.trim()) { setSaveFeedback('Name and username required!'); return; }
     try {
       const { updateProfile } = await import('../lib/api/profiles');
-      await updateProfile({
+      const updatedUser = await updateProfile({
         display_name: editName.trim(),
         username: editUsername.toLowerCase().trim(),
         avatar_url: editPic || undefined,
         bio: editBio.trim(),
-        phone: phoneNum ? `${phonePrefix} ${phoneNum}` : undefined,
-        dob: dob || undefined,
-        gender: gender || undefined,
+        phone: phoneNum ? `${phonePrefix} ${phoneNum}` : null,
+        dob: dob || null,
+        gender: gender || null,
       });
-      await useAuthStore.getState().initialize();
+      useAuthStore.setState({ currentUser: updatedUser });
     } catch (err) {
       setSaveFeedback('Failed to save profile.'); return;
     }
@@ -268,7 +293,8 @@ export default function SettingsPage() {
       const { error } = await supabase.auth.updateUser({ email: editEmail.trim() });
       if (error) throw error;
       setIsEmailVerifying(false);
-      setIsEmailVerified(true);
+      setIsEmailVerified(false);
+      setSaveFeedback('Confirmation email requested. Verify it from your inbox before the address changes.');
     } catch (err: any) {
       setSaveFeedback(err?.message || 'Failed to send verification email');
       setIsEmailVerifying(false);
@@ -299,9 +325,8 @@ export default function SettingsPage() {
 
   const handleCardUpgradeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ccNum || !ccName) return;
-    setProSuccess(true);
-    setTimeout(() => { setProSuccess(false); setActiveSubpage(null); }, 2500);
+    setProSuccess(false);
+    triggerToast('LBT Pro payments are not connected yet. No charge was made.', 'error');
   };
 
   const toggleNotifLikes = () => { const next = !notifLikes; setNotifLikes(next); updateNotifPref('notif_likes', next); };
@@ -428,20 +453,13 @@ export default function SettingsPage() {
         <p className="text-xs text-outline">Manage your account preferences</p>
       </div>
 
-      {/* Pro banner */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary p-5 shadow-lg text-white">
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-28 h-28 bg-white/10 rounded-full blur-2xl" />
-        <div className="relative z-10 flex justify-between items-center">
+      <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-4">
+        <div className="flex items-start gap-3">
+          <Star className="mt-0.5 h-5 w-5 text-primary" />
           <div>
-            <h2 className="text-sm font-bold flex items-center gap-2">
-              <Star className="w-4 h-4 text-on-surface fill-on-surface" /> LBT Pro
-            </h2>
-            <p className="text-[10px] text-white/80 mt-0.5">Unlock analytics & HD templates</p>
+            <h3 className="text-sm font-bold text-on-surface">LBT Pro</h3>
+            <p className="mt-1 text-xs text-on-surface-variant">Premium subscriptions are not available yet. No payment details are collected and no upgrade can be purchased in this version.</p>
           </div>
-          <button onClick={() => setActiveSubpage('pro')}
-            className="bg-white text-primary font-extrabold text-[10px] py-2 px-4 rounded-full active:scale-95 transition-transform">
-            Upgrade
-          </button>
         </div>
       </section>
 
@@ -449,7 +467,7 @@ export default function SettingsPage() {
       <section>
         <h4 className="text-[10px] font-extrabold text-primary mb-2 px-1 uppercase tracking-widest">Account</h4>
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden divide-y divide-outline-variant/10">
-          <div onClick={() => setActiveSubpage('personal')}
+          <div onClick={() => navigate('/edit-profile')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
@@ -642,10 +660,10 @@ export default function SettingsPage() {
         isOpen={inlineSheet === 'language'}
         onClose={() => setInlineSheet(null)}
         items={[
-          { icon: language === 'en' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'English', onClick: () => setLanguage('en') },
-          { icon: language === 'fr' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'Francais', onClick: () => setLanguage('fr') },
-          { icon: language === 'ar' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'العربية', onClick: () => setLanguage('ar') },
-          { icon: language === 'es' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'Espanol', onClick: () => setLanguage('es') },
+          { icon: language === 'en' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'English', onClick: () => handleLanguageChange('en') },
+          { icon: language === 'fr' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'Francais', onClick: () => handleLanguageChange('fr') },
+          { icon: language === 'ar' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'العربية', onClick: () => handleLanguageChange('ar') },
+          { icon: language === 'es' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'Espanol', onClick: () => handleLanguageChange('es') },
         ]}
         header={{ name: 'Language' }}
       />
@@ -655,9 +673,9 @@ export default function SettingsPage() {
         isOpen={inlineSheet === 'textsize'}
         onClose={() => setInlineSheet(null)}
         items={[
-          { icon: textSize === 'small' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'Small', onClick: () => setTextSize('small') },
-          { icon: textSize === 'medium' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'Medium', onClick: () => setTextSize('medium') },
-          { icon: textSize === 'large' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'Large', onClick: () => setTextSize('large') },
+          { icon: textSize === 'small' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'Small', onClick: () => handleTextSizeChange('small') },
+          { icon: textSize === 'medium' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'Medium', onClick: () => handleTextSizeChange('medium') },
+          { icon: textSize === 'large' ? <Check className="w-5 h-5 text-primary" /> : <span className="w-5" />, label: 'Large', onClick: () => handleTextSizeChange('large') },
         ]}
         header={{ name: 'Text Size' }}
       />

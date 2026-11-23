@@ -20,8 +20,8 @@ export default function EditProfilePage() {
     if (p.startsWith('0')) return p.slice(1);
     return p.replace(/\D/g, '').slice(-9);
   });
-  const [gender, setGender] = useState('Male');
-  const [dateOfBirth, setDateOfBirth] = useState(() => (currentUser as any).date_of_birth || '');
+  const [gender, setGender] = useState(currentUser.gender || '');
+  const [dateOfBirth, setDateOfBirth] = useState(() => currentUser.date_of_birth || currentUser.dob || '');
   const [isPrivate, setIsPrivate] = useState(currentUser.is_private ?? false);
 
   const STATUS_EMOJIS = ['😊', '🔥', '💤', '🎵', '💼', '📸', '🎮', '📚', '✈️', '🍕', '💻', '🎨', '💪', '🌙', '☀️'];
@@ -84,23 +84,23 @@ export default function EditProfilePage() {
 
     try {
       const { updateProfile } = await import('../lib/api/profiles');
-      await updateProfile({
+      const updatedUser = await updateProfile({
         display_name: fullName.trim(),
         username: username.toLowerCase().trim(),
         bio: bio.trim(),
         website: website.trim(),
         avatar_url: avatarUrl || undefined,
         cover_url: coverUrl || undefined,
-        phone: phoneLocal && validatePhone(phoneLocal) ? fullPhone : undefined,
+        phone: phoneLocal && validatePhone(phoneLocal) ? fullPhone : null,
         date_of_birth: dateOfBirth || null,
-        gender: gender || undefined,
+        gender: gender || null,
         is_private: isPrivate,
         status_emoji: statusEmoji || undefined,
         status_text: statusText || undefined,
         status_expires_at: statusEmoji ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null,
       });
 
-      await useAuthStore.getState().initialize();
+      useAuthStore.setState({ currentUser: updatedUser });
       setFeedback({ type: 'success', text: 'Profile updated!' });
       setTimeout(() => onBack(), 1000);
     } catch (err: any) {

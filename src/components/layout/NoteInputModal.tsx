@@ -10,20 +10,29 @@ interface NoteInputModalProps {
 
 export default function NoteInputModal({ isOpen, onClose, currentUser }: NoteInputModalProps) {
   const [noteText, setNoteText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handlePost = async () => {
-    if (!noteText.trim() || !currentUser?.id) return;
+    if (!noteText.trim() || !currentUser?.id || isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
     try {
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      await supabase.from('notes').upsert({
+      const { error } = await supabase.from('notes').upsert({
         user_id: currentUser.id,
         content: noteText.trim(),
         expires_at: expiresAt,
       }, { onConflict: 'user_id' });
+      if (error) throw error;
+      window.dispatchEvent(new Event('lbt:notes-updated'));
       onClose();
       setNoteText('');
     } catch (e) {
       console.error('Note error:', e);
+      setSaveError('Could not publish your note. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -56,6 +65,7 @@ export default function NoteInputModal({ isOpen, onClose, currentUser }: NoteInp
               className="w-full bg-surface-container/60 border border-outline-variant/20 rounded-2xl p-4 text-sm text-on-surface resize-none outline-none focus:border-primary/40 transition-colors"
               autoFocus
             />
+            {saveError && <p role="alert" className="text-xs text-error font-semibold">{saveError}</p>}
             <div className="flex justify-between items-center">
               <span className="text-[10px] text-on-surface-variant/50 font-medium">{noteText.length}/60</span>
               <div className="flex gap-2">
@@ -66,11 +76,11 @@ export default function NoteInputModal({ isOpen, onClose, currentUser }: NoteInp
                   Cancel
                 </button>
                 <button
-                  disabled={!noteText.trim()}
+                  disabled={!noteText.trim() || isSaving}
                   onClick={handlePost}
                   className="px-5 py-2.5 rounded-full bg-on-surface text-surface-container-lowest font-bold text-xs disabled:opacity-30 hover:opacity-90 transition-all active:scale-95"
                 >
-                  Post
+                  {isSaving ? 'Posting...' : 'Post'}
                 </button>
               </div>
             </div>

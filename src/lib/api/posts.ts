@@ -100,7 +100,13 @@ export async function getPosts(
     if (error) { console.error('get_feed error:', error); return []; }
 
     return (data || []).map((p: any): Post => {
-      const profile = resolveProfile(p.profiles, p.user_id);
+      const profile = resolveProfile({
+        id: p.user_id,
+        username: p.username,
+        display_name: p.display_name,
+        avatar_url: p.avatar_url,
+        is_verified: p.is_verified,
+      }, p.user_id);
       return {
         id: p.id,
         user: profile
@@ -119,7 +125,7 @@ export async function getPosts(
               posts_count: profile.posts_count ?? 0,
               followersCount: profile.followers_count ?? 0,
               followingCount: profile.following_count ?? 0,
-              isFollowing: false,
+              isFollowing: p.is_following ?? false,
             }
           : {
               id: p.user_id || '',
@@ -145,53 +151,12 @@ export async function getPosts(
         mediaType: (p.media_type as 'image' | 'video' | 'carousel') || 'image',
         likes: p.likes_count,
         commentsCount: p.comments_count,
-        hasLiked: p.has_liked ?? false,
-        hasBookmarked: p.has_bookmarked ?? false,
+        hasLiked: p.is_liked ?? false,
+        hasBookmarked: p.is_saved ?? false,
         tags: p.tags || [],
-        commentsList: (p.comments || []).map((c: any): Comment => {
-          const cProfile = resolveProfile(c.profiles || c.user_profile, c.user_id);
-          return {
-            id: c.id,
-            user: cProfile
-              ? {
-                  id: cProfile.id,
-                  name: cProfile.display_name || cProfile.username || 'Unknown',
-                  username: cProfile.username,
-                  avatar: cProfile.avatar_url
-                    || getDefaultAvatar(cProfile.id || cProfile.username || 'user'),
-                  bio: cProfile.bio || '',
-                  cover_url: cProfile.cover_url || '',
-                  website: cProfile.website || '',
-                  phone: cProfile.phone || '',
-                  is_private: cProfile.is_private ?? false,
-                  is_verified: cProfile.is_verified ?? false,
-                  posts_count: cProfile.posts_count ?? 0,
-                  followersCount: cProfile.followers_count ?? 0,
-                  followingCount: cProfile.following_count ?? 0,
-                  isFollowing: false,
-                }
-              : {
-                  id: c.user_id || '',
-                  name: 'Unknown',
-                  username: '',
-              avatar: getDefaultAvatar('user'),
-                  bio: '',
-                  cover_url: '',
-                  website: '',
-                  phone: '',
-                  is_private: false,
-                  is_verified: false,
-                  posts_count: 0,
-                  followersCount: 0,
-                  followingCount: 0,
-                  isFollowing: false,
-                },
-            content: c.content,
-            likes: c.likes_count,
-            timeLabel: formatTimeLabel(c.created_at),
-            hasLiked: false,
-          };
-        }),
+        // The live get_feed RPC returns comments_count, not comment rows.
+        // Keep the count accurate; comment previews require a separate query.
+        commentsList: [],
       };
     });
   }
@@ -398,6 +363,7 @@ export async function createPost(postData: {
   media_type?: 'image' | 'video' | 'carousel';
   tags?: string[];
   close_friends_only?: boolean;
+  visibility?: 'public' | 'followers';
   collab_user_id?: string | null;
 }): Promise<Post> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -420,9 +386,8 @@ export async function createPost(postData: {
       media_urls: cleanMediaUrls,
       media_type: mediaType,
       tags: postData.tags || [],
-      likes_count: 0,
-      comments_count: 0,
-      shares_count: 0,
+      close_friends_only: postData.close_friends_only ?? false,
+      visibility: postData.visibility || 'public',
     } as any)
     .select('*, profiles!posts_user_id_fkey(*)')
     .single();
@@ -488,7 +453,7 @@ export async function addComment(postId: string, content: string): Promise<Comme
 
   const { data, error } = await supabase
     .from('comments')
-    .insert({ post_id: postId, user_id: user.id, content, likes_count: 0 })
+    .insert({ post_id: postId, user_id: user.id, content })
     .select('*, profiles!comments_user_id_fkey(*)')
     .single();
 

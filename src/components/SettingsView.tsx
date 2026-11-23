@@ -93,15 +93,16 @@ export default function SettingsView({
     if (isUsernameTaken) { setSaveFeedback('Username is already taken!'); return; }
     if (!editName.trim() || !editUsername.trim()) { setSaveFeedback('Name and username required!'); return; }
     try {
-      const { supabase } = await import('../lib/supabase');
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('profiles').update({
-          display_name: editName, username: editUsername.toLowerCase(),
-          avatar_url: editPic, bio: editBio,
-          phone: `${phonePrefix} ${phoneNum}`, dob: dob || null, gender: gender || null,
-        } as any).eq('id', user.id);
-      }
+      const { updateProfile } = await import('../lib/api/profiles');
+      await updateProfile({
+        display_name: editName,
+        username: editUsername.toLowerCase(),
+        avatar_url: editPic || undefined,
+        bio: editBio,
+        phone: phoneNum ? `${phonePrefix} ${phoneNum}` : null,
+        dob: dob || null,
+        gender: gender || null,
+      });
     } catch (err) {
       setSaveFeedback('Failed to save profile.'); return;
     }

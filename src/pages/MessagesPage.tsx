@@ -72,6 +72,33 @@ export default function MessagesPage() {
   const typingActiveRef = useRef(false);
   const audioElementsRef = useRef<Record<string, HTMLAudioElement>>({});
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recordingStopRequestedRef = useRef(false);
+  const recordingStartedAtRef = useRef<number | null>(null);
+
+  // Hide disappearing messages immediately in an already-open conversation.
+  // The database cron job remains responsible for physical deletion.
+  useEffect(() => {
+    const cleanupExpiredFromView = () => {
+      const now = Date.now();
+      setChats((currentChats) => {
+        let changed = false;
+        const nextChats = currentChats.map((chat) => {
+          const visibleMessages = chat.messages.filter((message) => {
+            if (!message.expires_at) return true;
+            const expiresAt = Date.parse(message.expires_at);
+            return !Number.isFinite(expiresAt) || expiresAt > now;
+          });
+          if (visibleMessages.length === chat.messages.length) return chat;
+          changed = true;
+          return { ...chat, messages: visibleMessages };
+        });
+        return changed ? nextChats : currentChats;
+      });
+    };
+    cleanupExpiredFromView();
+    const intervalId = window.setInterval(cleanupExpiredFromView, 5000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const activeChat = chats.find((c) => c.id === activeChatId) || chats[0];
 
@@ -99,22 +126,31 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!currentUser?.id || chats.length === 0) return;
+    let active = true;
     const fetchUnread = async () => {
       const ids = chats.map(c => c.id);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('messages')
         .select('conversation_id')
         .in('conversation_id', ids)
         .eq('is_read', false)
-        .neq('sender_id', currentUser.id);
-      if (!data) return;
+        .neq('sender_id', currentUser.id)
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+        .neq('message_type', 'call')
+        .neq('message_type', 'video');
+      if (!active || error || !data) return;
       const counts: Record<string, number> = {};
-      data.forEach((m: any) => {
-        counts[m.conversation_id] = (counts[m.conversation_id] || 0) + 1;
+      data.forEach((message: any) => {
+        counts[message.conversation_id] = (counts[message.conversation_id] || 0) + 1;
       });
-      setChats(prev => prev.map(c => ({ ...c, unreadCount: counts[c.id] || 0 })));
+      setChats(prev => prev.map(chat => ({ ...chat, unreadCount: counts[chat.id] || 0 })));
     };
-    fetchUnread();
+    void fetchUnread();
+    const intervalId = window.setInterval(() => { void fetchUnread(); }, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
   }, [chats.length, currentUser?.id]);
 
   useEffect(() => {
@@ -346,73 +382,110 @@ export default function MessagesPage() {
   };
 
   const startRecording = async () => {
+    recordingStopRequestedRef.current = false;
+    const chatIdAtStart = activeChatId;
+    const senderIdAtStart = currentUser.id;
+    if (!chatIdAtStart || !senderIdAtStart || typeof MediaRecorder === 'undefined') {
+      showPermissionDenied('microphone');
+      return;
+    }
+
+    let stream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // A quick pointer-up may happen before the microphone permission prompt
+      // resolves. In that case, do not unexpectedly begin recording later.
+      if (recordingStopRequestedRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
+      const mimeType = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+      ].find(type => MediaRecorder.isTypeSupported(type));
+      const mediaRecorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      recordingStartedAtRef.current = Date.now();
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const duration = recordingDuration;
+        stream?.getTracks().forEach(track => track.stop());
+        const recordedType = mediaRecorder.mimeType || mimeType || 'audio/webm';
+        const blob = new Blob(audioChunksRef.current, { type: recordedType });
+        const startedAt = recordingStartedAtRef.current;
+        const duration = startedAt ? Math.max(1, Math.round((Date.now() - startedAt) / 1000)) : 1;
+        recordingStartedAtRef.current = null;
         setRecordingDuration(0);
 
-        if (!activeChatId) return;
+        if (!blob.size || recordingStopRequestedRef.current && duration < 1) return;
 
         try {
-          const fileName = `voice/${currentUser.id}/${Date.now()}.webm`;
+          const extension = recordedType.includes('mp4') ? 'm4a' : 'webm';
+          const fileName = `voice/${senderIdAtStart}/${Date.now()}.${extension}`;
           const { error: uploadError } = await supabase.storage
             .from('voice-messages')
-            .upload(fileName, blob, { contentType: 'audio/webm' });
+            .upload(fileName, blob, { contentType: recordedType });
 
-          if (uploadError) {
-            console.error('Upload error:', uploadError);
-            return;
-          }
+          if (uploadError) throw uploadError;
 
           const { data: urlData } = supabase.storage
             .from('voice-messages')
             .getPublicUrl(fileName);
 
-          if (!urlData?.publicUrl) {
-            console.error('Failed to get voice message URL');
-            return;
-          }
+          if (!urlData?.publicUrl) throw new Error('Could not create a voice message URL.');
 
-          const voiceMsg = await sendMessage(activeChatId, '', {
+          const voiceMsg = await sendMessage(chatIdAtStart, '', {
             messageType: 'voice',
             voiceUrl: urlData.publicUrl,
             voiceDuration: duration,
+            expiresAt: disappearingEnabled
+              ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+              : undefined,
           });
 
-          setChats(prev => prev.map(c => {
-            if (c.id !== activeChatId) return c;
-            if (c.messages.some(m => m.id === voiceMsg.id)) return c;
-            return { ...c, messages: [...c.messages, voiceMsg] };
+          setChats(prev => prev.map(chat => {
+            if (chat.id !== chatIdAtStart) return chat;
+            if (chat.messages.some(message => message.id === voiceMsg.id)) return chat;
+            return { ...chat, messages: [...chat.messages, voiceMsg] };
           }));
-        } catch (e: any) {
-          console.error('Failed to send voice message:', e?.message || e);
+        } catch (error: any) {
+          console.error('Failed to send voice message:', error?.message || error);
         }
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error('Voice recording failed:', event);
+        stream?.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingDuration(0);
       recordingTimerRef.current = setInterval(() => {
-        setRecordingDuration(prev => prev + 1);
-      }, 1000);
-    } catch (e) {
-      console.error('Microphone access denied:', e);
+        const startedAt = recordingStartedAtRef.current;
+        setRecordingDuration(startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0);
+      }, 250);
+    } catch (error) {
+      stream?.getTracks().forEach(track => track.stop());
+      recordingStartedAtRef.current = null;
+      console.error('Microphone access or recording failed:', error);
       showPermissionDenied('microphone');
     }
   };
 
   const stopRecording = () => {
+    recordingStopRequestedRef.current = true;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -478,8 +551,10 @@ export default function MessagesPage() {
   };
 
   const handleMessageLongPress = (messageId: string) => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = setTimeout(() => {
-      setReactionPickerMessageId(reactionPickerMessageId === messageId ? null : messageId);
+      setReactionPickerMessageId(messageId);
+      longPressTimerRef.current = null;
     }, 500);
   };
 

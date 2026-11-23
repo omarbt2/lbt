@@ -6,6 +6,7 @@ import { formatTimeLabel } from './posts';
 import { getDefaultAvatar } from '../defaultAvatars';
 
 export async function getProfile(id: string): Promise<User | null> {
+  const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -13,6 +14,14 @@ export async function getProfile(id: string): Promise<User | null> {
     .maybeSingle();
 
   if (error || !data) return null;
+
+  if (user?.id === id) {
+    const { data: privateRows, error: privateError } = await (supabase.rpc as any)('get_my_profile_private_data');
+    if (privateError) throw privateError;
+    const privateData = Array.isArray(privateRows) ? privateRows[0] : privateRows;
+    return mapProfileToUser({ ...data, ...(privateData || {}) });
+  }
+
   return mapProfileToUser(data);
 }
 
@@ -24,7 +33,7 @@ export async function updateProfile(data: {
   avatar_url?: string;
   cover_url?: string;
   website?: string;
-  phone?: string;
+  phone?: string | null;
   dob?: string | null;
   date_of_birth?: string | null;
   gender?: string | null;
@@ -36,7 +45,8 @@ export async function updateProfile(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const updatePayload: any = {};
+  const updatePayload: Database['public']['Tables']['profiles']['Update'] = {};
+  const privatePayload: Record<string, string | null> = {};
 
   if (data.display_name !== undefined) updatePayload.display_name = data.display_name;
   if (data.username !== undefined) updatePayload.username = data.username;
@@ -44,37 +54,57 @@ export async function updateProfile(data: {
   if (data.avatar_url !== undefined) updatePayload.avatar_url = data.avatar_url;
   if (data.cover_url !== undefined) updatePayload.cover_url = data.cover_url;
   if (data.website !== undefined) updatePayload.website = data.website;
-  if (data.phone !== undefined) updatePayload.phone = data.phone;
-  if (data.gender !== undefined) updatePayload.gender = data.gender;
   if (data.is_private !== undefined) updatePayload.is_private = data.is_private;
   if (data.status_emoji !== undefined) updatePayload.status_emoji = data.status_emoji;
   if (data.status_text !== undefined) updatePayload.status_text = data.status_text;
   if (data.status_expires_at !== undefined) updatePayload.status_expires_at = data.status_expires_at;
 
-  if (data.date_of_birth !== undefined) {
-    updatePayload.date_of_birth = data.date_of_birth;
-  } else if (data.dob !== undefined) {
-    updatePayload.date_of_birth = data.dob;
-  }
+  if (data.phone !== undefined) privatePayload.phone = data.phone;
+  if (data.gender !== undefined) privatePayload.gender = data.gender;
+  if (data.dob !== undefined) privatePayload.dob = data.dob;
+  if (data.date_of_birth !== undefined) privatePayload.date_of_birth = data.date_of_birth;
 
   if (data.display_name || data.name) {
     updatePayload.display_name = data.display_name || data.name;
     updatePayload.full_name = data.display_name || data.name;
   }
 
-  if (Object.keys(updatePayload).length === 0) {
+  if (Object.keys(updatePayload).length === 0 && Object.keys(privatePayload).length === 0) {
     throw new Error('No fields to update');
   }
 
-  const { data: updated, error } = await supabase
-    .from('profiles')
-    .update(updatePayload)
-    .eq('id', user.id)
-    .select('*')
-    .maybeSingle();
+  if (Object.keys(privatePayload).length > 0) {
+    const { error: privateError } = await (supabase.rpc as any)('update_my_profile_private_data', {
+      p_payload: privatePayload,
+    });
+    if (privateError) throw privateError;
+  }
 
-  if (error || !updated) throw error || new Error('Failed to update profile');
-  return mapProfileToUser(updated);
+  let updatedProfile: any;
+  if (Object.keys(updatePayload).length > 0) {
+    const { data: updated, error } = await supabase
+      .from('profiles')
+      .update(updatePayload)
+      .eq('id', user.id)
+      .select('*')
+      .maybeSingle();
+
+    if (error || !updated) throw error || new Error('Failed to update profile');
+    updatedProfile = updated;
+  } else {
+    const { data: current, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    if (error || !current) throw error || new Error('Failed to load profile');
+    updatedProfile = current;
+  }
+
+  const { data: privateRows, error: privateReadError } = await (supabase.rpc as any)('get_my_profile_private_data');
+  if (privateReadError) throw privateReadError;
+  const privateData = Array.isArray(privateRows) ? privateRows[0] : privateRows;
+  return mapProfileToUser({ ...updatedProfile, ...(privateData || {}) });
 }
 
 export async function searchProfiles(query: string): Promise<User[]> {
@@ -103,7 +133,7 @@ export async function searchProfiles(query: string): Promise<User[]> {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select('id, username, display_name, full_name, avatar_url, bio, cover_url, website, is_private, is_verified, posts_count, followers_count, following_count, status_emoji, status_text, is_online, last_seen')
     .or(`username.ilike.%${q}%,display_name.ilike.%${q}%,full_name.ilike.%${q}%`)
     .limit(10);
 

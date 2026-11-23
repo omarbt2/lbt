@@ -20,7 +20,6 @@ export interface Database {
           cover_url: string | null
           bio: string | null
           website: string | null
-          phone: string | null
           is_private: boolean | null
           is_verified: boolean | null
           is_online: boolean | null
@@ -30,9 +29,6 @@ export interface Database {
           following_count: number
           blocked_count: number | null
           muted_count: number | null
-          dob: string | null
-          date_of_birth: string | null
-          gender: string | null
           status_emoji: string | null
           status_text: string | null
           status_expires_at: string | null
@@ -41,7 +37,7 @@ export interface Database {
           notif_dms: boolean | null
           notif_followers: boolean | null
           hide_activity: boolean | null
-          allow_mentions: boolean | null
+          allow_mentions: string | null
           is_following: boolean | null
           created_at: string
         }
@@ -55,7 +51,6 @@ export interface Database {
           cover_url?: string | null
           bio?: string | null
           website?: string | null
-          phone?: string | null
           is_private?: boolean | null
           is_verified?: boolean | null
           is_online?: boolean | null
@@ -65,9 +60,6 @@ export interface Database {
           following_count?: number
           blocked_count?: number | null
           muted_count?: number | null
-          dob?: string | null
-          date_of_birth?: string | null
-          gender?: string | null
           status_emoji?: string | null
           status_text?: string | null
           status_expires_at?: string | null
@@ -76,7 +68,7 @@ export interface Database {
           notif_dms?: boolean | null
           notif_followers?: boolean | null
           hide_activity?: boolean | null
-          allow_mentions?: boolean | null
+          allow_mentions?: string | null
           is_following?: boolean | null
           created_at?: string
         }
@@ -90,7 +82,6 @@ export interface Database {
           cover_url?: string | null
           bio?: string | null
           website?: string | null
-          phone?: string | null
           is_private?: boolean | null
           is_verified?: boolean | null
           is_online?: boolean | null
@@ -100,9 +91,6 @@ export interface Database {
           following_count?: number
           blocked_count?: number | null
           muted_count?: number | null
-          dob?: string | null
-          date_of_birth?: string | null
-          gender?: string | null
           status_emoji?: string | null
           status_text?: string | null
           status_expires_at?: string | null
@@ -111,7 +99,7 @@ export interface Database {
           notif_dms?: boolean | null
           notif_followers?: boolean | null
           hide_activity?: boolean | null
-          allow_mentions?: boolean | null
+          allow_mentions?: string | null
           is_following?: boolean | null
           created_at?: string
         }
@@ -1151,6 +1139,18 @@ export interface Database {
           is_read: boolean
           created_at: string
         }[]
+      }
+      mark_messages_read: {
+        Args: {
+          p_conversation_id: string
+        }
+        Returns: void
+      }
+      mark_messages_seen: {
+        Args: {
+          p_conversation_id: string
+        }
+        Returns: void
       }
       get_unread_messages_count: {
         Args: {

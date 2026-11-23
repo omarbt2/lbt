@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Pause, Check, CheckCheck, PhoneIncoming, PhoneOutgoing } from 'lucide-react';
+import { Play, Pause, Check, CheckCheck } from 'lucide-react';
 import { Avatar } from '../ui/Avatar';
 import LinkPreviewCard from '../ui/LinkPreviewCard';
 import { extractUrls } from '../../lib/api/linkPreview';
@@ -44,22 +44,8 @@ function MessageBubble({
   onLongPressStart,
   onLongPressEnd,
 }: MessageBubbleProps) {
-  if (m.message_type === 'call' || /voice call|video call/i.test(m.text || '')) {
-    const isOutgoing = m.senderId === currentUser.id;
-    return (
-      <div className="flex justify-center my-3">
-        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container text-on-surface-variant text-xs border border-outline-variant/20">
-          {isOutgoing
-            ? <PhoneOutgoing className="w-3 h-3" />
-            : <PhoneIncoming className="w-3 h-3" />
-          }
-          <span>{m.text}</span>
-          <span className="opacity-50">·</span>
-          <span className="opacity-50">{m.timeLabel}</span>
-        </div>
-      </div>
-    );
-  }
+  // Call history is no longer part of LBT messaging; voice notes remain supported.
+  if (m.message_type === 'call' || (m.message_type as string) === 'video') return null;
 
   return (
     <motion.div
@@ -86,11 +72,10 @@ function MessageBubble({
       <div
         className={`flex gap-3 max-w-[80%] ${isMe ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
         onContextMenu={(e) => onContextMenu(e, m.id)}
-        onMouseDown={() => onLongPressStart(m.id)}
-        onMouseUp={onLongPressEnd}
-        onMouseLeave={onLongPressEnd}
-        onTouchStart={() => onLongPressStart(m.id)}
-        onTouchEnd={onLongPressEnd}
+        onPointerDown={() => onLongPressStart(m.id)}
+        onPointerUp={onLongPressEnd}
+        onPointerLeave={onLongPressEnd}
+        onPointerCancel={onLongPressEnd}
       >
         {!isMe && (
           <Avatar
@@ -155,13 +140,6 @@ function MessageBubble({
           {m.imageUrl && (
             <div className="rounded-2xl overflow-hidden border border-outline-variant bg-surface p-1 shadow-sm max-w-xs">
               <img src={m.imageUrl} alt="Shared" className="w-full h-auto rounded-xl cursor-pointer" onClick={() => window.open(m.imageUrl, '_blank')} />
-            </div>
-          )}
-
-          {/* Video message */}
-          {(m as any).message_type === 'video' && (m as any).video_url && (
-            <div className="rounded-2xl overflow-hidden border border-outline-variant bg-surface p-1 shadow-sm max-w-[220px]">
-              <video src={(m as any).video_url} controls className="w-full rounded-xl" />
             </div>
           )}
 

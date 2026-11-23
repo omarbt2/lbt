@@ -1,0 +1,216 @@
+/* From Uiverse.io by mymiamo — LBT theme adaptation.
+   Keep this stylesheet scoped to the mobile primary navigation. */
+.lbt-mobile-nav {
+  position: fixed;
+  z-index: 45;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  padding: 8px 10px max(8px, env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+  transform: translateY(0);
+  opacity: 1;
+  transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s ease;
+}
+
+.lbt-mobile-nav.is-hidden {
+  transform: translateY(115%);
+  opacity: 0;
+}
+
+.lbt-mobile-nav-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  pointer-events: auto;
+}
+
+.lbt-mobile-menu {
+  position: relative;
+  isolation: isolate;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 68px;
+  padding: 7px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant, #b8b5ad) 30%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface-container-lowest, #fcfbf8) 86%, transparent);
+  color: var(--color-on-surface-variant, #77736d);
+  box-shadow: 0 10px 30px rgba(36,35,33,.10), inset 0 1px 0 rgba(255,255,255,.56);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+
+.lbt-mobile-menu::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  box-shadow: inset 1px 1px 4px rgba(255,255,255,.38), inset 0 -1px 2px rgba(36,35,33,.04);
+  pointer-events: none;
+}
+
+.lbt-mobile-menu-item {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-on-surface-variant, #77736d);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .18s ease, color .18s ease, transform .18s ease, box-shadow .2s ease;
+}
+
+.lbt-mobile-menu-item:active { transform: scale(.96); }
+
+.lbt-mobile-menu-item.active {
+  color: var(--color-primary, #c96f52);
+  background: color-mix(in srgb, var(--color-primary, #c96f52) 11%, transparent);
+  box-shadow: inset 0 1px 3px rgba(255,255,255,.48), 0 2px 7px rgba(36,35,33,.04);
+}
+
+.lbt-mobile-menu-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 25px;
+}
+
+.lbt-mobile-menu-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.9;
+}
+
+.lbt-mobile-menu-item.active .lbt-mobile-menu-icon svg { stroke-width: 2.35; }
+
+.lbt-mobile-unread-badge {
+  position: absolute;
+  top: -6px;
+  right: -9px;
+  min-width: 15px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--color-error, #b84e43);
+  font-size: 9px;
+  font-weight: 800;
+  box-shadow: 0 0 0 2px var(--color-surface-container-lowest, #fcfbf8);
+}
+
+.lbt-mobile-create-trigger {
+  position: relative;
+  z-index: 4;
+  flex: 0 0 46px;
+  width: 46px;
+  height: 46px;
+  align-self: flex-start;
+  margin-top: -13px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--color-primary, #c96f52);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-primary, #c96f52) 28%, transparent);
+}
+
+.lbt-mobile-create-trigger > span { display: grid; place-items: center; }
+.lbt-mobile-create-trigger svg { width: 24px; height: 24px; stroke-width: 2.3; }
+.lbt-mobile-create-trigger.is-open { background: var(--color-on-surface, #242321); }
+
+.lbt-create-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  border: 0;
+  background: rgba(20,18,16,.24);
+  backdrop-filter: blur(2px);
+}
+
+.lbt-create-popover {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  bottom: 78px;
+  width: min(300px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant, #b8b5ad) 30%, transparent);
+  border-radius: 22px;
+  background: var(--color-surface-container-lowest, #fcfbf8);
+  box-shadow: 0 18px 48px rgba(24,22,20,.18);
+  transform: none;
+}
+
+.lbt-create-popover button {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 15px;
+  color: var(--color-on-surface, #242321);
+  background: var(--color-surface-container, #efede8);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  transition: background .16s ease, transform .16s ease;
+}
+
+.lbt-create-popover button:active { transform: scale(.97); }
+.lbt-create-popover button:hover { background: color-mix(in srgb, var(--color-primary, #c96f52) 12%, var(--color-surface-container, #efede8)); }
+.lbt-create-popover button svg { width: 18px; height: 18px; color: var(--color-primary, #c96f52); }
+
+:root.dark .lbt-mobile-menu,
+.dark .lbt-mobile-menu {
+  background: rgba(36,35,33,.88);
+  border-color: rgba(255,255,255,.11);
+  box-shadow: 0 10px 30px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.06);
+}
+:root.dark .lbt-mobile-create-trigger,
+.dark .lbt-mobile-create-trigger { border-color: #242321; }
+:root.dark .lbt-create-popover,
+.dark .lbt-create-popover { background: #2b2926; border-color: rgba(255,255,255,.1); }
+:root.dark .lbt-create-popover button,
+.dark .lbt-create-popover button { color: #f7f6f2; background: #383531; }
+:root.dark .lbt-mobile-unread-badge,
+.dark .lbt-mobile-unread-badge { box-shadow: 0 0 0 2px #242321; }
+
+@media (max-width: 370px) {
+  .lbt-mobile-nav-inner { gap: 5px; }
+  .lbt-mobile-create-trigger { flex-basis: 42px; width: 42px; height: 42px; }
+  .lbt-mobile-menu { gap: 2px; min-height: 64px; }
+  .lbt-mobile-menu-item { font-size: 9px; }
+}

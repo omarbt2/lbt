@@ -44,7 +44,7 @@ const titleMap = {
 };
 
 const descriptionMap = {
-  microphone: 'We need access to your microphone for voice messages and calls.',
+  microphone: 'We use the microphone only to record voice messages.',
   camera: 'We need access to your camera for taking photos and recording stories.',
   notifications: 'Enable notifications to stay updated with likes, comments, and messages.',
 };

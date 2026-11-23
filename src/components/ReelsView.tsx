@@ -71,6 +71,7 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
   const interactedRef = useRef(false);
+  const lastTouchTapRef = useRef(0);
   const isMutedRef = useRef(isMuted);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
@@ -167,8 +168,10 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
             setActiveIdx(idx);
             video.currentTime = 0;
             video.muted = isMutedRef.current;
-            if (!video.src || video.readyState < 2) video.load();
-            video.play().catch(() => {});
+            if (localStorage.getItem('lbt_data_saver') !== 'true' && (!video.src || video.readyState < 2)) video.load();
+            const shouldAutoplay = localStorage.getItem('lbt_auto_play') !== 'false' && localStorage.getItem('lbt_data_saver') !== 'true';
+            if (shouldAutoplay) video.play().catch(() => {});
+            else video.pause();
           } else {
             video.pause();
           }
@@ -221,16 +224,27 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
     }
   };
 
-  const handleDoubleTap = (e: React.MouseEvent, reelId: string) => {
+  const handleDoubleTap = (e: React.MouseEvent | React.TouchEvent, reelId: string) => {
     if (!interactedRef.current) {
       interactedRef.current = true;
       const video = videoRefs.current.get(activeIdx);
       if (video) video.play().catch(() => {});
     }
     const rect = e.currentTarget.getBoundingClientRect();
-    setDoubleTapPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    const point = 'changedTouches' in e ? e.changedTouches[0] : e;
+    setDoubleTapPos({ x: point.clientX - rect.left, y: point.clientY - rect.top });
     setTimeout(() => setDoubleTapPos(null), 800);
     if (!(likedReels[reelId] ?? false)) handleLike(reelId);
+  };
+
+  const handleReelTouchEnd = (event: React.TouchEvent<HTMLDivElement>, reelId: string) => {
+    const now = Date.now();
+    if (now - lastTouchTapRef.current < 300) {
+      lastTouchTapRef.current = 0;
+      handleDoubleTap(event, reelId);
+    } else {
+      lastTouchTapRef.current = now;
+    }
   };
 
   const loadComments = async (reelId: string) => {
@@ -417,7 +431,7 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
               style={{ scrollSnapAlign: 'start' }}
             >
               {/* Video */}
-              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-black" onClick={(e) => handleDoubleTap(e, reel.id)}>
+              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-black" onDoubleClick={(e) => handleDoubleTap(e, reel.id)} onTouchEnd={(e) => handleReelTouchEnd(e, reel.id)}>
                 {!loadedStates[idx] && (
                   <div className="absolute inset-0 bg-black animate-pulse flex items-center justify-center z-10">
                     {reel.thumbnail_url ? (
@@ -434,7 +448,7 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
                   className="w-full h-full object-contain bg-black"
                   loop
                   playsInline
-                  preload="metadata"
+                  preload={localStorage.getItem('lbt_data_saver') === 'true' ? 'none' : 'metadata'}
                   muted={isMuted}
                   onLoadedData={() => setLoadedStates(prev => ({ ...prev, [idx]: true }))}
                   onClick={(e) => {
@@ -556,9 +570,6 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
                         media_urls: reel.thumbnail_url ? [reel.thumbnail_url] : [],
                         media_type: 'repost',
                         tags: [],
-                        likes_count: 0,
-                        comments_count: 0,
-                        shares_count: 0,
                         repost_of: reel.id,
                         is_repost: true,
                       });
@@ -646,7 +657,9 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
                 )}
               </div>
               <div className="border-t border-white/10 pt-4 mt-2 flex gap-3 items-center">
-                <input type="text" value={commentInput} onChange={(e) => setCommentInput(e.target.value)} placeholder="Add a comment..." className="flex-1 bg-white/10 outline-none text-sm text-white rounded-full px-4 py-2.5 border border-white/15 focus:border-primary" onKeyDown={(e) => e.key === 'Enter' && handleAddComment()} />
+                <div className="lbt-comment-composer lbt-reel-comment-composer">
+                  <input type="text" value={commentInput} onChange={(e) => setCommentInput(e.target.value)} placeholder="Add a comment..." className="lbt-comment-composer-field" onKeyDown={(e) => e.key === 'Enter' && handleAddComment()} />
+                </div>
                 <button onClick={handleAddComment} disabled={!commentInput.trim()} className="w-10 h-10 bg-primary disabled:opacity-50 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 shrink-0">
                   <Send className="w-4 h-4" />
                 </button>

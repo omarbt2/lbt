@@ -56,7 +56,7 @@ export default function DesktopSidebar({ liveNotifications, darkMode, toggleDark
             alt="LBT Social"
             className="h-10 w-10 object-contain rounded-2xl shrink-0"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = '/web/icon-192.png';
+              (e.target as HTMLImageElement).src = '/logo.png';
             }}
           />
           <div className="hidden lg:block">

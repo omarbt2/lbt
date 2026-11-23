@@ -6,35 +6,15 @@ import { formatTimeLabel } from './posts';
 export async function getOrCreateConversation(targetUserId: string): Promise<string> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
+  if (!targetUserId || targetUserId === user.id) throw new Error('Invalid conversation target');
 
-  const { data: existing } = await supabase
-    .from('conversations')
-    .select('id')
-    .or(
-      `and(participant1.eq.${user.id},participant2.eq.${targetUserId}),` +
-      `and(participant1.eq.${targetUserId},participant2.eq.${user.id}),` +
-      `and(user1_id.eq.${user.id},user2_id.eq.${targetUserId}),` +
-      `and(user1_id.eq.${targetUserId},user2_id.eq.${user.id})`
-    )
-    .maybeSingle();
+  const { data, error } = await (supabase.rpc as any)('get_or_create_conversation', {
+    p_other_user_id: targetUserId,
+  });
 
-  if (existing?.id) return existing.id;
-
-  const { data: created, error } = await supabase
-    .from('conversations')
-    .insert({
-      participant1: user.id,
-      participant2: targetUserId,
-      user1_id: user.id,
-      user2_id: targetUserId,
-    })
-    .select('id')
-    .single();
-
-  if (error || !created) throw error || new Error('Failed to create conversation');
-  return created.id;
+  if (error || !data) throw error || new Error('Failed to create conversation');
+  return data as string;
 }
-
 export const getOrCreateChat = getOrCreateConversation;
 
 function mapRowToMessage(m: any): Message {
@@ -56,6 +36,7 @@ function mapRowToMessage(m: any): Message {
     reply_to: m.reply_to ? mapRowToMessage(m.reply_to) : undefined,
     reactions_count: m.reactions_count || 0,
     reactions: m.reactions || [],
+    expires_at: m.expires_at || null,
     timeLabel: formatTimeLabel(m.created_at),
   };
 }
@@ -77,6 +58,8 @@ export async function getConversationMessages(
       reactions:message_reactions(id, message_id, user_id, emoji, created_at)
     `)
     .eq('conversation_id', conversationId)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+    .or('message_type.is.null,message_type.neq.call')
     .order('created_at', { ascending: false })
     .range(from, to);
 
@@ -90,12 +73,9 @@ export async function markMessagesAsSeen(conversationId: string): Promise<void> 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  const { error } = await supabase
-    .from('messages')
-    .update({ is_seen: true })
-    .eq('conversation_id', conversationId)
-    .neq('sender_id', user.id)
-    .eq('is_seen', false);
+  const { error } = await supabase.rpc('mark_messages_seen', {
+    p_conversation_id: conversationId,
+  });
   if (error) console.error('markMessagesAsSeen error:', error);
 }
 
@@ -103,12 +83,9 @@ export async function markMessagesAsRead(conversationId: string): Promise<void> 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  const { error } = await supabase
-    .from('messages')
-    .update({ is_read: true })
-    .eq('conversation_id', conversationId)
-    .neq('sender_id', user.id)
-    .eq('is_read', false);
+  const { error } = await supabase.rpc('mark_messages_read', {
+    p_conversation_id: conversationId,
+  });
   if (error) console.error('markMessagesAsRead error:', error);
 }
 
@@ -130,17 +107,9 @@ export async function getChats(): Promise<Chat[]> {
 
   if (convError || !convData || convData.length === 0) return [];
 
-  const { data: lastMsgs } = await supabase.rpc('get_last_messages', {
-    conv_ids: convData.map((c: any) => c.id),
-  });
-
-  const lastMsgByConv = new Map<string, any>();
-  if (lastMsgs) {
-    for (const m of lastMsgs) {
-      lastMsgByConv.set(m.conversation_id, m);
-    }
-  }
-
+  // Unread badges are counted from visible messages in MessagesPage and the
+  // app shell. Avoid the legacy counter/RPC here: expired rows can remain until
+  // the scheduled cleanup runs, and must never reappear as unread previews.
   return convData.map((conv: any) => {
     const normalizeProfile = (p: any) => Array.isArray(p) ? p[0] : p;
     const profiles = [
@@ -151,8 +120,7 @@ export async function getChats(): Promise<Chat[]> {
     ].filter(Boolean);
     const otherProfile = profiles.find((p: any) => p.id !== user.id) || profiles[0] || null;
 
-    const lastMsg = lastMsgByConv.get(conv.id);
-    const unreadCount = lastMsg && lastMsg.sender_id !== user.id && !lastMsg.is_read ? 1 : 0;
+    const unreadCount = 0;
 
     return {
       id: conv.id,
@@ -240,16 +208,6 @@ export async function addReaction(messageId: string, emoji: string): Promise<Mes
     return fallbackData as MessageReaction;
   }
 
-  const { count } = await supabase
-    .from('message_reactions')
-    .select('*', { count: 'exact', head: true })
-    .eq('message_id', messageId);
-
-  await supabase
-    .from('messages')
-    .update({ reactions_count: count || 0 })
-    .eq('id', messageId);
-
   return data as MessageReaction;
 }
 
@@ -257,21 +215,14 @@ export async function removeReaction(messageId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  const { error } = await supabase
     .from('message_reactions')
     .delete()
     .eq('message_id', messageId)
     .eq('user_id', user.id);
 
-  const { count } = await supabase
-    .from('message_reactions')
-    .select('*', { count: 'exact', head: true })
-    .eq('message_id', messageId);
-
-  await supabase
-    .from('messages')
-    .update({ reactions_count: count || 0 })
-    .eq('id', messageId);
+  if (error) throw error;
+  // The database trigger decrements reactions_count for the deleted row.
 }
 
 export async function upsertTypingIndicator(conversationId: string): Promise<void> {

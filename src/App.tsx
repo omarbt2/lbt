@@ -52,7 +52,7 @@ function LoadingSpinner() {
   return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
-        <img src="/web/icon-192.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
+        <img src="/logo.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
         <div className="w-5 h-5 border-2 border-gray-200 border-t-black dark:border-t-white rounded-full animate-spin" />
       </div>
     </div>
@@ -67,7 +67,7 @@ function NotFoundPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
       <div className="flex flex-col items-center gap-4 text-center">
-        <img src="/web/icon-192.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
+        <img src="/logo.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
         <h1 className="text-2xl font-bold text-on-surface">Page Not Found</h1>
         <p className="text-outline text-sm">The page you're looking for doesn't exist.</p>
         <a href="/" className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium">
@@ -86,7 +86,7 @@ function AppLayout() {
   const state = useAppState();
   const { currentUser, location, isReelsPage } = state;
 
-  const TAB_ORDER = ['/', '/explore', '/reels', '/messages', '/profile/me'];
+  const TAB_ORDER = ['/', '/explore', '/reels', '/messages'];
   const swipeStartXRef = React.useRef(0);
   const swipeStartYRef = React.useRef(0);
 
@@ -125,6 +125,7 @@ function AppLayout() {
     liveNotifications: state.liveNotifications,
     showAddStoryModal: state.showAddStoryModal,
     setShowAddStoryModal: state.setShowAddStoryModal,
+    setShowNoteInput: state.setShowNoteInput,
     handleStoryAdded: state.handleStoryAdded,
     handleViewStory: state.handleViewStory,
     handleMarkAllNotificationsAsRead: state.handleMarkAllNotificationsAsRead,
@@ -139,7 +140,7 @@ function AppLayout() {
     state.loadMore, state.refresh,
     state.handleLikeToggle, state.handleBookmarkToggle, state.handleAddComment, state.handleDeletePost,
     state.storyGroups, state.liveNotifications,
-    state.showAddStoryModal, state.setShowAddStoryModal,
+    state.showAddStoryModal, state.setShowAddStoryModal, state.setShowNoteInput,
     state.handleStoryAdded, state.handleViewStory, state.handleMarkAllNotificationsAsRead,
     state.postMenuPostId, state.setPostMenuPostId,
     state.showPermissionDenied,
@@ -376,13 +377,13 @@ function AppLayout() {
 
       <MobileNav
         navVisible={state.navVisible}
-        isReelsPage={isReelsPage}
         unreadMessages={state.unreadMessages}
         showCreateMenu={state.showCreateMenu}
         setShowCreateMenu={state.setShowCreateMenu}
         setCreatePostType={state.setCreatePostType}
         setShowCreatePost={state.setShowCreatePost}
         setShowNoteInput={state.setShowNoteInput}
+        setShowAddStoryModal={state.setShowAddStoryModal}
       />
 
       <NoteInputModal

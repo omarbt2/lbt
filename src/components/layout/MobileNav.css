@@ -74,8 +74,8 @@
   backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
 }
 .lbt-create-popover {
-  position: absolute; z-index: 2; left: 50%; bottom: 72px; transform: translateX(-50%);
-  width: min(292px, calc(100vw - 20px)); height: 188px;
+  position: absolute; z-index: 2; left: max(10px, calc(50% - 146px)); right: max(10px, calc(50% - 146px)); bottom: 72px;
+  width: auto; height: 188px;
   display: block; padding: 0; border: 0; border-radius: 0;
   background: transparent; box-shadow: none; pointer-events: none;
 }

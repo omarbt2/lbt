@@ -193,7 +193,7 @@ export default function PostDetailPage() {
       </div>
 
       {/* SCROLLABLE CONTENT AREA */}
-      <div className="flex-1 overflow-y-auto pb-[100px]">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4">
         {/* PRIMARY DETAILED CARD */}
         <article className="bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/10 flex flex-col relative">
           {/* Author Row */}
@@ -371,7 +371,7 @@ export default function PostDetailPage() {
       </div>
 
       {/* STICKY INPUT BAR - fixed at bottom */}
-      <div className="shrink-0 bg-surface-container-lowest/80 backdrop-blur-2xl border-t border-outline-variant/10 z-40 shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
+      <div className="shrink-0 bg-surface-container-lowest/95 backdrop-blur-2xl border-t border-outline-variant/10 z-40 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
         {replyingTo && (
           <div className="flex items-center justify-between px-4 py-1.5 bg-primary/5 border-t border-primary/10">
             <span className="text-xs text-primary">Replying to @{replyingTo.username}</span>

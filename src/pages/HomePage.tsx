@@ -52,7 +52,7 @@ export default function HomePage() {
     handleLikeToggle, handleBookmarkToggle, handleAddComment, handleDeletePost,
     currentUser, storyGroups, triggerToast, setShowAddStoryModal, setShowNoteInput, handleViewStory,
     postMenuPostId, setPostMenuPostId,
-    setRepostTargetPost, setShowRepostModal,
+    setRepostTargetPost, setShowRepostModal, handleRepostDirect,
   } = useOutletContext<OutletContextType>();
 
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -469,7 +469,7 @@ export default function HomePage() {
                 </button>
 
                 <button
-                  onClick={() => { setRepostTargetPost(post); setShowRepostModal(true); }}
+                  onClick={() => { void handleRepostDirect(post); }}
                   className="text-on-surface-variant hover:text-green-500 transition-colors"
                   aria-label="Repost post"
                 >

@@ -866,8 +866,8 @@ export default function AddStoryView({ onClose, onStoryAdded }: AddStoryProps) {
       )}
 
       {showTemplatePicker && (
-        <div className="absolute inset-0 z-[60] flex items-end bg-black/65 backdrop-blur-sm" onClick={() => setShowTemplatePicker(false)}>
-          <div className="w-full rounded-t-3xl border-t border-white/10 bg-zinc-950 p-6 pb-[calc(env(safe-area-inset-bottom)+24px)]" onClick={event => event.stopPropagation()}>
+        <div className="absolute inset-0 z-[60] flex items-end justify-center bg-black/65 p-4 backdrop-blur-sm md:items-center" onClick={() => setShowTemplatePicker(false)}>
+          <div className="w-full max-w-lg max-h-[85dvh] overflow-y-auto rounded-t-3xl border-t border-white/10 bg-zinc-950 p-6 pb-[calc(env(safe-area-inset-bottom)+24px)] md:rounded-3xl" onClick={event => event.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-bold">Story backgrounds</h3>
               <button onClick={() => setShowTemplatePicker(false)} className="rounded-full p-2 text-white/65"><X className="h-5 w-5" /></button>

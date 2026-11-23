@@ -47,8 +47,8 @@
 }
 .lbt-mobile-menu-item:active { transform: scale(.96); }
 .lbt-mobile-menu-item.active {
-  color: var(--color-primary, #c96f52);
-  background: color-mix(in srgb, var(--color-primary, #c96f52) 11%, transparent);
+  color: var(--color-primary, #0062ff);
+  background: color-mix(in srgb, var(--color-primary, #0062ff) 11%, transparent);
 }
 .lbt-mobile-menu-icon { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 25px; height: 25px; }
 .lbt-mobile-menu-icon svg { width: 22px; height: 22px; stroke-width: 1.9; }
@@ -62,8 +62,8 @@
 .lbt-mobile-create-trigger {
   position: relative; z-index: 3; flex: 0 0 48px; width: 48px; height: 48px; align-self: center;
   display: grid; place-items: center; margin: 0 3px; border: 0; border-radius: 50%;
-  color: #fff; background: var(--color-primary, #c96f52);
-  box-shadow: 0 5px 16px color-mix(in srgb, var(--color-primary, #c96f52) 28%, transparent);
+  color: #fff; background: var(--color-primary, #0062ff);
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--color-primary, #0062ff) 28%, transparent);
   -webkit-tap-highlight-color: transparent;
 }
 .lbt-mobile-create-trigger > span { display: grid; place-items: center; }
@@ -74,26 +74,36 @@
   backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
 }
 .lbt-create-popover {
-  position: absolute; z-index: 2; left: 50%; bottom: 82px; transform: translateX(-50%);
-  width: min(340px, calc(100vw - 28px)); display: grid;
-  grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; padding: 13px;
-  border: 1px solid color-mix(in srgb, var(--color-outline-variant, #b8b5ad) 34%, transparent);
-  border-radius: 24px; background: var(--color-surface-container-lowest, #fcfbf8);
-  box-shadow: 0 20px 56px rgba(24,22,20,.24);
+  position: absolute; z-index: 2; left: 50%; bottom: 72px; transform: translateX(-50%);
+  width: min(292px, calc(100vw - 20px)); height: 188px;
+  display: block; padding: 0; border: 0; border-radius: 0;
+  background: transparent; box-shadow: none; pointer-events: none;
 }
 .lbt-create-popover-heading {
-  grid-column: 1 / -1; padding: 2px 3px 5px; color: var(--color-on-surface, #242321);
-  font-size: 12px; font-weight: 750; letter-spacing: -.01em;
+  position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+  width: max-content; max-width: 100%; padding: 7px 13px; border-radius: 999px;
+  color: var(--color-on-surface, #242321); background: var(--color-surface-container-lowest, #fcfbf8);
+  border: 1px solid color-mix(in srgb, var(--color-primary, #0062ff) 16%, transparent);
+  box-shadow: 0 5px 18px rgba(20,24,32,.12); font-size: 11px; font-weight: 750;
+  pointer-events: none;
 }
 .lbt-create-popover button {
-  min-height: 58px; display: flex; align-items: center; gap: 11px; padding: 11px 13px;
-  border: 0; border-radius: 16px; color: var(--color-on-surface, #242321);
-  background: var(--color-surface-container, #efede8); font-size: 12px; font-weight: 700; text-align: left;
-  transition: background .16s ease, transform .16s ease;
+  position: absolute; left: 50%; bottom: 0; width: 54px; min-height: 54px; height: 54px;
+  display: flex; align-items: center; justify-content: center; gap: 0; padding: 0;
+  border: 1px solid color-mix(in srgb, var(--color-primary, #0062ff) 22%, white);
+  border-radius: 50%; color: var(--color-on-surface, #242321);
+  background: var(--color-surface-container-lowest, #fcfbf8);
+  box-shadow: 0 8px 24px rgba(20,24,32,.18), 0 0 0 5px color-mix(in srgb, var(--color-primary, #0062ff) 9%, transparent);
+  font-size: 0; pointer-events: auto;
+  transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
 }
-.lbt-create-popover button:active { transform: scale(.97); }
-.lbt-create-popover button:hover { background: color-mix(in srgb, var(--color-primary, #c96f52) 12%, var(--color-surface-container, #efede8)); }
-.lbt-create-popover button svg { width: 19px; height: 19px; color: var(--color-primary, #c96f52); }
+.lbt-create-popover button:nth-of-type(1) { transform: translate(-50%, -16px) translateX(-88px); }
+.lbt-create-popover button:nth-of-type(2) { transform: translate(-50%, -86px) translateX(-34px); }
+.lbt-create-popover button:nth-of-type(3) { transform: translate(-50%, -86px) translateX(34px); }
+.lbt-create-popover button:nth-of-type(4) { transform: translate(-50%, -16px) translateX(88px); }
+.lbt-create-popover button:active { scale: .95; }
+.lbt-create-popover button:hover { background: color-mix(in srgb, var(--color-primary, #0062ff) 9%, var(--color-surface-container-lowest, #fcfbf8)); }
+.lbt-create-popover button svg { width: 21px; height: 21px; color: var(--color-primary, #0062ff); }
 :root.dark .lbt-mobile-menu, .dark .lbt-mobile-menu {
   background: rgba(36,35,33,.91); border-color: rgba(255,255,255,.11);
   box-shadow: 0 10px 30px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.06);

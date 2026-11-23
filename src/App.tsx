@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { Routes, Route, Outlet } from 'react-router-dom';
+import { Routes, Route, Outlet, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { WifiOff } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';

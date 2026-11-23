@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import { OutletContextType } from '../types/context';
 import { useAuthStore } from '../store/authStore';
 import {
@@ -40,6 +40,7 @@ const SUBPAGE_TITLES: Record<Subpage, string> = {
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser, darkMode, toggleDarkMode, triggerToast } = useOutletContext<OutletContextType>();
   const { locale, setLocale, setTextSize: setAppTextSize } = useI18n();
   const onNavigateToInsights = () => navigate('/insights');
@@ -50,7 +51,14 @@ export default function SettingsPage() {
     }
   };
 
-  const [activeSubpage, setActiveSubpage] = useState<Subpage | null>(null);
+  const [activeSubpage, setActiveSubpage] = useState<Subpage | null>(() => {
+    const section = searchParams.get('section');
+    return section && Object.prototype.hasOwnProperty.call(SUBPAGE_TITLES, section) ? section as Subpage : null;
+  });
+  const openSubpage = (page: Subpage) => {
+    setActiveSubpage(page);
+    setSearchParams({ section: page });
+  };
   const [inlineSheet, setInlineSheet] = useState<'dms' | 'language' | 'textsize' | null>(null);
 
   // --- Personal state ---
@@ -346,7 +354,7 @@ export default function SettingsPage() {
     return (
       <SettingsShell
         title={SUBPAGE_TITLES[activeSubpage]}
-        onBack={() => { setActiveSubpage(null); setSaveFeedback(null); setPassFeedback(null); }}
+        onBack={() => { setActiveSubpage(null); setSearchParams({}); setSaveFeedback(null); setPassFeedback(null); }}
       >
         {activeSubpage === 'personal' && (
           <PersonalSettings
@@ -487,7 +495,7 @@ export default function SettingsPage() {
             </div>
             <ChevronRight className="w-4 h-4 text-outline" />
           </div>
-          <div onClick={() => setActiveSubpage('security')}
+          <div onClick={() => openSubpage('security')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
@@ -507,7 +515,7 @@ export default function SettingsPage() {
       <section>
         <h4 className="text-[10px] font-extrabold text-primary mb-2 px-1 uppercase tracking-widest">Privacy</h4>
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden divide-y divide-outline-variant/10">
-          <div onClick={() => setActiveSubpage('privacy')}
+          <div onClick={() => openSubpage('privacy')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
@@ -540,7 +548,7 @@ export default function SettingsPage() {
       <section>
         <h4 className="text-[10px] font-extrabold text-primary mb-2 px-1 uppercase tracking-widest">Notifications</h4>
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden divide-y divide-outline-variant/10">
-          <div onClick={() => setActiveSubpage('notifications')}
+          <div onClick={() => openSubpage('notifications')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
@@ -560,7 +568,7 @@ export default function SettingsPage() {
       <section>
         <h4 className="text-[10px] font-extrabold text-primary mb-2 px-1 uppercase tracking-widest">Appearance</h4>
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden divide-y divide-outline-variant/10">
-          <div onClick={() => setActiveSubpage('appearance')}
+          <div onClick={() => openSubpage('appearance')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
@@ -580,7 +588,7 @@ export default function SettingsPage() {
       <section>
         <h4 className="text-[10px] font-extrabold text-primary mb-2 px-1 uppercase tracking-widest">Media</h4>
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden divide-y divide-outline-variant/10">
-          <div onClick={() => setActiveSubpage('media')}
+          <div onClick={() => openSubpage('media')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
@@ -612,7 +620,7 @@ export default function SettingsPage() {
               <ChevronRight className="w-4 h-4 text-outline" />
             </div>
           )}
-          <div onClick={() => setActiveSubpage('faq')}
+          <div onClick={() => openSubpage('faq')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center">
@@ -622,7 +630,7 @@ export default function SettingsPage() {
             </div>
             <ChevronRight className="w-4 h-4 text-outline" />
           </div>
-          <div onClick={() => setActiveSubpage('about')}
+          <div onClick={() => openSubpage('about')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center">

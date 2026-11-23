@@ -398,7 +398,7 @@ export default function ExplorePage() {
               <div className="mx-4 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest/70 px-5 py-6">
                 <p className="text-sm font-semibold text-on-surface">Explore is unavailable</p>
                 <p className="mt-1 text-xs text-on-surface-variant">{exploreError}</p>
-                <button type="button" onClick={() => setSearchQuery(' ')} className="mt-3 text-xs font-bold text-primary">Try searching instead</button>
+                <button type="button" onClick={() => navigate('/explore?filter=people')} className="mt-3 text-xs font-bold text-primary">Find creators</button>
               </div>
             ) : exploreItems.length === 0 ? (
               <div className="mx-4 flex flex-col gap-3 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest/70 px-5 py-6">

@@ -420,3 +420,81 @@
   .lbt-chat-composer .label-voice.is-recording { height: 84px; padding-inline: 9px; }
   .lbt-chat-composer .ai { --s: 60px; }
 }
+
+/* Compact, predictable chat composer controls */
+.lbt-chat-composer .container-upload-files {
+  left: 8px;
+  gap: 3px;
+}
+.lbt-chat-composer .upload-file {
+  width: 34px;
+  height: 36px;
+  padding: 7px;
+}
+.lbt-chat-composer .upload-file svg {
+  width: 20px;
+  height: 20px;
+}
+.lbt-chat-composer .input-text,
+.lbt-chat-composer .input-text:focus,
+.lbt-chat-composer .input-text:valid {
+  padding-left: 88px;
+  padding-right: 92px;
+}
+.lbt-chat-composer .input-text:focus ~ .container-upload-files,
+.lbt-chat-composer .input-text:valid ~ .container-upload-files {
+  opacity: 1;
+  visibility: visible;
+  filter: none;
+  transform: none;
+}
+.lbt-chat-composer .label-files { display: none; }
+.lbt-chat-composer .lbt-emoji-trigger {
+  right: 48px;
+  width: 36px;
+  height: 36px;
+  padding: 8px;
+}
+.lbt-chat-composer .label-voice {
+  right: 6px;
+  width: 38px;
+  height: 38px;
+}
+.lbt-chat-composer .label-voice.is-recording {
+  inset: 0;
+  top: 0;
+  right: 0;
+  transform: none;
+  width: 100%;
+  height: 58px;
+  padding: 8px 54px 8px 14px;
+  border-radius: 999px;
+}
+.lbt-chat-composer .lbt-recording-content { gap: 10px; }
+.lbt-chat-composer .ai { display: none; }
+.lbt-chat-composer .lbt-recording-cancel {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  right: 48px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 7px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--color-error, #b84e43);
+  background: color-mix(in srgb, var(--color-error, #b84e43) 10%, transparent);
+  transform: translateY(-50%);
+}
+.lbt-chat-composer .lbt-recording-cancel svg { width: 18px; height: 18px; }
+.lbt-chat-composer.is-recording .label-voice.is-recording {
+  right: 0;
+}
+@media (max-width: 480px) {
+  .lbt-chat-composer .input-text,
+  .lbt-chat-composer .input-text:focus,
+  .lbt-chat-composer .input-text:valid { padding-left: 82px; padding-right: 88px; }
+  .lbt-chat-composer .upload-file { width: 31px; }
+}

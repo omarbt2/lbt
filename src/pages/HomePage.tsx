@@ -3,10 +3,11 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import { OutletContextType } from '../types/context';
 import { StorySkeleton, PostSkeleton } from '../components/Skeleton';
 import NotesBar from '../components/NotesBar';
-import { MoreVertical, Heart, MessageCircle, Bookmark, Repeat2, Sparkles } from 'lucide-react';
+import { MoreVertical, Heart, MessageCircle, Bookmark, Repeat2, Users, Zap } from 'lucide-react';
 import { QUICK_REACTIONS } from '../lib/api/emojis';
 import { supabase } from '../lib/supabase';
 import { Avatar } from '../components/ui/Avatar';
+import ActionButton from '../components/ui/ActionButton';
 
 function LoadingSpinner() {
   return (
@@ -209,9 +210,18 @@ export default function HomePage() {
         </div>
       )}
 
-      <NotesBar currentUser={{ id: currentUser.id, name: currentUser.name, avatar: currentUser.avatar || '' }} onOpenNoteModal={() => setShowNoteInput(true)} />
+      <section className="overflow-hidden rounded-2xl border border-outline-variant/20 bg-surface-container-lowest/55 py-2">
+        <div className="flex items-center justify-between px-4 pt-1">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" />
+            <h3 className="text-xs font-bold text-on-surface">Notes</h3>
+          </div>
+          <span className="text-[10px] font-semibold text-on-surface-variant">24 hours</span>
+        </div>
+        <NotesBar currentUser={{ id: currentUser.id, name: currentUser.name, avatar: currentUser.avatar || '' }} onOpenNoteModal={() => setShowNoteInput(true)} />
+      </section>
 
-      <section className="flex flex-col gap-3 py-4 px-1">
+      <section className="flex flex-col gap-3 rounded-2xl border border-outline-variant/20 bg-surface-container-lowest/45 px-3 py-3">
         <div className="flex items-center gap-3 px-1">
           <div className="h-[2px] w-5 rounded-full bg-primary/60" />
           <h3 className="text-[10px] font-bold text-outline uppercase tracking-wider">Recent Stories</h3>

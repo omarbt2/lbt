@@ -1,49 +1,35 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
-.env
-.env.local
-.env.*.local
-*.log
-.DS_Store
-Thumbs.db
-.env
-node_modules/
-.env.local
-.env
-node_modules/
-.env.local
-.env
-node_modules/
-.env.local
-.env
-node_modules/
-.env.local
-.env
-node_modules/
-.env.local
-.env
-node_modules/
-.env.local
-.env
-node_modules/
-.env.local
-# Android Studio & Gradle files
-.gradle/
 build/
-captures/
-.externalNativeBuild/
+coverage/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and temporary diagnostics
+*.log
+dev_error.txt
+dev_output.txt
+
+# Android / Gradle
+.gradle/
 .cxx/
+.externalNativeBuild/
+captures/
 local.properties
 Identity.gradle
-
-# JetBrains / Android Studio Runtime (JBR)
 jbr-*/
-jbr-17 (Android Studio default JBR)/
 *.iml
-.idea/
 
-# OS generated files
-Downloads/
-Documents/
+# IDE and operating-system files
+.idea/
+.vscode/
 .DS_Store
 Thumbs.db
+Downloads/
+Documents/

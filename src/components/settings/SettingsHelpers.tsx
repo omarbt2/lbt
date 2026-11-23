@@ -18,10 +18,20 @@ const SettingsRow = ({ icon, label, sublabel, right, onClick, destructive }: {
   </div>
 );
 
-const Toggle = ({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) => (
-  <div onClick={(e) => { e.stopPropagation(); onToggle(); }} className={`w-10 h-5.5 rounded-full p-0.5 transition-all ${enabled ? 'bg-primary' : 'bg-outline-variant'}`}>
-    <div className={`w-4.5 h-4.5 bg-white rounded-full shadow transition-all ${enabled ? 'translate-x-[18px]' : ''}`} />
-  </div>
+const Toggle = ({ enabled, onToggle, disabled = false, label }: {
+  enabled: boolean; onToggle: () => void; disabled?: boolean; label?: string;
+}) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={enabled}
+    aria-label={label}
+    disabled={disabled}
+    onClick={(e) => { e.stopPropagation(); onToggle(); }}
+    className={`w-10 h-5.5 rounded-full p-0.5 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 disabled:cursor-wait ${enabled ? 'bg-primary' : 'bg-outline-variant'}`}
+  >
+    <span className={`block w-4.5 h-4.5 bg-white rounded-full shadow transition-transform ${enabled ? 'translate-x-[18px]' : ''}`} />
+  </button>
 );
 
 const MemoizedSettingsRow = React.memo(SettingsRow);

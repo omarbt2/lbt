@@ -18,6 +18,7 @@ export interface User {
   followingCount?: number;
   status_emoji?: string | null;
   status_text?: string | null;
+  status_expires_at?: string | null;
   is_online?: boolean | null;
 }
 
@@ -35,6 +36,16 @@ export interface Post {
   hasLiked?: boolean;
   hasBookmarked?: boolean;
   tags?: string[];
+  is_repost?: boolean;
+  repost_of?: string;
+  repost_caption?: string | null;
+  repostedPost?: {
+    id: string;
+    user: User;
+    caption: string;
+    imageUrl?: string;
+    mediaType?: 'image' | 'video' | 'carousel';
+  } | null;
   commentsList: Comment[];
 }
 

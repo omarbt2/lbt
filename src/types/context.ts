@@ -29,4 +29,5 @@ export interface OutletContextType {
   showPermissionDenied: (type: 'camera' | 'microphone') => void;
   setRepostTargetPost: (post: any) => void;
   setShowRepostModal: (show: boolean) => void;
+  handleRepostDirect: (post: any) => Promise<void>;
 }

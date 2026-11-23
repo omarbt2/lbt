@@ -12,11 +12,11 @@ interface RepostModalProps {
 
 export default function RepostModal({ repostTargetPost, repostCaption, setRepostCaption, isReposting, onRepost, onClose }: RepostModalProps) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-end bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 p-4 md:items-center" onClick={onClose}>
       <motion.div
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        className="w-full max-w-md bg-surface-container rounded-t-3xl p-6 space-y-4"
+        className="w-full max-w-md max-h-[85dvh] overflow-y-auto bg-surface-container rounded-t-3xl p-6 space-y-4 md:rounded-3xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="w-10 h-1 bg-white/20 rounded-full mx-auto" />

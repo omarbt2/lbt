@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, fix/lbt-social-ux-and-reel-interactions]
+    branches: [main, fix/lbt-social-ux-and-reel-interactions, fix/lbt-central-create-repost-reels-settings-20261123, fix/lbt-final-polish-apk-20261123]
 
 permissions:
   contents: read
@@ -38,11 +38,32 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Dependency security audit
+        run: |
+          npm audit --json > npm-audit.json || true
+          node -e "const r=require('./npm-audit.json'); const v=r.metadata?.vulnerabilities || {}; console.log('npm audit summary:', JSON.stringify(v)); for (const [name, issue] of Object.entries(r.vulnerabilities || {})) console.log(name + ': severity=' + issue.severity + ', direct=' + issue.isDirect + ', fix=' + JSON.stringify(issue.fixAvailable)); if ((v.total || 0) > 0) process.exit(1);"
+
       - name: TypeScript check
         run: npm run lint
 
       - name: Production build
         run: npm run build
+
+      - name: Smoke test production server and AI authentication gate
+        run: |
+          NODE_ENV=production node dist/server.cjs > /tmp/lbt-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:3000/api/health > /tmp/lbt-health.json; then
+              break
+            fi
+            sleep 1
+          done
+          node -e "const h=require('/tmp/lbt-health.json'); if (h.status !== 'ok') process.exit(1);"
+          curl -fsS http://127.0.0.1:3000/ > /dev/null
+          status=$(curl -sS -o /tmp/lbt-ai-response.json -w '%{http_code}' -X POST http://127.0.0.1:3000/api/ai/suggest-tags -H 'Content-Type: application/json' -d '{"caption":"hello"}')
+          test "$status" = "401"
 
   android:
     name: Android debug build

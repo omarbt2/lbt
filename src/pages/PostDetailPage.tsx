@@ -54,7 +54,7 @@ function renderCaption(caption: string, nav: ReturnType<typeof useNavigate>) {
 export default function PostDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser, posts, handleLikeToggle, handleBookmarkToggle, handleAddComment, handleDeletePost } = useOutletContext<OutletContextType>();
+  const { currentUser, posts, handleLikeToggle, handleBookmarkToggle, handleAddComment, handleDeletePost, triggerToast } = useOutletContext<OutletContextType>();
 
   const [fetchedPost, setFetchedPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,27 +88,29 @@ export default function PostDetailPage() {
   };
 
   const handlePostComment = async () => {
-    if (!commentText.trim() || !post) return;
-    const text = commentText;
-    setCommentText('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = '44px';
-    }
-    if (replyingTo) {
-      await (supabase.from('comments') as any).insert({
-        post_id: post.id,
-        user_id: currentUser.id,
-        content: text,
-        reply_to_id: replyingTo.id,
-        likes_count: 0,
-      });
-      setReplyingTo(null);
+    const text = commentText.trim();
+    if (!text || !post) return;
+    try {
+      if (replyingTo) {
+        const { error } = await (supabase.from('comments') as any).insert({
+          post_id: post.id,
+          user_id: currentUser.id,
+          content: text,
+          reply_to_id: replyingTo.id,
+          likes_count: 0,
+        });
+        if (error) throw error;
+        setReplyingTo(null);
+      } else {
+        await handleAddComment(post.id, text);
+      }
+      setCommentText('');
+      if (textareaRef.current) textareaRef.current.style.height = '44px';
       const updated = await getPostById(post.id);
       if (updated) setFetchedPost(updated);
-    } else {
-      await handleAddComment(post.id, text);
-      const updated = await getPostById(post.id);
-      if (updated) setFetchedPost(updated);
+    } catch (error: any) {
+      setCommentText(text);
+      triggerToast(error?.message || 'Could not publish your comment. Try again.', 'error');
     }
   };
 
@@ -193,7 +195,7 @@ export default function PostDetailPage() {
       </div>
 
       {/* SCROLLABLE CONTENT AREA */}
-      <div className="flex-1 overflow-y-auto pb-[100px]">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4">
         {/* PRIMARY DETAILED CARD */}
         <article className="bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant/10 flex flex-col relative">
           {/* Author Row */}
@@ -371,7 +373,7 @@ export default function PostDetailPage() {
       </div>
 
       {/* STICKY INPUT BAR - fixed at bottom */}
-      <div className="shrink-0 bg-surface-container-lowest/80 backdrop-blur-2xl border-t border-outline-variant/10 z-40 shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
+      <div className="shrink-0 bg-surface-container-lowest/95 backdrop-blur-2xl border-t border-outline-variant/10 z-40 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
         {replyingTo && (
           <div className="flex items-center justify-between px-4 py-1.5 bg-primary/5 border-t border-primary/10">
             <span className="text-xs text-primary">Replying to @{replyingTo.username}</span>

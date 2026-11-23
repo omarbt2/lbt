@@ -110,14 +110,14 @@ export default function GifPicker({ isOpen, onClose, onSelect }: GifPickerProps)
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center">
+    <div className="fixed inset-0 z-[90] flex items-end justify-center p-4 md:items-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="relative z-10 w-full max-w-lg bg-surface-container-lowest rounded-t-3xl shadow-2xl overflow-hidden"
+        className="relative z-10 w-full max-w-lg max-h-[85dvh] bg-surface-container-lowest rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden"
         style={{ height: '60dvh' }}
       >
         {/* Header */}

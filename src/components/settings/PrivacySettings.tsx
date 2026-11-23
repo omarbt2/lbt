@@ -34,9 +34,9 @@ function UserListSheet({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4 md:items-center" onClick={onClose}>
       <div
-        className="w-full max-h-[70vh] bg-surface-container-low rounded-t-2xl flex flex-col"
+        className="w-full max-w-xl max-h-[85dvh] bg-surface-container-low rounded-t-2xl flex flex-col md:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-outline-variant/10">
@@ -95,11 +95,22 @@ export default function PrivacySettings({
   const [blockedList, setBlockedList] = useState<any[]>([]);
   const [mutedList, setMutedList] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [isSavingPrivate, setIsSavingPrivate] = useState(false);
 
   const togglePrivateAccount = async () => {
-    const next = !privateAccount;
+    if (isSavingPrivate) return;
+    const previous = privateAccount;
+    const next = !previous;
     setPrivateAccount(next);
-    try { await updateProfileField('is_private', next); } catch { setPrivateAccount(!next); }
+    setIsSavingPrivate(true);
+    try {
+      await updateProfileField('is_private', next);
+    } catch (error) {
+      setPrivateAccount(previous);
+      console.error('Private account update failed:', error);
+    } finally {
+      setIsSavingPrivate(false);
+    }
   };
   const toggleActivityStatus = async () => {
     const next = !hideActivity;
@@ -136,16 +147,17 @@ export default function PrivacySettings({
   return (
     <div className="space-y-4 animate-fadeIn">
       <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden">
-        <div onClick={togglePrivateAccount}
-          className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
+        <div onClick={() => { if (!isSavingPrivate) void togglePrivateAccount(); }}
+          className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all"
+          aria-label="Private account setting">
           <div className="flex items-center gap-3">
             <Lock className="w-4 h-4 text-primary" />
             <div>
               <span className="text-xs font-bold text-on-surface block">Private Account</span>
-              <span className="text-[10px] text-outline">Only followers can see your posts</span>
+              <span className="text-[10px] text-outline">{privateAccount ? 'Only approved followers can see your posts and reels' : 'Your posts and reels are visible according to each post’s audience'}</span>
             </div>
           </div>
-          <Toggle enabled={privateAccount} onToggle={togglePrivateAccount} />
+          <Toggle enabled={privateAccount} onToggle={togglePrivateAccount} disabled={isSavingPrivate} label="Private account" />
         </div>
         <div onClick={toggleActivityStatus}
           className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all border-t border-outline-variant/10">
@@ -156,7 +168,7 @@ export default function PrivacySettings({
               <span className="text-[10px] text-outline">Others won't see when you're online</span>
             </div>
           </div>
-          <Toggle enabled={hideActivity} onToggle={toggleActivityStatus} />
+          <Toggle enabled={hideActivity} onToggle={toggleActivityStatus} label="Hide activity status" />
         </div>
       </div>
 

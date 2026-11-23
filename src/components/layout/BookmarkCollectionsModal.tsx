@@ -115,7 +115,7 @@ export default function BookmarkCollectionsModal({ isOpen, onClose, postId, onSa
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4"
         >
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
@@ -124,7 +124,7 @@ export default function BookmarkCollectionsModal({ isOpen, onClose, postId, onSa
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 350 }}
-            className="relative w-full max-w-lg bg-surface-container-lowest dark:bg-surface-container-low rounded-t-3xl sm:rounded-3xl max-h-[80vh] flex flex-col z-10"
+            className="relative w-full max-w-lg bg-surface-container-lowest dark:bg-surface-container-low rounded-t-3xl md:rounded-3xl max-h-[85dvh] flex flex-col z-10"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/10">

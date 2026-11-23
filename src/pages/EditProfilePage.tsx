@@ -2,12 +2,12 @@ import React, { useState, useRef } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { OutletContextType } from '../types/context';
 import { useAuthStore } from '../store/authStore';
-import { ArrowLeft, Camera, Check, AlertCircle, User, AtSign, FileText, Link as LinkIcon, Phone, Shield, Smile } from 'lucide-react';
+import { ArrowLeft, Camera, Check, AlertCircle, User, AtSign, FileText, Link as LinkIcon, Phone, Smile } from 'lucide-react';
 import { useStorage } from '../hooks/useStorage';
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
-  const { currentUser, triggerToast } = useOutletContext<OutletContextType>();
+  const { currentUser } = useOutletContext<OutletContextType>();
   const onBack = () => navigate(-1);
 
   const [fullName, setFullName] = useState(currentUser.name);
@@ -22,7 +22,6 @@ export default function EditProfilePage() {
   });
   const [gender, setGender] = useState(currentUser.gender || '');
   const [dateOfBirth, setDateOfBirth] = useState(() => currentUser.date_of_birth || currentUser.dob || '');
-  const [isPrivate, setIsPrivate] = useState(currentUser.is_private ?? false);
 
   const STATUS_EMOJIS = ['😊', '🔥', '💤', '🎵', '💼', '📸', '🎮', '📚', '✈️', '🍕', '💻', '🎨', '💪', '🌙', '☀️'];
   const [statusEmoji, setStatusEmoji] = useState((currentUser as any).status_emoji || '');
@@ -94,7 +93,6 @@ export default function EditProfilePage() {
         phone: phoneLocal && validatePhone(phoneLocal) ? fullPhone : null,
         date_of_birth: dateOfBirth || null,
         gender: gender || null,
-        is_private: isPrivate,
         status_emoji: statusEmoji || undefined,
         status_text: statusText || undefined,
         status_expires_at: statusEmoji ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null,
@@ -302,31 +300,14 @@ export default function EditProfilePage() {
               </div>
             </div>
 
-            {/* Privacy Card */}
-            <div className="bg-surface-container-lowest/80 rounded-2xl border border-outline-variant/10 overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-outline-variant/10">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary/70">Privacy</span>
-              </div>
-
-              <div className="flex items-center justify-between px-4 py-3.5">
-                <div className="flex items-center gap-3">
-                  <Shield className="w-4 h-4 text-on-surface-variant" />
-                  <div>
-                    <span className="text-sm font-medium text-on-surface">Private Account</span>
-                    <p className="text-[10px] text-on-surface-variant/70 mt-0.5">Only followers can see your posts</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsPrivate(!isPrivate)}
-                  className={`w-12 h-7 rounded-full transition-all relative p-0.5 cursor-pointer ${
-                    isPrivate ? 'bg-primary' : 'bg-outline-variant/50'
-                  }`}
-                >
-                  <div className={`w-6 h-6 bg-white rounded-full shadow transition-all ${
-                    isPrivate ? 'translate-x-[20px]' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
+            <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest px-4 py-3">
+              <p className="text-xs font-semibold text-on-surface">Account privacy</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-on-surface-variant">
+                Manage whether your account is public or private from Settings → Privacy. This keeps one reliable privacy control for your whole account.
+              </p>
+              <button type="button" onClick={() => navigate('/settings')} className="mt-3 text-xs font-bold text-primary">
+                Open privacy settings
+              </button>
             </div>
 
             {/* Status Card */}

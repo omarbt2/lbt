@@ -34,9 +34,9 @@ function UserListSheet({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4 md:items-center" onClick={onClose}>
       <div
-        className="w-full max-h-[70vh] bg-surface-container-low rounded-t-2xl flex flex-col"
+        className="w-full max-w-xl max-h-[85dvh] bg-surface-container-low rounded-t-2xl flex flex-col md:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-outline-variant/10">

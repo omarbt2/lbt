@@ -364,6 +364,45 @@ export function useAppState() {
     }
   };
 
+  const handleRepostDirect = async (targetPost: any) => {
+    if (!targetPost || !currentUser?.id) return;
+    const sourcePostId = targetPost.repost_of || targetPost.id;
+    try {
+      const { data: source, error: sourceError } = await supabase
+        .from('posts').select('id').eq('id', sourcePostId).maybeSingle();
+      if (sourceError) throw sourceError;
+      if (!source) throw new Error('This original post is no longer available.');
+
+      const { data: existing, error: existingError } = await (supabase.from('posts') as any)
+        .select('id')
+        .eq('user_id', currentUser.id)
+        .eq('repost_of', sourcePostId)
+        .eq('is_repost', true)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      if (existing) {
+        triggerToast('You have already reposted this post', 'info');
+        return;
+      }
+
+      // Only send columns explicitly granted to authenticated post creators.
+      const { error } = await (supabase.from('posts') as any).insert({
+        user_id: currentUser.id,
+        repost_of: sourcePostId,
+        is_repost: true,
+        repost_caption: null,
+      });
+      if (error) throw error;
+      await refresh();
+      triggerToast('Reposted!');
+    } catch (error: any) {
+      console.error('Repost failed:', {
+        code: error?.code, message: error?.message, details: error?.details, hint: error?.hint,
+      });
+      triggerToast(error?.message || 'Failed to repost. Please try again.', 'error');
+    }
+  };
+
   const fetchInsights = async (postId: string) => {
     try {
       const { data } = await (supabase.rpc as any)('get_post_insights', { p_post_id: postId });
@@ -458,6 +497,7 @@ export function useAppState() {
     handleSaveEditPost,
     handleSharePost,
     handleRepost,
+    handleRepostDirect,
     handleDeletePost,
     fetchInsights,
     handleMarkAllNotificationsAsRead,

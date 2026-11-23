@@ -317,14 +317,37 @@ export function useAppState() {
     if (!repostTargetPost || !currentUser?.id) return;
     setIsReposting(true);
     try {
+      // Reposting an existing repost points to the original post, never to the wrapper.
+      const sourcePostId = repostTargetPost.repost_of || repostTargetPost.id;
+      const { data: source, error: sourceError } = await supabase
+        .from('posts').select('id').eq('id', sourcePostId).maybeSingle();
+      if (sourceError) throw sourceError;
+      if (!source) throw new Error('This original post is no longer available.');
+
+      const { data: existing, error: existingError } = await (supabase.from('posts') as any)
+        .select('id')
+        .eq('user_id', currentUser.id)
+        .eq('repost_of', sourcePostId)
+        .eq('is_repost', true)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      if (existing) {
+        setShowRepostModal(false);
+        setRepostTargetPost(null);
+        setRepostCaption('');
+        triggerToast('You have already reposted this post', 'info');
+        return;
+      }
+
       const { error } = await (supabase.from('posts') as any).insert({
         user_id: currentUser.id,
-        caption: repostCaption.trim() || '',
+        caption: '',
+        repost_caption: repostCaption.trim() || null,
         category: 'General',
         media_urls: [],
-        media_type: 'repost',
+        media_type: 'image',
         tags: [],
-        repost_of: repostTargetPost.id,
+        repost_of: sourcePostId,
         is_repost: true,
       });
       if (error) throw error;
@@ -335,7 +358,7 @@ export function useAppState() {
       triggerToast('Reposted!');
     } catch (e) {
       console.error('Repost failed:', e);
-      triggerToast('Failed to repost', 'error');
+      triggerToast(e instanceof Error ? e.message : 'Failed to repost', 'error');
     } finally {
       setIsReposting(false);
     }

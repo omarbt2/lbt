@@ -329,6 +329,7 @@ export function useAppState() {
         .eq('user_id', currentUser.id)
         .eq('repost_of', sourcePostId)
         .eq('is_repost', true)
+        .limit(1)
         .maybeSingle();
       if (existingError) throw existingError;
       if (existing) {

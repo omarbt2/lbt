@@ -79,15 +79,26 @@ export default function MobileHeader({ liveNotifications, currentUser, headerVis
 
       <div className="flex items-center gap-1 h-16 pr-4">
         {isDeepNavigation ? (
-          <motion.div whileTap={{ scale: 0.9 }} onClick={() => navigate('/profile/' + currentUser.id)}>
-            <Avatar
-              src={currentUser.avatar}
-              userId={currentUser.id}
-              name="My Profile"
-              size="sm"
-              className="cursor-pointer hover:border-primary transition-all duration-300 border border-outline-variant/30"
-            />
-          </motion.div>
+          <>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => navigate('/settings')}
+              aria-label="Open settings"
+              title="Settings"
+              className="p-2.5 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container dark:hover:bg-surface-container-high/50 transition-colors"
+            >
+              <SettingsIcon className="w-5 h-5" />
+            </motion.button>
+            <motion.div whileTap={{ scale: 0.9 }} onClick={() => navigate('/profile/' + currentUser.id)}>
+              <Avatar
+                src={currentUser.avatar}
+                userId={currentUser.id}
+                name="My Profile"
+                size="sm"
+                className="cursor-pointer hover:border-primary transition-all duration-300 border border-outline-variant/30"
+              />
+            </motion.div>
+          </>
         ) : (
           <>
             <motion.div

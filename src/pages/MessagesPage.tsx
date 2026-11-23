@@ -54,7 +54,6 @@ export default function MessagesPage() {
   const [contextMenuUser, setContextMenuUser] = useState<User | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportUserId, setReportUserId] = useState<string | null>(null);
-  const [disappearingEnabled, setDisappearingEnabled] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [allEmojis, setAllEmojis] = useState<EmojiItem[]>([]);
@@ -360,12 +359,8 @@ export default function MessagesPage() {
     }
 
     try {
-      const expiresAt = disappearingEnabled
-        ? new Date(Date.now() + 24 * 3600000).toISOString()
-        : undefined;
       const userMsg = await sendMessage(activeChatId, userMessageText, {
         replyToId: replyId || undefined,
-        expiresAt,
       });
       setChats((prevChats) =>
         prevChats.map((c) => {
@@ -448,9 +443,6 @@ export default function MessagesPage() {
             messageType: 'voice',
             voiceUrl: urlData.publicUrl,
             voiceDuration: duration,
-            expiresAt: disappearingEnabled
-              ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-              : undefined,
           });
 
           setChats(prev => prev.map(chat => {
@@ -672,9 +664,7 @@ export default function MessagesPage() {
               otherUserOnline={otherUserOnline}
               otherUserLastSeen={otherUserLastSeen}
               otherUserTyping={otherUserTyping}
-              disappearingEnabled={disappearingEnabled}
-              onBack={() => setMobileChatOpen(false)}
-              onToggleDisappearing={() => setDisappearingEnabled(!disappearingEnabled)}
+                      onBack={() => setMobileChatOpen(false)}
             />
 
             {/* Messages */}

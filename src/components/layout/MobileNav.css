@@ -68,7 +68,7 @@
 }
 .lbt-mobile-create-trigger > span { display: grid; place-items: center; }
 .lbt-mobile-create-trigger svg { width: 25px; height: 25px; stroke-width: 2.3; }
-.lbt-mobile-create-trigger.is-open { background: var(--color-on-surface, #242321); }
+.lbt-mobile-create-trigger.is-open { background: var(--color-primary, #0062ff); }
 .lbt-create-backdrop {
   position: fixed; inset: 0; z-index: 1; border: 0; background: rgba(20,18,16,.34);
   backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
@@ -109,7 +109,7 @@
   box-shadow: 0 10px 30px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.06);
 }
 :root.dark .lbt-mobile-create-trigger, .dark .lbt-mobile-create-trigger { border-color: #242321; }
-:root.dark .lbt-create-popover, .dark .lbt-create-popover { background: #2b2926; border-color: rgba(255,255,255,.1); }
+:root.dark .lbt-create-popover, .dark .lbt-create-popover { background: transparent; border-color: transparent; box-shadow: none; }
 :root.dark .lbt-create-popover-heading, .dark .lbt-create-popover-heading { color: #f7f6f2; }
 :root.dark .lbt-create-popover button, .dark .lbt-create-popover button { color: #f7f6f2; background: #383531; }
 :root.dark .lbt-mobile-unread-badge, .dark .lbt-mobile-unread-badge { box-shadow: 0 0 0 2px #242321; }

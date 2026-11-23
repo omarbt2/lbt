@@ -7,12 +7,15 @@ import { createClient } from "@supabase/supabase-js";
 dotenv.config();
 
 const app = express();
+app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
 
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('X-XSS-Protection', '0');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self)');
   next();
 });
 
@@ -30,14 +33,15 @@ setInterval(() => {
 
 function rateLimit(windowMs: number, max: number) {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const authUserId = (req as express.Request & { authUserId?: string }).authUserId;
+    const key = authUserId || req.ip || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
-    const timestamps = (rateLimitStore.get(ip) || []).filter(t => t > now - windowMs);
+    const timestamps = (rateLimitStore.get(key) || []).filter(t => t > now - windowMs);
     if (timestamps.length >= max) {
       return res.status(429).json({ error: 'Too many requests. Please try again later.' });
     }
     timestamps.push(now);
-    rateLimitStore.set(ip, timestamps);
+    rateLimitStore.set(key, timestamps);
     next();
   };
 }
@@ -92,7 +96,7 @@ function getAI() {
   if (!aiClient) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-      console.log("GEMINI_API_KEY is not configured or is placeholder. Falling back to simulated AI response.");
+      console.warn("GEMINI_API_KEY is not configured or is a placeholder; AI routes will return 503.");
       return null;
     }
     try {
@@ -201,7 +205,7 @@ async function startServer() {
   if (process.env.NODE_ENV === "production") {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    app.get("/{*splat}", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
     console.log("Serving static production build from /dist directory.");

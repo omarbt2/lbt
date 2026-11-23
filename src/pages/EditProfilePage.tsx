@@ -280,6 +280,7 @@ export default function EditProfilePage() {
                     onChange={(e) => setGender(e.target.value)}
                     className="flex-1 bg-transparent text-sm text-on-surface outline-none cursor-pointer"
                   >
+                    <option value="" disabled>Select gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Non-binary">Non-binary</option>

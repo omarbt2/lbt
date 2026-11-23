@@ -1,0 +1,65 @@
+name: LBT dependency remediation
+
+on:
+  push:
+    branches:
+      - fix/lbt-central-create-repost-reels-settings-20261123
+    paths:
+      - .github/workflows/dependency-remediation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lbt-dependency-remediation
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    name: Update vulnerable npm dependencies safely
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install current lockfile
+        run: npm ci
+
+      - name: Apply non-breaking security updates
+        run: npm audit fix --no-fund
+
+      - name: Update Sharp to the patched release
+        run: npm install --save-dev sharp@^0.35.5 --no-fund
+
+      - name: Verify no known npm vulnerabilities remain
+        run: |
+          npm audit --json > npm-audit-after.json || true
+          node -e "const r=require('./npm-audit-after.json'); const v=r.metadata?.vulnerabilities || {}; console.log('Post-fix npm audit:', JSON.stringify(v)); for (const [name, issue] of Object.entries(r.vulnerabilities || {})) console.log(name + ': ' + issue.severity + '; fix=' + JSON.stringify(issue.fixAvailable)); if ((v.total || 0) > 0) process.exit(1);"
+
+      - name: TypeScript check
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit tested dependency updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No dependency changes to commit."
+          else
+            git commit -m "fix(deps): remediate npm audit vulnerabilities"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi

@@ -36,10 +36,12 @@ jobs:
         run: npm ci
 
       - name: Apply non-breaking security updates
-        run: npm audit fix --no-fund
+        run: npm audit fix --no-fund || true
 
-      - name: Update Sharp to the patched release
-        run: npm install --save-dev sharp@^0.35.5 --no-fund
+      - name: Upgrade Express and Sharp to patched releases
+        run: |
+          npm install express@^5.1.0 --save --no-fund
+          npm install --save-dev @types/express@^5.0.3 sharp@^0.35.5 --no-fund
 
       - name: Verify no known npm vulnerabilities remain
         run: |

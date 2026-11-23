@@ -140,6 +140,8 @@ function AppLayout() {
     postMenuPostId: state.postMenuPostId,
     setPostMenuPostId: state.setPostMenuPostId,
     showPermissionDenied: state.showPermissionDenied,
+    setRepostTargetPost: state.setRepostTargetPost,
+    setShowRepostModal: state.setShowRepostModal,
     handleRepostDirect: state.handleRepostDirect,
   }), [
     state.currentUser, state.darkMode, state.toggleDarkMode, state.triggerToast,
@@ -151,6 +153,7 @@ function AppLayout() {
     state.handleStoryAdded, state.handleViewStory, state.handleMarkAllNotificationsAsRead,
     state.postMenuPostId, state.setPostMenuPostId,
     state.showPermissionDenied,
+    state.setRepostTargetPost, state.setShowRepostModal,
     state.handleRepostDirect,
   ]);
 

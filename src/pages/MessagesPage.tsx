@@ -32,7 +32,7 @@ import EmojiPickerPanel from '../components/messages/EmojiPickerPanel';
 const QUICK_EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
 export default function MessagesPage() {
-  const { currentUser, showPermissionDenied } = useOutletContext<OutletContextType>();
+  const { currentUser, showPermissionDenied, triggerToast } = useOutletContext<OutletContextType>();
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [typeInput, setTypeInput] = useState('');
@@ -54,7 +54,6 @@ export default function MessagesPage() {
   const [contextMenuUser, setContextMenuUser] = useState<User | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportUserId, setReportUserId] = useState<string | null>(null);
-  const [disappearingEnabled, setDisappearingEnabled] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [allEmojis, setAllEmojis] = useState<EmojiItem[]>([]);
@@ -73,6 +72,7 @@ export default function MessagesPage() {
   const audioElementsRef = useRef<Record<string, HTMLAudioElement>>({});
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordingStopRequestedRef = useRef(false);
+  const recordingDiscardRef = useRef(false);
   const recordingStartedAtRef = useRef<number | null>(null);
 
   // Hide disappearing messages immediately in an already-open conversation.
@@ -360,12 +360,8 @@ export default function MessagesPage() {
     }
 
     try {
-      const expiresAt = disappearingEnabled
-        ? new Date(Date.now() + 24 * 3600000).toISOString()
-        : undefined;
       const userMsg = await sendMessage(activeChatId, userMessageText, {
         replyToId: replyId || undefined,
-        expiresAt,
       });
       setChats((prevChats) =>
         prevChats.map((c) => {
@@ -383,6 +379,7 @@ export default function MessagesPage() {
 
   const startRecording = async () => {
     recordingStopRequestedRef.current = false;
+    recordingDiscardRef.current = false;
     const chatIdAtStart = activeChatId;
     const senderIdAtStart = currentUser.id;
     if (!chatIdAtStart || !senderIdAtStart || typeof MediaRecorder === 'undefined') {
@@ -427,7 +424,11 @@ export default function MessagesPage() {
         recordingStartedAtRef.current = null;
         setRecordingDuration(0);
 
-        if (!blob.size || recordingStopRequestedRef.current && duration < 1) return;
+        if (recordingDiscardRef.current) {
+          recordingDiscardRef.current = false;
+          return;
+        }
+        if (!blob.size || (recordingStopRequestedRef.current && duration < 1)) return;
 
         try {
           const extension = recordedType.includes('mp4') ? 'm4a' : 'webm';
@@ -448,9 +449,6 @@ export default function MessagesPage() {
             messageType: 'voice',
             voiceUrl: urlData.publicUrl,
             voiceDuration: duration,
-            expiresAt: disappearingEnabled
-              ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-              : undefined,
           });
 
           setChats(prev => prev.map(chat => {
@@ -494,6 +492,20 @@ export default function MessagesPage() {
       recordingTimerRef.current = null;
     }
     setIsRecording(false);
+  };
+
+  const cancelRecording = () => {
+    recordingDiscardRef.current = true;
+    recordingStopRequestedRef.current = true;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordingDuration(0);
   };
 
   const toggleVoicePlayback = useCallback((msgId: string, url: string) => {
@@ -540,10 +552,11 @@ export default function MessagesPage() {
       }
 
       setReactionPickerMessageId(null);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to toggle reaction:', e);
+      triggerToast(e?.message || 'Could not update reaction. Try again.', 'error');
     }
-  }, [activeChat, currentUser.id]);
+  }, [activeChat, currentUser.id, triggerToast]);
 
   const handleMessageContextMenu = (e: React.MouseEvent, messageId: string) => {
     e.preventDefault();
@@ -672,9 +685,7 @@ export default function MessagesPage() {
               otherUserOnline={otherUserOnline}
               otherUserLastSeen={otherUserLastSeen}
               otherUserTyping={otherUserTyping}
-              disappearingEnabled={disappearingEnabled}
-              onBack={() => setMobileChatOpen(false)}
-              onToggleDisappearing={() => setDisappearingEnabled(!disappearingEnabled)}
+                      onBack={() => setMobileChatOpen(false)}
             />
 
             {/* Messages */}
@@ -759,6 +770,7 @@ export default function MessagesPage() {
               onSendMessage={handleSendMessage}
               onStartRecording={startRecording}
               onStopRecording={stopRecording}
+              onCancelRecording={cancelRecording}
               onClearReply={() => setReplyToMessage(null)}
               onEmitTyping={emitTyping}
               onAttachmentSent={handleAttachmentSent}

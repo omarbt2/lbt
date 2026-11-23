@@ -51,7 +51,7 @@ export default function BottomSheetMenu({ isOpen, onClose, items, header }: Bott
             onClick={onClose}
           />
           <motion.div
-            className="fixed bottom-0 left-0 right-0 z-50 bg-surface-container-lowest rounded-t-3xl max-h-[85vh] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 z-50 bg-surface-container-lowest rounded-t-3xl max-h-[85dvh] flex flex-col overflow-hidden md:bottom-auto md:left-1/2 md:right-auto md:top-1/2 md:w-[min(520px,calc(100vw-2rem))] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-3xl md:max-h-[min(85dvh,720px)]"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

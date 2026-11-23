@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { Navigate, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import { OutletContextType } from '../types/context';
 import { useAuthStore } from '../store/authStore';
 import {
@@ -27,19 +27,20 @@ import type { BottomSheetMenuItem } from '../components/ui/BottomSheetMenu';
 type Subpage = 'personal' | 'security' | 'notifications' | 'faq' | 'about' | 'pro' | 'privacy' | 'appearance' | 'media';
 
 const SUBPAGE_TITLES: Record<Subpage, string> = {
-  personal: 'Personal Information',
+  personal: 'Edit Profile',
   security: 'Security & Password',
   notifications: 'Notifications',
   faq: 'Help Center',
   about: 'About LBT',
   pro: 'LBT Pro',
-  privacy: 'Privacy Settings',
+  privacy: 'Privacy & Account',
   appearance: 'Appearance',
   media: 'Media & Data',
 };
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser, darkMode, toggleDarkMode, triggerToast } = useOutletContext<OutletContextType>();
   const { locale, setLocale, setTextSize: setAppTextSize } = useI18n();
   const onNavigateToInsights = () => navigate('/insights');
@@ -50,7 +51,14 @@ export default function SettingsPage() {
     }
   };
 
-  const [activeSubpage, setActiveSubpage] = useState<Subpage | null>(null);
+  const [activeSubpage, setActiveSubpage] = useState<Subpage | null>(() => {
+    const section = searchParams.get('section');
+    return section && Object.prototype.hasOwnProperty.call(SUBPAGE_TITLES, section) ? section as Subpage : null;
+  });
+  const openSubpage = (page: Subpage) => {
+    setActiveSubpage(page);
+    setSearchParams({ section: page });
+  };
   const [inlineSheet, setInlineSheet] = useState<'dms' | 'language' | 'textsize' | null>(null);
 
   // --- Personal state ---
@@ -80,25 +88,59 @@ export default function SettingsPage() {
   const [showDeletionConfirm, setShowDeletionConfirm] = useState(false);
 
   useEffect(() => {
-    const loadSessions = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const userAgent = navigator.userAgent;
-      const isMobile = /Android|iPhone|iPad/i.test(userAgent);
-      const deviceName = isMobile ? 'Mobile Device' : 'Desktop Browser';
-      const browser = userAgent.includes('Chrome') ? 'Chrome'
-        : userAgent.includes('Firefox') ? 'Firefox'
-        : userAgent.includes('Safari') ? 'Safari' : 'Browser';
-      setActiveDevices([{
-        id: 'current',
-        device: `${deviceName} (${browser})`,
-        location: 'Current session',
-        time: 'Active now',
-        isCurrent: true,
-      }]);
+    if (!currentUser?.id) return;
+    let cancelled = false;
+    const registerDevice = async () => {
+      try {
+        const userAgent = navigator.userAgent;
+        const platform = /Android/i.test(userAgent) ? 'android'
+          : /iPhone|iPad|iPod/i.test(userAgent) ? 'ios'
+          : /Windows|Macintosh|Linux/i.test(userAgent) ? 'web' : 'unknown';
+        const browser = /Edg\//.test(userAgent) ? 'Edge'
+          : /Firefox\//.test(userAgent) ? 'Firefox'
+          : /Chrome\//.test(userAgent) ? 'Chrome'
+          : /Safari\//.test(userAgent) ? 'Safari' : 'Browser';
+        const deviceName = /Android/i.test(userAgent) ? 'Android device'
+          : /iPhone|iPad|iPod/i.test(userAgent) ? 'Apple mobile device'
+          : /Windows/i.test(userAgent) ? 'Windows PC'
+          : /Macintosh/i.test(userAgent) ? 'Mac'
+          : /Linux/i.test(userAgent) ? 'Linux device' : 'Web device';
+        let deviceKey = localStorage.getItem('lbt_device_key');
+        if (!deviceKey) {
+          const randomBytes = window.crypto.getRandomValues(new Uint8Array(24));
+          deviceKey = Array.from(randomBytes, (value) => value.toString(16).padStart(2, '0')).join('');
+          localStorage.setItem('lbt_device_key', deviceKey);
+        }
+        const { error: upsertError } = await (supabase as any).from('user_devices').upsert({
+          user_id: currentUser.id,
+          device_key: deviceKey,
+          device_name: deviceName,
+          platform,
+          browser,
+          last_seen_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,device_key' });
+        if (upsertError) throw upsertError;
+        const { data, error } = await (supabase as any).from('user_devices')
+          .select('id, device_key, device_name, platform, browser, last_seen_at')
+          .eq('user_id', currentUser.id)
+          .order('last_seen_at', { ascending: false });
+        if (error) throw error;
+        if (cancelled) return;
+        setActiveDevices((data || []).map((device: any) => ({
+          id: device.id,
+          device: `${device.device_name} · ${device.browser || 'Browser'}`,
+          location: device.platform,
+          time: device.device_key === deviceKey ? 'Active now' : new Date(device.last_seen_at).toLocaleString(),
+          isCurrent: device.device_key === deviceKey,
+        })));
+      } catch (error) {
+        console.error('Device registration failed:', error);
+        if (!cancelled) setActiveDevices([]);
+      }
     };
-    loadSessions();
-  }, []);
+    void registerDevice();
+    return () => { cancelled = true; };
+  }, [currentUser?.id]);
 
   // --- Notification state ---
   const [notifLikes, setNotifLikes] = useState(true);
@@ -125,6 +167,63 @@ export default function SettingsPage() {
   // --- DM settings ---
   const [dmFromEveryone, setDmFromEveryone] = useState(true);
   const [dmShowPreview, setDmShowPreview] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  const saveAccountSettings = async (patch: Record<string, any>) => {
+    if (!currentUser?.id) return;
+    const { error } = await (supabase as any).from('user_settings').upsert({
+      user_id: currentUser.id,
+      ...patch,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+    if (error) {
+      console.error('Failed to save account settings:', error);
+      triggerToast('Could not save this setting to your account', 'error');
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    let cancelled = false;
+    const loadAccountSettings = async () => {
+      try {
+        const { data, error } = await (supabase as any).from('user_settings')
+          .select('*').eq('user_id', currentUser.id).maybeSingle();
+        if (error) throw error;
+        if (cancelled) return;
+        if (data) {
+          if (data.language) { setLanguage(data.language); setLocale(data.language); }
+          if (data.text_size) { setTextSize(data.text_size); setAppTextSize(data.text_size); }
+          if (typeof data.auto_play === 'boolean') setAutoPlay(data.auto_play);
+          if (typeof data.data_saver === 'boolean') setDataSaver(data.data_saver);
+          if (typeof data.high_quality_uploads === 'boolean') setHighQualityUploads(data.high_quality_uploads);
+          if (typeof data.dm_show_preview === 'boolean') setDmShowPreview(data.dm_show_preview);
+          if (data.allow_messages_from) setDmFromEveryone(data.allow_messages_from === 'everyone');
+          if (data.theme) {
+            const shouldBeDark = data.theme === 'dark';
+            if (shouldBeDark !== darkMode) toggleDarkMode();
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load account settings:', error);
+      } finally {
+        if (!cancelled) setSettingsLoaded(true);
+      }
+    };
+    void loadAccountSettings();
+    return () => { cancelled = true; };
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (!settingsLoaded || !currentUser?.id) return;
+    void saveAccountSettings({
+      language, text_size: textSize, theme: darkMode ? 'dark' : 'light',
+      auto_play: autoPlay, data_saver: dataSaver,
+      high_quality_uploads: highQualityUploads,
+      dm_show_preview: dmShowPreview,
+      allow_messages_from: dmFromEveryone ? 'everyone' : 'followers',
+    });
+  }, [settingsLoaded, currentUser?.id, language, textSize, darkMode, autoPlay, dataSaver, highQualityUploads, dmShowPreview, dmFromEveryone]);
 
   useEffect(() => {
     localStorage.setItem('lbt_auto_play', String(autoPlay));
@@ -142,11 +241,13 @@ export default function SettingsPage() {
     const selectedLocale = next as typeof locale;
     setLanguage(selectedLocale);
     setLocale(selectedLocale);
+    void saveAccountSettings({ language: selectedLocale });
   };
 
   const handleTextSizeChange = (next: 'small' | 'medium' | 'large') => {
     setTextSize(next);
     setAppTextSize(next);
+    void saveAccountSettings({ text_size: next });
   };
 
   const updateNotifPref = async (field: string, value: boolean) => {
@@ -200,8 +301,15 @@ export default function SettingsPage() {
   }, [currentUser?.id]);
 
   const updateProfileField = async (field: string, value: any) => {
-    const { error } = await (supabase.from('profiles') as any).update({ [field]: value }).eq('id', currentUser.id);
+    const { error } = await (supabase.from('profiles') as any)
+      .update({ [field]: value })
+      .eq('id', currentUser.id);
     if (error) throw error;
+    if (field === 'is_private') {
+      useAuthStore.setState((state) => ({
+        currentUser: state.currentUser ? { ...state.currentUser, is_private: Boolean(value) } : state.currentUser,
+      }));
+    }
   };
 
   // --- FAQ state ---
@@ -334,32 +442,16 @@ export default function SettingsPage() {
   const toggleNotifDMs = () => { const next = !notifDMs; setNotifDMs(next); updateNotifPref('notif_dms', next); };
   const toggleNotifFollowers = () => { const next = !notifFollowers; setNotifFollowers(next); updateNotifPref('notif_followers', next); };
 
+  // There is only one profile editor. Legacy personal-info deep links now resolve to it.
+  if (activeSubpage === 'personal') return <Navigate to="/edit-profile" replace />;
+
   // --- Subpage header ---
   if (activeSubpage) {
     return (
       <SettingsShell
         title={SUBPAGE_TITLES[activeSubpage]}
-        onBack={() => { setActiveSubpage(null); setSaveFeedback(null); setPassFeedback(null); }}
+        onBack={() => { setActiveSubpage(null); setSearchParams({}); setSaveFeedback(null); setPassFeedback(null); }}
       >
-        {activeSubpage === 'personal' && (
-          <PersonalSettings
-            editPic={editPic} setEditPic={setEditPic}
-            editName={editName} setEditName={setEditName}
-            editUsername={editUsername} setEditUsername={setEditUsername}
-            editBio={editBio} setEditBio={setEditBio}
-            editEmail={editEmail} setEditEmail={setEditEmail}
-            isEmailVerifying={isEmailVerifying} isEmailVerified={isEmailVerified}
-            handleDemoVerifyEmail={handleDemoVerifyEmail}
-            phonePrefix={phonePrefix} setPhonePrefix={setPhonePrefix}
-            phoneNum={phoneNum} setPhoneNum={setPhoneNum}
-            dob={dob} setDob={setDob}
-            gender={gender} setGender={setGender}
-            saveFeedback={saveFeedback}
-            handleSavePersonalInfo={handleSavePersonalInfo}
-            isUsernameTaken={isUsernameTaken}
-          />
-        )}
-
         {activeSubpage === 'security' && (
           <SecuritySettings
             currentPass={currentPass} setCurrentPass={setCurrentPass}
@@ -447,7 +539,7 @@ export default function SettingsPage() {
 
   // --- Main Settings Page ---
   return (
-    <div className="flex flex-col gap-5 animate-fadeIn py-3 max-w-xl mx-auto text-on-surface" id="settings_master">
+    <div className="flex flex-col gap-5 animate-fadeIn py-3 pb-24 max-w-xl mx-auto text-on-surface" id="settings_master">
       <div className="pb-1">
         <h2 className="text-lg font-bold tracking-tight text-on-surface">Settings</h2>
         <p className="text-xs text-outline">Manage your account preferences</p>
@@ -474,13 +566,13 @@ export default function SettingsPage() {
                 <UserIcon className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <span className="text-xs font-bold text-on-surface block">Personal Information</span>
-                <span className="text-[10px] text-outline">Name, bio, email, phone</span>
+                <span className="text-xs font-bold text-on-surface block">Edit Profile</span>
+                <span className="text-[10px] text-outline">Name, username, bio, contact details, photos and status</span>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-outline" />
           </div>
-          <div onClick={() => setActiveSubpage('security')}
+          <div onClick={() => openSubpage('security')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
@@ -500,7 +592,7 @@ export default function SettingsPage() {
       <section>
         <h4 className="text-[10px] font-extrabold text-primary mb-2 px-1 uppercase tracking-widest">Privacy</h4>
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden divide-y divide-outline-variant/10">
-          <div onClick={() => setActiveSubpage('privacy')}
+          <div onClick={() => openSubpage('privacy')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
@@ -533,7 +625,7 @@ export default function SettingsPage() {
       <section>
         <h4 className="text-[10px] font-extrabold text-primary mb-2 px-1 uppercase tracking-widest">Notifications</h4>
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden divide-y divide-outline-variant/10">
-          <div onClick={() => setActiveSubpage('notifications')}
+          <div onClick={() => openSubpage('notifications')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
@@ -553,7 +645,7 @@ export default function SettingsPage() {
       <section>
         <h4 className="text-[10px] font-extrabold text-primary mb-2 px-1 uppercase tracking-widest">Appearance</h4>
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden divide-y divide-outline-variant/10">
-          <div onClick={() => setActiveSubpage('appearance')}
+          <div onClick={() => openSubpage('appearance')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
@@ -573,7 +665,7 @@ export default function SettingsPage() {
       <section>
         <h4 className="text-[10px] font-extrabold text-primary mb-2 px-1 uppercase tracking-widest">Media</h4>
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 overflow-hidden divide-y divide-outline-variant/10">
-          <div onClick={() => setActiveSubpage('media')}
+          <div onClick={() => openSubpage('media')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
@@ -605,7 +697,7 @@ export default function SettingsPage() {
               <ChevronRight className="w-4 h-4 text-outline" />
             </div>
           )}
-          <div onClick={() => setActiveSubpage('faq')}
+          <div onClick={() => openSubpage('faq')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center">
@@ -615,7 +707,7 @@ export default function SettingsPage() {
             </div>
             <ChevronRight className="w-4 h-4 text-outline" />
           </div>
-          <div onClick={() => setActiveSubpage('about')}
+          <div onClick={() => openSubpage('about')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center">

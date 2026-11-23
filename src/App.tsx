@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { Routes, Route, Outlet } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { WifiOff } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
 import { OutletContextType } from './types/context';
 import { useAppState } from './hooks/useAppState';
 import AuthView from './components/AuthView';
@@ -17,11 +19,9 @@ import { I18nProvider } from './lib/i18n/context';
 import { useAuthStore } from './store/authStore';
 import Toast from './components/layout/Toast';
 import MobileHeader from './components/layout/MobileHeader';
-import DesktopSidebar from './components/layout/DesktopSidebar';
 import MobileNav from './components/layout/MobileNav';
 import EditPostModal from './components/layout/EditPostModal';
 import InsightsModal from './components/layout/InsightsModal';
-import RepostModal from './components/layout/RepostModal';
 import NoteInputModal from './components/layout/NoteInputModal';
 import PermissionDeniedDialog from './components/layout/PermissionDeniedDialog';
 import ShareToDmModal from './components/layout/ShareToDmModal';
@@ -30,7 +30,7 @@ import CreatePostView from './components/CreatePostView';
 import AddStoryView from './components/AddStoryView';
 import StoryViewer from './components/StoryViewer';
 import ReportModal from './components/ReportModal';
-import { BarChart3, Ban, Repeat2, Send, BellOff } from 'lucide-react';
+import { BarChart3, Ban, Repeat2, Send, BellOff, Plus, Image as ImageIcon, Video, Camera, Zap, Bell } from 'lucide-react';
 import { getDefaultAvatar } from './lib/defaultAvatars';
 import { muteUser } from './lib/api/blocks';
 
@@ -85,6 +85,14 @@ function OutletLayout({ context }: { context: OutletContextType }) {
 function AppLayout() {
   const state = useAppState();
   const { currentUser, location, isReelsPage } = state;
+  const isPostDetailPage = location.pathname.startsWith('/post/');
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    void StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+    void StatusBar.setStyle({ style: state.darkMode ? Style.Light : Style.Dark }).catch(() => {});
+    void StatusBar.setBackgroundColor({ color: state.darkMode ? '#242321' : '#F7F6F2' }).catch(() => {});
+  }, [state.darkMode]);
 
   const TAB_ORDER = ['/', '/explore', '/reels', '/messages'];
   const swipeStartXRef = React.useRef(0);
@@ -134,6 +142,7 @@ function AppLayout() {
     showPermissionDenied: state.showPermissionDenied,
     setRepostTargetPost: state.setRepostTargetPost,
     setShowRepostModal: state.setShowRepostModal,
+    handleRepostDirect: state.handleRepostDirect,
   }), [
     state.currentUser, state.darkMode, state.toggleDarkMode, state.triggerToast,
     state.posts, state.postsLoading, state.postsError,
@@ -145,6 +154,7 @@ function AppLayout() {
     state.postMenuPostId, state.setPostMenuPostId,
     state.showPermissionDenied,
     state.setRepostTargetPost, state.setShowRepostModal,
+    state.handleRepostDirect,
   ]);
 
   if (!currentUser) return null;
@@ -196,8 +206,7 @@ function AppLayout() {
                 state.setPostMenuPostId(null);
               }},
               { icon: <Repeat2 className="w-5 h-5" />, label: 'Repost', onClick: () => {
-                state.setRepostTargetPost(menuPost);
-                state.setShowRepostModal(true);
+                void state.handleRepostDirect(menuPost);
                 state.setPostMenuPostId(null);
               }},
               { icon: <Send className="w-5 h-5" />, label: 'Share to DM', onClick: () => {
@@ -220,8 +229,7 @@ function AppLayout() {
                 state.setPostMenuPostId(null);
               }},
               { icon: <Repeat2 className="w-5 h-5" />, label: 'Repost', onClick: () => {
-                state.setRepostTargetPost(menuPost);
-                state.setShowRepostModal(true);
+                void state.handleRepostDirect(menuPost);
                 state.setPostMenuPostId(null);
               }},
               { icon: <BellOff className="w-5 h-5" />, label: 'Mute Account', onClick: async () => {
@@ -322,17 +330,25 @@ function AppLayout() {
         isReelsPage={isReelsPage}
       />
 
-      <div className="flex max-w-7xl mx-auto w-full relative h-dvh overflow-x-clip">
-        <DesktopSidebar
-          liveNotifications={state.liveNotifications}
-          darkMode={state.darkMode}
-          toggleDarkMode={state.toggleDarkMode}
-          setShowCreateMenu={state.setShowCreateMenu}
-          triggerToast={state.triggerToast}
-        />
+      <header className={`hidden md:flex max-w-7xl mx-auto w-full h-16 items-center justify-between px-6 border-b border-outline-variant/15 bg-surface-container-lowest/90 dark:bg-surface-container-low/90 ${isReelsPage ? 'md:hidden' : ''}`}>
+        <button type="button" onClick={() => state.navigate('/')} className="flex items-center gap-3 rounded-xl">
+          <img src="/logo.png" alt="LBT Social" className="w-9 h-9 rounded-xl object-contain" />
+          <span className="text-sm font-extrabold tracking-tight text-on-surface">LBT Social</span>
+        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" aria-label="Notifications" onClick={() => state.navigate('/notifications')} className="relative grid h-10 w-10 place-items-center rounded-xl text-on-surface-variant hover:bg-surface-container">
+            <Bell className="w-5 h-5" />
+            {state.liveNotifications.some((n) => n.isUnread) && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-error" />}
+          </button>
+          <button type="button" aria-label="My profile" onClick={() => state.navigate('/profile/' + currentUser.id)} className="h-10 w-10 overflow-hidden rounded-full border border-outline-variant/40">
+            <img src={currentUser.avatar || getDefaultAvatar(currentUser.id)} alt="My profile" className="h-full w-full object-cover" />
+          </button>
+        </div>
+      </header>
 
+      <div className={`flex max-w-7xl mx-auto w-full relative ${isReelsPage ? 'h-dvh' : 'h-[calc(100dvh-4rem)]'} min-h-0 overflow-x-clip`}>
         <section
-          className={`flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'pb-0 pt-0 px-0' : 'px-0 pb-20 pt-16 md:pt-0 md:pb-6 md:px-6'}`}
+          className={`min-h-0 flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'pb-0 pt-0 px-0' : isPostDetailPage ? 'px-0 pb-0 pt-16 md:pt-0 md:px-6' : 'px-0 pb-20 pt-16 md:pt-0 md:pb-6 md:px-6'}`}
           style={{ WebkitOverflowScrolling: 'touch' }}
           onTouchStart={handleSwipeStart}
           onTouchEnd={handleSwipeEnd}
@@ -375,6 +391,7 @@ function AppLayout() {
         </section>
       </div>
 
+      {!isReelsPage && !isPostDetailPage && !state.showCreatePost && (
       <MobileNav
         navVisible={state.navVisible}
         unreadMessages={state.unreadMessages}
@@ -385,6 +402,7 @@ function AppLayout() {
         setShowNoteInput={state.setShowNoteInput}
         setShowAddStoryModal={state.setShowAddStoryModal}
       />
+      )}
 
       <NoteInputModal
         isOpen={state.showNoteInput}
@@ -426,18 +444,7 @@ function AppLayout() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {state.showRepostModal && state.repostTargetPost && (
-          <RepostModal
-            repostTargetPost={state.repostTargetPost}
-            repostCaption={state.repostCaption}
-            setRepostCaption={state.setRepostCaption}
-            isReposting={state.isReposting}
-            onRepost={state.handleRepost}
-            onClose={() => state.setShowRepostModal(false)}
-          />
-        )}
-      </AnimatePresence>
+
     </div>
   );
 }
@@ -449,6 +456,11 @@ export default function App() {
   });
 
   useEffect(() => { initialize(); }, [initialize]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    void StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+  }, []);
 
   const { currentUser } = useAuthStore();
 

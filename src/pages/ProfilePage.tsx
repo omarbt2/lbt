@@ -105,7 +105,11 @@ export default function ProfilePage() {
   }, [user?.id, canViewPosts]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !canViewPosts) {
+      setProfileReels([]);
+      setReelsLoading(false);
+      return;
+    }
     setReelsLoading(true);
     (async () => {
       try {
@@ -120,7 +124,7 @@ export default function ProfilePage() {
       } catch (e) { console.error(e); }
       finally { setReelsLoading(false); }
     })();
-  }, [user?.id]);
+  }, [user?.id, canViewPosts]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -135,7 +139,26 @@ export default function ProfilePage() {
           .not('repost_of', 'is', null)
           .order('created_at', { ascending: false });
         if (error) { console.error('Reposts fetch error:', error); setProfileReposts([]); setRepostsLoading(false); return; }
-        setProfileReposts((reposts as any) || []);
+        const repostRows = (reposts || []) as any[];
+        const originalIds = [...new Set(repostRows.map((row) => row.repost_of).filter(Boolean))] as string[];
+        const originalMedia = new Map<string, any>();
+        if (originalIds.length) {
+          const { data: originals, error: originalsError } = await supabase
+            .from('posts')
+            .select('id, image_url, media_urls')
+            .in('id', originalIds);
+          if (originalsError) console.warn('Some repost originals are not visible:', originalsError.message);
+          (originals || []).forEach((original: any) => originalMedia.set(original.id, original));
+        }
+        setProfileReposts(repostRows.map((row) => {
+          const original = row.repost_of ? originalMedia.get(row.repost_of) : undefined;
+          return {
+            ...row,
+            imageUrl: original?.image_url || original?.media_urls?.[0] || undefined,
+            likes: row.likes_count || 0,
+            commentsCount: row.comments_count || 0,
+          } as Post;
+        }));
       } catch (e) { console.error(e); }
       finally { setRepostsLoading(false); }
     })();
@@ -227,46 +250,28 @@ export default function ProfilePage() {
     }
   };
 
-  const generateQRMatrix = (username: string) => {
-    const size = 21;
-    const matrix = Array(size).fill(0).map(() => Array(size).fill(false));
-    const hash = (str: string, index: number) => {
-      let h = 5381 + index;
-      for (let i = 0; i < str.length; i++) {
-        h = ((h << 5) + h) + str.charCodeAt(i);
-      }
-      return Math.abs(h);
-    };
-    const drawFinder = (rowOffset: number, colOffset: number) => {
-      for (let r = 0; r < 7; r++) {
-        for (let c = 0; c < 7; c++) {
-          const isBorder = r === 0 || r === 6 || c === 0 || c === 6;
-          const isInner = r >= 2 && r <= 4 && c >= 2 && c <= 4;
-          matrix[rowOffset + r][colOffset + c] = isBorder || isInner;
-        }
-      }
-    };
-    drawFinder(0, 0);
-    drawFinder(0, 14);
-    drawFinder(14, 0);
-    const centerStart = 8;
-    const centerEnd = 12;
-    for (let r = 0; r < size; r++) {
-      for (let c = 0; c < size; c++) {
-        const inTopLeft = r < 8 && c < 8;
-        const inTopRight = r < 8 && c >= 13;
-        const inBottomLeft = r >= 13 && c < 8;
-        const inCenter = r >= centerStart && r <= centerEnd && c >= centerStart && c <= centerEnd;
-        if (inTopLeft || inTopRight || inBottomLeft || inCenter) continue;
-        if (r === 6 || c === 6) {
-          matrix[r][c] = (r === 6 ? c : r) % 2 === 0;
-          continue;
-        }
-        const val = hash(username, r * size + c);
-        matrix[r][c] = val % 2 === 0;
-      }
+  const profileUrl = `${window.location.origin}/profile/${encodeURIComponent(user.id)}`;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=512x512&format=png&ecc=H&margin=12&data=${encodeURIComponent(profileUrl)}`;
+
+  const handleDownloadQr = async () => {
+    try {
+      const response = await fetch(qrImageUrl);
+      if (!response.ok) throw new Error('QR image request failed');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = `lbt-profile-${user.username || user.id}.png`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      setQrDownloaded(true);
+      window.setTimeout(() => setQrDownloaded(false), 3000);
+    } catch (error) {
+      console.error('QR download failed:', error);
+      window.open(qrImageUrl, '_blank', 'noopener,noreferrer');
     }
-    return matrix;
   };
 
   const activeFollowList = followersModalType === 'followers' ? followersList : followingList;
@@ -389,7 +394,7 @@ export default function ProfilePage() {
         transition={{ duration: 0.32, ease: [0.25, 0.1, 0.25, 1] }}
       >
       {/* AVATAR OVERLAPPING COVER */}
-      <div className="relative z-10 -mt-12 flex justify-center">
+      <div className="relative z-10 -mt-12 flex flex-col items-center px-4">
         <div className="relative">
           <div className="w-24 h-24 rounded-full border-2 border-white bg-surface shadow-lg overflow-hidden">
             <Avatar
@@ -406,7 +411,14 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
-        <p className="text-lg font-semibold text-white mt-2 text-center drop-shadow-md">{user.name}</p>
+        <p className="mt-2 text-lg font-bold text-on-surface text-center">{user.name}</p>
+        <p className="mt-0.5 text-xs font-medium text-on-surface-variant text-center">@{user.username}</p>
+        {(user.status_emoji || user.status_text) && (!user.status_expires_at || new Date(user.status_expires_at).getTime() > Date.now()) && (
+          <div className="mt-3 inline-flex max-w-[90%] items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-3.5 py-2 text-xs font-semibold text-on-surface">
+            {user.status_emoji && <span className="text-base leading-none">{user.status_emoji}</span>}
+            {user.status_text && <span className="truncate">{user.status_text}</span>}
+          </div>
+        )}
       </div>
 
       {/* STATS ROW */}
@@ -630,12 +642,19 @@ export default function ProfilePage() {
             onClick={() => onPostSelect(post.id)}
             className="aspect-square overflow-hidden bg-surface-container-highest cursor-pointer hover:opacity-85 transition-opacity relative group"
           >
-            <img
-              src={post.imageUrl}
-              alt="Repost"
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
+            {post.imageUrl ? (
+              <img
+                src={post.imageUrl}
+                alt="Reposted original post"
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-surface-container text-on-surface-variant">
+                <Repeat2 className="w-7 h-7 opacity-50" />
+                <span className="px-2 text-center text-[10px] font-medium">Original post unavailable</span>
+              </div>
+            )}
             <div className="absolute top-1.5 left-1.5 bg-black/60 rounded-full px-1.5 py-0.5 flex items-center gap-0.5">
               <Repeat2 className="w-2.5 h-2.5 text-white" />
               <span className="text-[8px] font-bold text-white">Repost</span>
@@ -782,17 +801,8 @@ export default function ProfilePage() {
               <p className="text-xs text-white/50">Hold camera to the code to view profile</p>
             </div>
 
-            <div className="relative bg-white p-4.5 rounded-2xl shadow-xl w-48 h-48 flex items-center justify-center border-4 border-primary">
-              <svg viewBox="0 0 21 21" className="w-full h-full text-slate-950 fill-current shape-rendering-crispedges">
-                {generateQRMatrix(user.username || 'anon').map((row, rIdx) =>
-                  row.map((val, cIdx) => val ? (
-                    <rect key={`${rIdx}-${cIdx}`} x={cIdx} y={rIdx} width="1" height="1" />
-                  ) : null)
-                )}
-              </svg>
-              <div className="absolute w-10 h-10 bg-primary text-white rounded-lg flex items-center justify-center shadow-lg border-2 border-white">
-                <span className="font-sans font-black text-[12px] tracking-tighter leading-none">LBT</span>
-              </div>
+            <div className="rounded-2xl bg-white p-3 shadow-xl border-4 border-primary">
+              <img src={qrImageUrl} alt={`QR code linking to ${profileUrl}`} className="block h-48 w-48 object-contain" />
             </div>
 
             <div className="flex items-center gap-2.5 px-4 py-2 bg-white/5 border border-white/10 rounded-2xl w-full justify-center">
@@ -805,26 +815,30 @@ export default function ProfilePage() {
 
             {qrDownloaded && (
               <div className="text-[11px] text-on-surface font-bold bg-surface-container-low border border-outline-variant px-3 py-1.5 rounded-xl w-full animate-fadeIn flex items-center justify-center gap-1.5">
-                <Check className="w-3.5 h-3.5" /> Saved to Gallery!
+                <Check className="w-3.5 h-3.5" /> QR code downloaded.
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-2 w-full mt-1.5">
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(`https://lbt-social.network/user/${user.username}`);
-                  setQrCopied(true);
-                  setTimeout(() => setQrCopied(false), 2000);
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(profileUrl);
+                    setQrCopied(true);
+                    window.setTimeout(() => setQrCopied(false), 2000);
+                  } catch {
+                    window.prompt('Copy your profile link', profileUrl);
+                  }
                 }}
                 className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer border border-white/5 active:scale-95 text-white"
               >
                 {qrCopied ? <><Check className="w-3.5 h-3.5 text-on-surface" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy Link</>}
               </button>
               <button
-                onClick={() => { setQrDownloaded(true); setTimeout(() => setQrDownloaded(false), 3000); }}
+                onClick={handleDownloadQr}
                 className="flex items-center justify-center gap-2 bg-primary hover:bg-primary text-xs font-bold py-2.5 rounded-xl transition-all cursor-pointer active:scale-95 text-white shadow-sm"
               >
-                <Share2 className="w-3.5 h-3.5" /> Save QR Code
+                <Share2 className="w-3.5 h-3.5" /> Download QR Code
               </button>
             </div>
 

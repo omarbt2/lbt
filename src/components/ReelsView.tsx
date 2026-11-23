@@ -70,6 +70,7 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
+  const activeVideoIndexRef = useRef(-1);
   const interactedRef = useRef(false);
   const lastTouchTapRef = useRef(0);
   const isMutedRef = useRef(isMuted);
@@ -155,33 +156,61 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
     }
   }, [initialReelId, reels]);
 
-  // Intersection observer for autoplay
+  // Only the reel occupying the viewport may play. Leaving the viewport
+  // pauses and rewinds it; returning starts at 0 without restarting on every
+  // IntersectionObserver callback.
   useEffect(() => {
     if (!containerRef.current || reels.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const idx = Number(entry.target.getAttribute('data-reel-index'));
-          const video = videoRefs.current.get(idx);
-          if (!video) return;
-          if (entry.isIntersecting) {
+    activeVideoIndexRef.current = -1;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const idx = Number(entry.target.getAttribute('data-reel-index'));
+        const video = videoRefs.current.get(idx);
+        if (!video) return;
+
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.75) {
+          const previousIdx = activeVideoIndexRef.current;
+          if (previousIdx !== idx) {
+            const previousVideo = videoRefs.current.get(previousIdx);
+            if (previousVideo) {
+              previousVideo.pause();
+              try { previousVideo.currentTime = 0; } catch { /* metadata not ready */ }
+              setPlayingStates((prev) => ({ ...prev, [previousIdx]: false }));
+            }
+            activeVideoIndexRef.current = idx;
             setActiveIdx(idx);
-            video.currentTime = 0;
-            video.muted = isMutedRef.current;
-            if (localStorage.getItem('lbt_data_saver') !== 'true' && (!video.src || video.readyState < 2)) video.load();
-            const shouldAutoplay = localStorage.getItem('lbt_auto_play') !== 'false' && localStorage.getItem('lbt_data_saver') !== 'true';
-            if (shouldAutoplay) video.play().catch(() => {});
-            else video.pause();
-          } else {
-            video.pause();
+            try { video.currentTime = 0; } catch { /* metadata not ready */ }
           }
-        });
-      },
-      { threshold: 0.7 }
-    );
+          video.muted = isMutedRef.current;
+          const dataSaverEnabled = localStorage.getItem('lbt_data_saver') === 'true';
+          if (!dataSaverEnabled && video.readyState < 2) video.load();
+          const shouldAutoplay = localStorage.getItem('lbt_auto_play') !== 'false' && !dataSaverEnabled;
+          if (shouldAutoplay && video.paused) {
+            video.play().then(() => setPlayingStates((prev) => ({ ...prev, [idx]: true }))).catch(() => {
+              setPlayingStates((prev) => ({ ...prev, [idx]: false }));
+            });
+          } else if (!shouldAutoplay) {
+            video.pause();
+            setPlayingStates((prev) => ({ ...prev, [idx]: false }));
+          }
+        } else {
+          video.pause();
+          try { if (video.currentTime !== 0) video.currentTime = 0; } catch { /* metadata not ready */ }
+          setPlayingStates((prev) => prev[idx] === false ? prev : ({ ...prev, [idx]: false }));
+          if (activeVideoIndexRef.current === idx) activeVideoIndexRef.current = -1;
+        }
+      });
+    }, { threshold: [0, 0.75] });
     const children = containerRef.current.querySelectorAll('[data-reel-index]');
     children.forEach((child) => observer.observe(child));
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      videoRefs.current.forEach((video) => {
+        video.pause();
+        try { video.currentTime = 0; } catch { /* metadata not ready */ }
+      });
+      activeVideoIndexRef.current = -1;
+    };
   }, [reels]);
 
   // Sync mute to all videos
@@ -270,7 +299,11 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
     setCommentInput('');
     try {
       const { data, error } = await supabase.from('comments').insert({ post_id: reelId, user_id: currentUserId, content: text }).select('*, profiles(*)').single();
-      if (!error && data) setReelComments(prev => ({ ...prev, [reelId]: (prev[reelId] || []).map(c => c.id === tempId ? data : c) }));
+      if (error) throw error;
+      if (data) {
+        setReelComments(prev => ({ ...prev, [reelId]: (prev[reelId] || []).map(c => c.id === tempId ? data : c) }));
+        setReels(prev => prev.map(reel => reel.id === reelId ? { ...reel, comments_count: (reel.comments_count ?? 0) + 1 } : reel));
+      }
     } catch {
       setReelComments(prev => ({ ...prev, [reelId]: (prev[reelId] || []).filter(c => c.id !== tempId) }));
     }
@@ -358,7 +391,7 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
   }
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-black" id="reels_screen">
+    <div className="relative h-full min-h-0 w-full overflow-hidden bg-black" id="reels_screen">
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-30 flex flex-col pt-[calc(env(safe-area-inset-top)+14px)] pb-4 bg-gradient-to-b from-black/60 via-black/20 to-transparent pointer-events-none">
         <div className="flex justify-between items-center px-5 pointer-events-none">
@@ -554,34 +587,6 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
                   <span className="text-[11px] font-bold text-white drop-shadow-md">Share</span>
                 </motion.button>
 
-                {/* Repost */}
-                <motion.button
-                  whileTap={{ scale: 0.88 }}
-                  className="flex flex-col items-center gap-1.5 text-white"
-                  onClick={async () => {
-                    if (!currentUserId) return;
-                    try {
-                      const reel = reels[idx];
-                      if (!reel) return;
-                      await (supabase.from('posts') as any).insert({
-                        user_id: currentUserId,
-                        caption: '',
-                        category: 'General',
-                        media_urls: reel.thumbnail_url ? [reel.thumbnail_url] : [],
-                        media_type: 'repost',
-                        tags: [],
-                        repost_of: reel.id,
-                        is_repost: true,
-                      });
-                    } catch (_) {}
-                  }}
-                >
-                  <div className="w-12 h-12 flex items-center justify-center bg-black/25 border border-white/10 backdrop-blur-md rounded-full">
-                    <Repeat2 className="w-5 h-5 drop-shadow-lg" />
-                  </div>
-                  <span className="text-[11px] font-bold text-white drop-shadow-md">Repost</span>
-                </motion.button>
-
                 {/* More */}
                 <motion.button whileTap={{ scale: 0.88 }} onClick={() => setMenuReel(reel)} className="w-11 h-11 flex items-center justify-center bg-black/25 border border-white/10 backdrop-blur-md rounded-full text-white">
                   <MoreHorizontal className="w-5 h-5" />
@@ -626,22 +631,22 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
       {/* Comments sheet */}
       <AnimatePresence>
         {showComments && (
-          <div className="absolute inset-0 z-50">
+          <div className="fixed inset-0 z-[90]">
             <motion.div className="absolute inset-0 bg-black/60" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowComments(null)} />
-            <motion.div className="absolute bottom-0 left-0 right-0 z-10 bg-surface-container rounded-t-3xl max-h-[75%] flex flex-col p-6" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 28, stiffness: 300 }}>
-              <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+            <motion.div className="fixed bottom-0 left-0 right-0 z-[91] bg-surface-container-lowest text-on-surface rounded-t-3xl h-[min(82dvh,720px)] max-h-[calc(100dvh-env(safe-area-inset-top))] flex flex-col p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] border border-outline-variant/20 shadow-2xl" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 28, stiffness: 300 }}>
+              <div className="w-10 h-1 rounded-full bg-outline-variant/60 mx-auto mb-4" />
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-md font-bold text-white uppercase tracking-wider">Comments</h3>
-                <button onClick={() => setShowComments(null)} className="text-xs text-white/60 hover:text-white font-semibold">Close</button>
+                <h3 className="text-base font-semibold text-on-surface tracking-tight">Comments <span className="text-xs font-normal text-on-surface-variant">({(reelComments[showComments] || []).length})</span></h3>
+                <button onClick={() => setShowComments(null)} className="text-xs text-on-surface-variant hover:text-on-surface font-semibold">Close</button>
               </div>
-              <div className="flex-grow overflow-y-auto space-y-4 py-2">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain space-y-4 py-2">
                 {loadingComments ? (
                   <div className="flex justify-center py-8"><div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
                 ) : (reelComments[showComments] || []).length === 0 ? (
-                  <div className="text-center py-8 text-sm text-white/40">No comments yet.</div>
+                  <div className="text-center py-10 text-sm text-on-surface-variant">No comments yet. Be the first to join in.</div>
                 ) : (
                   (reelComments[showComments] || []).map((cmt: any) => (
-                    <div key={cmt.id} className="flex gap-3 text-sm items-start border-b border-white/5 pb-3">
+                    <div key={cmt.id} className="flex gap-3 text-sm items-start border-b border-outline-variant/20 pb-3">
                       <div
                         className="w-8 h-8 rounded-full bg-primary/25 border border-primary/20 flex items-center justify-center font-bold text-xs uppercase text-primary shrink-0 cursor-pointer"
                         onClick={() => cmt.profiles?.id && navigate('/profile/' + cmt.profiles.id)}
@@ -649,18 +654,18 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
                         {(cmt.profiles?.display_name || cmt.profiles?.username || '?').slice(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <div className="font-semibold text-white text-xs">{cmt.profiles?.display_name || cmt.profiles?.username || 'Unknown'}</div>
-                        <p className="text-white/85 text-xs mt-1 leading-relaxed break-words">{cmt.content}</p>
+                        <div className="font-semibold text-on-surface text-xs">{cmt.profiles?.display_name || cmt.profiles?.username || 'Unknown'}</div>
+                        <p className="text-on-surface-variant text-xs mt-1 leading-relaxed break-words">{cmt.content}</p>
                       </div>
                     </div>
                   ))
                 )}
               </div>
-              <div className="border-t border-white/10 pt-4 mt-2 flex gap-3 items-center">
-                <div className="lbt-comment-composer lbt-reel-comment-composer">
+              <div className="shrink-0 border-t border-outline-variant/20 pt-4 mt-2 flex gap-3 items-center">
+                <div className="lbt-comment-composer">
                   <input type="text" value={commentInput} onChange={(e) => setCommentInput(e.target.value)} placeholder="Add a comment..." className="lbt-comment-composer-field" onKeyDown={(e) => e.key === 'Enter' && handleAddComment()} />
                 </div>
-                <button onClick={handleAddComment} disabled={!commentInput.trim()} className="w-10 h-10 bg-primary disabled:opacity-50 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 shrink-0">
+                <button onClick={handleAddComment} disabled={!commentInput.trim()} className="w-10 h-10 bg-primary disabled:opacity-45 text-white rounded-full flex items-center justify-center shadow-sm active:scale-95 shrink-0">
                   <Send className="w-4 h-4" />
                 </button>
               </div>

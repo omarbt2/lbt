@@ -64,11 +64,11 @@ export default function SecuritySettings({
                 <p className="text-xs font-semibold text-on-surface">{device.device}</p>
                 <p className="text-[10px] text-on-surface-variant">{device.location} · {device.time}</p>
               </div>
-              <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary">Current</span>
+              <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${device.isCurrent ? 'bg-primary/10 text-primary' : 'bg-surface-container text-on-surface-variant'}`}>{device.isCurrent ? 'This device' : 'Registered'}</span>
             </div>
           ))}
         </div>
-        <p className="mt-3 text-[10px] text-on-surface-variant">Only the current browser session is available here. Other signed-in devices are not yet listed.</p>
+        <p className="mt-3 text-[10px] text-on-surface-variant">These are app installations registered to your account. A registered device is not proof of a currently active Supabase login session.</p>
       </section>
 
       <section className="rounded-2xl border border-error/20 bg-error/5 p-4">

@@ -24,6 +24,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  // Browser extensions and non-HTTP schemes are outside this origin's cache.
+  if (!['http:', 'https:'].includes(new URL(event.request.url).protocol)) return;
+  if (new URL(event.request.url).origin !== self.location.origin) return;
   if (event.request.url.includes('/api/') || event.request.url.includes('supabase')) return;
 
   event.respondWith(
@@ -31,7 +34,11 @@ self.addEventListener('fetch', (event) => {
       const networkFetch = fetch(event.request).then((response) => {
         if (response && response.status === 200) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          // Cache API accepts same-origin HTTP(S) GET requests only. A cache
+          // failure must never reject the fetch event or break the page.
+          caches.open(CACHE_NAME)
+            .then((cache) => cache.put(event.request, clone))
+            .catch(() => {});
         }
         return response;
       }).catch(() => cached);

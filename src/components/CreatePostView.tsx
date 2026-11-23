@@ -244,8 +244,8 @@ export default function CreatePostView({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4 pt-12 sm:pt-20">
-      <div className="w-full max-w-2xl bg-surface-container-lowest dark:bg-surface-container-low rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start md:items-center justify-center overflow-y-auto p-4">
+      <div className="w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface-container-lowest dark:bg-surface-container-low rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200">
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/30">
           <h2 className="text-base font-bold text-on-surface">

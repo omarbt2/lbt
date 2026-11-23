@@ -60,7 +60,19 @@ function LoadingSpinner() {
 }
 
 function AuthPage() {
-  return <AuthView onLoginSuccess={() => window.location.reload()} />;
+  const navigate = useNavigate();
+  const { session, currentUser, isLoading } = useAuthStore();
+
+  // A successful login used to reload /auth, leaving the user on the
+  // authentication screen even though Supabase had issued a valid session.
+  // Redirect existing sessions too, so revisiting /auth never traps users.
+  useEffect(() => {
+    if (!isLoading && session && currentUser) {
+      navigate('/', { replace: true });
+    }
+  }, [isLoading, session, currentUser, navigate]);
+
+  return <AuthView onLoginSuccess={() => navigate('/', { replace: true })} />;
 }
 
 function NotFoundPage() {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import { OutletContextType } from '../types/context';
 import { useAuthStore } from '../store/authStore';
 import {
@@ -348,6 +348,9 @@ export default function SettingsPage() {
   const toggleNotifComments = () => { const next = !notifComments; setNotifComments(next); updateNotifPref('notif_comments', next); };
   const toggleNotifDMs = () => { const next = !notifDMs; setNotifDMs(next); updateNotifPref('notif_dms', next); };
   const toggleNotifFollowers = () => { const next = !notifFollowers; setNotifFollowers(next); updateNotifPref('notif_followers', next); };
+
+  // There is only one profile editor. Legacy personal-info deep links now resolve to it.
+  if (activeSubpage === 'personal') return <Navigate to="/edit-profile" replace />;
 
   // --- Subpage header ---
   if (activeSubpage) {

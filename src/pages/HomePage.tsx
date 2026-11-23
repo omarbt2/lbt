@@ -303,7 +303,7 @@ export default function HomePage() {
                   className={`group-hover:scale-105 shadow-sm ring-2 ring-transparent active:ring-primary/30 transition-all ${(post.user as any).is_verified ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-surface-container-lowest' : ''}`}
                 />
                 <div>
-                  {(post as any).is_repost && (
+                  {post.is_repost && (
                     <div className="flex items-center gap-1 text-[10px] text-secondary font-bold mb-0.5">
                       <Repeat2 className="w-3 h-3" /> Reposted
                     </div>
@@ -334,10 +334,61 @@ export default function HomePage() {
             </div>
 
             <div className="px-4 pb-3">
-              <p className="text-sm text-on-surface font-medium leading-relaxed">{renderCaption(post.caption, navigate)}</p>
+              <p className="text-sm text-on-surface font-medium leading-relaxed">{renderCaption(post.is_repost ? (post.repost_caption || '') : post.caption, navigate)}</p>
             </div>
 
-            {post.imageUrl && (
+            {post.is_repost && (
+              <div className="mx-4 mb-3 overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest">
+                {post.repostedPost ? (
+                  <>
+                    <div className="flex items-center gap-2.5 px-3.5 py-3">
+                      <Avatar
+                        src={post.repostedPost.user.avatar}
+                        userId={post.repostedPost.user.id}
+                        name={post.repostedPost.user.name}
+                        size="sm"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-on-surface truncate">{post.repostedPost.user.name}</p>
+                        <p className="text-[10px] text-on-surface-variant">@{post.repostedPost.user.username}</p>
+                      </div>
+                      <span className="ml-auto text-[10px] text-on-surface-variant">Original post</span>
+                    </div>
+                    {post.repostedPost.caption && (
+                      <p className="px-3.5 pb-3 text-xs leading-relaxed text-on-surface-variant">
+                        {renderCaption(post.repostedPost.caption, navigate)}
+                      </p>
+                    )}
+                    {post.repostedPost.imageUrl && (
+                      <div
+                        onClick={() => navigate('/post/' + post.repostedPost!.id)}
+                        className="relative aspect-square w-full overflow-hidden bg-surface-container cursor-pointer"
+                      >
+                        {post.repostedPost.mediaType === 'video' ? (
+                          <video
+                            src={post.repostedPost.imageUrl}
+                            className="h-full w-full object-cover"
+                            controls
+                            playsInline
+                            muted
+                            preload="metadata"
+                            onClick={(event) => event.stopPropagation()}
+                          />
+                        ) : (
+                          <img src={post.repostedPost.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="px-4 py-4 text-xs text-on-surface-variant">
+                    This original post is no longer available to you.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!post.is_repost && post.imageUrl && (
               <div
                 onClick={() => navigate('/post/' + post.id)}
                 className="w-full relative aspect-square sm:aspect-[4/3] bg-surface-container-lowest cursor-pointer overflow-hidden -mx-4 md:mx-0 w-[calc(100%+2rem)] md:w-full rounded-2xl md:rounded-none group shadow-inner"

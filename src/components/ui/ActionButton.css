@@ -109,7 +109,7 @@
   transition: transform .3s ease-in-out, fill .3s ease-in-out, color .3s ease-in-out;
 }
 
-.lbt-action-button .svg-wrapper > svg:not(.lbt-action-icon) {
+.lbt-action-button .svg-wrapper > svg.lbt-action-button-default-icon {
   width: 30px;
   height: 30px;
 }
@@ -125,8 +125,13 @@
 
 .lbt-action-button:hover:not(:disabled) svg {
   transform: translateX(1.2em) scale(1.1);
-  fill: #ffffff;
   color: #ffffff;
+}
+.lbt-action-button:hover:not(:disabled) svg.lbt-action-button-default-icon {
+  fill: #ffffff;
+}
+.lbt-action-button:hover:not(:disabled) svg.lbt-action-icon:not(.lbt-action-button-default-icon) {
+  fill: none;
 }
 
 .lbt-action-button:hover:not(:disabled) > span {

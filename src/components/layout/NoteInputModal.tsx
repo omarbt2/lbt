@@ -44,13 +44,13 @@ export default function NoteInputModal({ isOpen, onClose, currentUser }: NoteInp
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 backdrop-blur-sm" onClick={handleCancel}>
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 backdrop-blur-sm md:items-center md:p-4" onClick={handleCancel}>
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 350 }}
-            className="w-full max-w-md bg-surface-container-lowest rounded-t-3xl p-5 flex flex-col gap-3"
+            className="w-full max-w-md max-h-[85dvh] overflow-y-auto bg-surface-container-lowest rounded-t-3xl p-5 flex flex-col gap-3 md:rounded-3xl"
             onClick={e => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-on-surface/15 rounded-full mx-auto mb-1" />

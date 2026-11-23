@@ -17,7 +17,6 @@ import { I18nProvider } from './lib/i18n/context';
 import { useAuthStore } from './store/authStore';
 import Toast from './components/layout/Toast';
 import MobileHeader from './components/layout/MobileHeader';
-import DesktopSidebar from './components/layout/DesktopSidebar';
 import MobileNav from './components/layout/MobileNav';
 import EditPostModal from './components/layout/EditPostModal';
 import InsightsModal from './components/layout/InsightsModal';
@@ -30,7 +29,7 @@ import CreatePostView from './components/CreatePostView';
 import AddStoryView from './components/AddStoryView';
 import StoryViewer from './components/StoryViewer';
 import ReportModal from './components/ReportModal';
-import { BarChart3, Ban, Repeat2, Send, BellOff } from 'lucide-react';
+import { BarChart3, Ban, Repeat2, Send, BellOff, Plus, Image as ImageIcon, Video, Camera, Zap, Bell } from 'lucide-react';
 import { getDefaultAvatar } from './lib/defaultAvatars';
 import { muteUser } from './lib/api/blocks';
 
@@ -322,17 +321,28 @@ function AppLayout() {
         isReelsPage={isReelsPage}
       />
 
-      <div className="flex max-w-7xl mx-auto w-full relative h-dvh overflow-x-clip">
-        <DesktopSidebar
-          liveNotifications={state.liveNotifications}
-          darkMode={state.darkMode}
-          toggleDarkMode={state.toggleDarkMode}
-          setShowCreateMenu={state.setShowCreateMenu}
-          triggerToast={state.triggerToast}
-        />
+      <header className="hidden md:flex max-w-7xl mx-auto w-full h-16 items-center justify-between px-6 border-b border-outline-variant/15 bg-surface-container-lowest/90 dark:bg-surface-container-low/90">
+        <button type="button" onClick={() => state.navigate('/')} className="flex items-center gap-3 rounded-xl">
+          <img src="/logo.png" alt="LBT Social" className="w-9 h-9 rounded-xl object-contain" />
+          <span className="text-sm font-extrabold tracking-tight text-on-surface">LBT Social</span>
+        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => state.setShowCreateMenu(true)} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:brightness-105 active:scale-[.98]">
+            <Plus className="w-4 h-4" /> Create
+          </button>
+          <button type="button" aria-label="Notifications" onClick={() => state.navigate('/notifications')} className="relative grid h-10 w-10 place-items-center rounded-xl text-on-surface-variant hover:bg-surface-container">
+            <Bell className="w-5 h-5" />
+            {state.liveNotifications.some((n) => n.isUnread) && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-error" />}
+          </button>
+          <button type="button" aria-label="My profile" onClick={() => state.navigate('/profile/' + currentUser.id)} className="h-10 w-10 overflow-hidden rounded-full border border-outline-variant/40">
+            <img src={currentUser.avatar || getDefaultAvatar(currentUser.id)} alt="My profile" className="h-full w-full object-cover" />
+          </button>
+        </div>
+      </header>
 
+      <div className="flex max-w-7xl mx-auto w-full relative h-[calc(100dvh-4rem)] min-h-0 overflow-x-clip">
         <section
-          className={`flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'pb-0 pt-0 px-0' : 'px-0 pb-20 pt-16 md:pt-0 md:pb-6 md:px-6'}`}
+          className={`min-h-0 flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'pb-0 pt-0 px-0' : 'px-0 pb-20 pt-16 md:pt-0 md:pb-6 md:px-6'}`}
           style={{ WebkitOverflowScrolling: 'touch' }}
           onTouchStart={handleSwipeStart}
           onTouchEnd={handleSwipeEnd}
@@ -385,6 +395,35 @@ function AppLayout() {
         setShowNoteInput={state.setShowNoteInput}
         setShowAddStoryModal={state.setShowAddStoryModal}
       />
+
+      {state.showCreateMenu && (
+        <div className="hidden md:flex fixed inset-0 z-[90] items-center justify-center p-4" role="presentation">
+          <button type="button" aria-label="Close create menu" onClick={() => state.setShowCreateMenu(false)} className="absolute inset-0 bg-black/35 backdrop-blur-sm" />
+          <section role="dialog" aria-modal="true" aria-label="Create something" className="relative z-10 w-full max-w-md rounded-3xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-2xl dark:bg-surface-container">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-extrabold text-on-surface">Create something</h2>
+                <p className="mt-1 text-xs text-on-surface-variant">Choose what you want to share</p>
+              </div>
+              <button type="button" onClick={() => state.setShowCreateMenu(false)} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-full bg-surface-container text-on-surface">×</button>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => { state.setCreatePostType('post'); state.setShowCreateMenu(false); state.setShowCreatePost(true); }} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl bg-surface-container px-4 py-4 text-sm font-bold text-on-surface transition-colors hover:bg-primary/10">
+                <ImageIcon className="h-6 w-6 text-primary" /> Post
+              </button>
+              <button type="button" onClick={() => { state.setCreatePostType('reel'); state.setShowCreateMenu(false); state.setShowCreatePost(true); }} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl bg-surface-container px-4 py-4 text-sm font-bold text-on-surface transition-colors hover:bg-primary/10">
+                <Video className="h-6 w-6 text-primary" /> Reel
+              </button>
+              <button type="button" onClick={() => { state.setShowCreateMenu(false); state.setShowAddStoryModal(true); }} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl bg-surface-container px-4 py-4 text-sm font-bold text-on-surface transition-colors hover:bg-primary/10">
+                <Camera className="h-6 w-6 text-primary" /> Story
+              </button>
+              <button type="button" onClick={() => { state.setShowCreateMenu(false); state.setShowNoteInput(true); }} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl bg-surface-container px-4 py-4 text-sm font-bold text-on-surface transition-colors hover:bg-primary/10">
+                <Zap className="h-6 w-6 text-primary" /> Note
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       <NoteInputModal
         isOpen={state.showNoteInput}

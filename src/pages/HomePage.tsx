@@ -542,26 +542,23 @@ export default function HomePage() {
         )}
 
         {!postsLoading && !postsError && posts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 px-6 gap-4">
-            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-              <Sparkles className="w-10 h-10 text-primary" />
+          <div className="mx-1 flex flex-col gap-4 rounded-3xl border border-outline-variant/25 bg-surface-container-lowest/80 px-5 py-7">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.16em] text-on-surface-variant">
+              <Users className="h-4 w-4 text-primary" />
+              Your community
             </div>
-            <div className="text-center">
-              <h3 className="text-sm font-bold text-on-surface mb-1">Your feed is empty</h3>
-              <p className="text-xs text-on-surface-variant">Follow people or explore content to fill your feed</p>
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold tracking-tight text-on-surface">Start with people you like.</h3>
+              <p className="max-w-sm text-sm leading-relaxed text-on-surface-variant">
+                Follow a few creators and their latest posts will show up here.
+              </p>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => navigate('/explore')}
-                className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-full"
-              >
-                Explore Posts
-              </button>
-              <button
-                onClick={() => navigate('/explore?filter=people')}
-                className="px-5 py-2.5 bg-surface-container text-on-surface text-xs font-bold rounded-full border border-outline-variant/30"
-              >
-                Find People
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <ActionButton fullWidth icon={<Users className="h-5 w-5" />} onClick={() => navigate('/explore?filter=people')}>
+                Find creators
+              </ActionButton>
+              <button type="button" onClick={() => navigate('/explore')} className="min-h-11 rounded-xl border border-outline-variant/30 px-4 py-2.5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container">
+                Browse posts
               </button>
             </div>
           </div>

@@ -132,8 +132,7 @@ function AppLayout() {
     postMenuPostId: state.postMenuPostId,
     setPostMenuPostId: state.setPostMenuPostId,
     showPermissionDenied: state.showPermissionDenied,
-    setRepostTargetPost: state.setRepostTargetPost,
-    setShowRepostModal: state.setShowRepostModal,
+    handleRepostDirect: state.handleRepostDirect,
   }), [
     state.currentUser, state.darkMode, state.toggleDarkMode, state.triggerToast,
     state.posts, state.postsLoading, state.postsError,
@@ -144,7 +143,7 @@ function AppLayout() {
     state.handleStoryAdded, state.handleViewStory, state.handleMarkAllNotificationsAsRead,
     state.postMenuPostId, state.setPostMenuPostId,
     state.showPermissionDenied,
-    state.setRepostTargetPost, state.setShowRepostModal,
+    state.handleRepostDirect,
   ]);
 
   if (!currentUser) return null;
@@ -196,8 +195,7 @@ function AppLayout() {
                 state.setPostMenuPostId(null);
               }},
               { icon: <Repeat2 className="w-5 h-5" />, label: 'Repost', onClick: () => {
-                state.setRepostTargetPost(menuPost);
-                state.setShowRepostModal(true);
+                void state.handleRepostDirect(menuPost);
                 state.setPostMenuPostId(null);
               }},
               { icon: <Send className="w-5 h-5" />, label: 'Share to DM', onClick: () => {

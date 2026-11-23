@@ -20,6 +20,7 @@ import { createPost } from '../lib/api/posts';
 import { searchProfiles } from '../lib/api/profiles';
 import { Avatar } from './ui/Avatar';
 import { supabase } from '../lib/supabase';
+import ActionButton from './ui/ActionButton';
 
 interface CreatePostProps {
   currentUser: User;
@@ -557,23 +558,14 @@ export default function CreatePostView({
 
         {/* ── Publish button ── */}
         <div className="px-5 pb-5">
-          <button
+          <ActionButton
+            fullWidth
             onClick={handlePublish}
             disabled={!canPublish}
-            className="w-full py-3 rounded-full bg-primary hover:bg-primary/90 active:bg-primary/80 text-white font-bold text-sm shadow-lg shadow-primary/25 flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+            icon={isPublishing || isUploading ? <Loader className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           >
-            {isPublishing || isUploading ? (
-              <>
-                <Loader className="w-4 h-4 animate-spin" />
-                <span>Publishing...</span>
-              </>
-            ) : (
-              <>
-                <span>Publish</span>
-                <Send className="w-4 h-4" />
-              </>
-            )}
-          </button>
+            {isPublishing || isUploading ? 'Publishing...' : 'Publish'}
+          </ActionButton>
         </div>
       </div>
     </div>

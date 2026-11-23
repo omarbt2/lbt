@@ -74,15 +74,6 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
 });
 
-app.get("/api/turn-credentials", rateLimit(60000, 30), (_req, res) => {
-  res.json({
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-    ],
-  });
-});
-
 // 2. Real Cloud AI Tag Suggestion Endpoint
 app.post("/api/ai/suggest-tags", rateLimit(60000, 10), async (req, res) => {
   const { caption } = req.body;
@@ -203,87 +194,6 @@ Keep your response short (2-3 sentences max), modern, encouraging, and highly co
       reply: "Ah, raw network jitter got in our way! Tell me more about your recent render design layout setup?", 
       simulated: true, 
     });
-  }
-});
-
-// 4. Daily.co Room Creation Endpoint
-const DAILY_API_KEY = process.env.DAILY_API_KEY;
-const DAILY_DOMAIN = process.env.DAILY_DOMAIN || 'getcall';
-
-app.post("/api/daily/create-room", rateLimit(60000, 20), async (req, res) => {
-  if (!DAILY_API_KEY) {
-    return res.status(500).json({ error: "DAILY_API_KEY not configured on server" });
-  }
-
-  const { roomName, exp } = req.body;
-  if (!roomName) {
-    return res.status(400).json({ error: "roomName is required" });
-  }
-
-  try {
-    const response = await fetch(`https://api.daily.co/v1/rooms`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DAILY_API_KEY}`,
-      },
-      body: JSON.stringify({
-        name: roomName,
-        properties: {
-          enable_screensharing: true,
-          enable_chat: false,
-          exp: exp || Math.floor(Date.now() / 1000) + 3600,
-        },
-      }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      return res.status(response.status).json({ error: data.error || 'Failed to create room' });
-    }
-
-    res.json({ url: data.url, name: data.name, id: data.id });
-  } catch (error: any) {
-    console.error("Daily.co room creation error:", error);
-    res.status(500).json({ error: "Failed to create Daily.co room" });
-  }
-});
-
-app.post("/api/daily/create-meeting-token", rateLimit(60000, 20), async (req, res) => {
-  if (!DAILY_API_KEY) {
-    return res.status(500).json({ error: "DAILY_API_KEY not configured on server" });
-  }
-
-  const { roomName, userId } = req.body;
-  if (!roomName || !userId) {
-    return res.status(400).json({ error: "roomName and userId are required" });
-  }
-
-  try {
-    const response = await fetch(`https://api.daily.co/v1/meeting-tokens`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DAILY_API_KEY}`,
-      },
-      body: JSON.stringify({
-        properties: {
-          room_name: roomName,
-          user_id: userId,
-          is_owner: false,
-        },
-      }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      return res.status(response.status).json({ error: data.error || 'Failed to create token' });
-    }
-
-    res.json({ token: data.token });
-  } catch (error: any) {
-    console.error("Daily.co token creation error:", error);
-    res.status(500).json({ error: "Failed to create Daily.co token" });
   }
 });
 

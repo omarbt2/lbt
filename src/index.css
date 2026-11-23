@@ -468,3 +468,30 @@ button, a, [role="button"] {
     scroll-behavior: auto !important;
   }
 }
+
+/* LBT loading placeholders: warm, theme-aware shimmer instead of flat grey. */
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    105deg,
+    color-mix(in srgb, var(--color-surface-container, #eeece7) 94%, transparent) 0%,
+    color-mix(in srgb, var(--color-surface-container-high, #e7e4dd) 78%, white 22%) 48%,
+    color-mix(in srgb, var(--color-surface-container, #eeece7) 94%, transparent) 100%
+  );
+  background-size: 220% 100%;
+  animation: lbt-skeleton-shimmer 1.45s ease-in-out infinite;
+}
+.dark .skeleton-shimmer {
+  background-image: linear-gradient(
+    105deg,
+    #292724 0%,
+    #393631 48%,
+    #292724 100%
+  );
+}
+@keyframes lbt-skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer { animation: none; background-size: 100% 100%; }
+}

@@ -121,7 +121,7 @@ export default function EditProfilePage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-8">
+      <div className="pb-28">
         <div className="max-w-xl mx-auto">
           {/* Cover + Avatar — Snapchat-style centered */}
           <div className="relative">

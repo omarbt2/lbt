@@ -413,7 +413,7 @@ export default function ProfilePage() {
         </div>
         <p className="mt-2 text-lg font-bold text-on-surface text-center">{user.name}</p>
         <p className="mt-0.5 text-xs font-medium text-on-surface-variant text-center">@{user.username}</p>
-        {(user.status_emoji || user.status_text) && (
+        {(user.status_emoji || user.status_text) && (!user.status_expires_at || new Date(user.status_expires_at).getTime() > Date.now()) && (
           <div className="mt-3 inline-flex max-w-[90%] items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-3.5 py-2 text-xs font-semibold text-on-surface">
             {user.status_emoji && <span className="text-base leading-none">{user.status_emoji}</span>}
             {user.status_text && <span className="truncate">{user.status_text}</span>}

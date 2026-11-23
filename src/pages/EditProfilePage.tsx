@@ -93,8 +93,8 @@ export default function EditProfilePage() {
         phone: phoneLocal && validatePhone(phoneLocal) ? fullPhone : null,
         date_of_birth: dateOfBirth || null,
         gender: gender || null,
-        status_emoji: statusEmoji || undefined,
-        status_text: statusText || undefined,
+        status_emoji: statusEmoji || null,
+        status_text: statusText.trim() || null,
         status_expires_at: statusEmoji ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null,
       });
 
@@ -293,6 +293,7 @@ export default function EditProfilePage() {
                   <span className="text-xs">🎂</span>
                   <input
                     type="date"
+                    max={new Date().toISOString().slice(0, 10)}
                     value={dateOfBirth}
                     onChange={(e) => setDateOfBirth(e.target.value)}
                     className="flex-1 bg-transparent text-sm text-on-surface outline-none font-mono"

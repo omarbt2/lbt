@@ -35,6 +35,16 @@ export interface Post {
   hasLiked?: boolean;
   hasBookmarked?: boolean;
   tags?: string[];
+  is_repost?: boolean;
+  repost_of?: string;
+  repost_caption?: string | null;
+  repostedPost?: {
+    id: string;
+    user: User;
+    caption: string;
+    imageUrl?: string;
+    mediaType?: 'image' | 'video' | 'carousel';
+  } | null;
   commentsList: Comment[];
 }
 

@@ -164,7 +164,7 @@ export default function ReelsView({ onBackToFeed, initialReelId }: ReelsViewProp
           const idx = Number(entry.target.getAttribute('data-reel-index'));
           const video = videoRefs.current.get(idx);
           if (!video) return;
-          if (entry.isIntersecting) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
             setActiveIdx(idx);
             video.currentTime = 0;
             video.muted = isMutedRef.current;

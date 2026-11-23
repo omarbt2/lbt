@@ -1,6 +1,8 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { Send } from 'lucide-react';
+import ActionButton from '../ui/ActionButton';
 
 interface NoteInputModalProps {
   isOpen: boolean;
@@ -50,7 +52,7 @@ export default function NoteInputModal({ isOpen, onClose, currentUser }: NoteInp
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 350 }}
-            className="w-full max-w-md max-h-[85dvh] overflow-y-auto bg-surface-container-lowest rounded-t-3xl p-5 flex flex-col gap-3 md:rounded-3xl"
+            className="w-full max-w-md max-h-[calc(100dvh-1rem)] overflow-y-auto bg-surface-container-lowest rounded-t-3xl px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] flex flex-col gap-3 md:rounded-3xl md:max-h-[85dvh]"
             onClick={e => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-on-surface/15 rounded-full mx-auto mb-1" />
@@ -75,13 +77,14 @@ export default function NoteInputModal({ isOpen, onClose, currentUser }: NoteInp
                 >
                   Cancel
                 </button>
-                <button
+                <ActionButton
+                  size="compact"
                   disabled={!noteText.trim() || isSaving}
                   onClick={handlePost}
-                  className="px-5 py-2.5 rounded-full bg-on-surface text-surface-container-lowest font-bold text-xs disabled:opacity-30 hover:opacity-90 transition-all active:scale-95"
+                  icon={<Send className="h-5 w-5" />}
                 >
-                  {isSaving ? 'Posting...' : 'Post'}
-                </button>
+                  {isSaving ? 'Posting...' : 'Post note'}
+                </ActionButton>
               </div>
             </div>
           </motion.div>

@@ -3,7 +3,7 @@
  */
 import React, { forwardRef, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Camera, FolderOpen, Mic, MicOff, Send, Smile, X } from 'lucide-react';
+import { Camera, FolderOpen, Mic, Send, Smile, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { sendMessage } from '../../lib/api/messages';
 import type { Chat } from '../../types';
@@ -72,11 +72,6 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
       }
     };
 
-    const startVoiceNote = (e: React.PointerEvent<HTMLButtonElement>) => {
-      e.preventDefault();
-      if (!isRecording) onStartRecording();
-    };
-    const stopVoiceNote = () => onStopRecording();
     const hasText = !!typeInput.trim();
     const canSend = hasText;
 

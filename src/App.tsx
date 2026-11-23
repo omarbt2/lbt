@@ -86,6 +86,13 @@ function AppLayout() {
   const state = useAppState();
   const { currentUser, location, isReelsPage } = state;
 
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    void StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+    void StatusBar.setStyle({ style: state.darkMode ? Style.Light : Style.Dark }).catch(() => {});
+    void StatusBar.setBackgroundColor({ color: state.darkMode ? '#242321' : '#F7F6F2' }).catch(() => {});
+  }, [state.darkMode]);
+
   const TAB_ORDER = ['/', '/explore', '/reels', '/messages'];
   const swipeStartXRef = React.useRef(0);
   const swipeStartYRef = React.useRef(0);
@@ -449,8 +456,6 @@ export default function App() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     void StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
-    void StatusBar.setStyle({ style: Style.Light }).catch(() => {});
-    void StatusBar.setBackgroundColor({ color: '#F7F6F2' }).catch(() => {});
   }, []);
 
   const { currentUser } = useAuthStore();

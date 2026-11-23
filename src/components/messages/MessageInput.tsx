@@ -90,17 +90,6 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
           <input ref={folderPickerRef} type="file" accept="image/*"
             className="lbt-composer-file-input" onChange={handleImageUpload} tabIndex={-1} aria-hidden="true" />
 
-          <div className="container-upload-files" aria-label="Message attachments">
-            <button type="button" className="upload-file" title="Take a photo" aria-label="Take a photo"
-              onClick={() => cameraPickerRef.current?.click()} disabled={isRecording}><Camera /></button>
-            <button type="button" className="upload-file" title="Choose an image" aria-label="Choose an image"
-              onClick={() => imagePickerRef.current?.click()} disabled={isRecording}><ImageIcon /></button>
-            <button type="button" className="upload-file" title="Browse images" aria-label="Browse images"
-              onClick={() => folderPickerRef.current?.click()} disabled={isRecording}><Folder /></button>
-            <button type="button" className="upload-file" title="Emoji" aria-label="Open emoji picker"
-              onClick={onToggleEmojiPicker} disabled={isRecording}><Smile /></button>
-          </div>
-
           <input
             ref={ref}
             type="text"
@@ -119,6 +108,17 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
             }}
             disabled={isRecording}
           />
+
+          <div className="container-upload-files" aria-label="Message attachments">
+            <button type="button" className="upload-file" title="Take a photo" aria-label="Take a photo"
+              onClick={() => cameraPickerRef.current?.click()} disabled={isRecording}><Camera /></button>
+            <button type="button" className="upload-file" title="Choose an image" aria-label="Choose an image"
+              onClick={() => imagePickerRef.current?.click()} disabled={isRecording}><ImageIcon /></button>
+            <button type="button" className="upload-file" title="Browse images" aria-label="Browse images"
+              onClick={() => folderPickerRef.current?.click()} disabled={isRecording}><Folder /></button>
+            <button type="button" className="upload-file" title="Emoji" aria-label="Open emoji picker"
+              onClick={onToggleEmojiPicker} disabled={isRecording}><Smile /></button>
+          </div>
 
           <button type="button" className="label-files" aria-label="Attach an image" title="Attach image"
             onClick={() => imagePickerRef.current?.click()}><Plus /></button>

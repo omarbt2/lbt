@@ -305,7 +305,7 @@ export default function EditProfilePage() {
               <p className="mt-1 text-[11px] leading-relaxed text-on-surface-variant">
                 Manage whether your account is public or private from Settings → Privacy. This keeps one reliable privacy control for your whole account.
               </p>
-              <button type="button" onClick={() => navigate('/settings')} className="mt-3 text-xs font-bold text-primary">
+              <button type="button" onClick={() => navigate('/settings?section=privacy')} className="mt-3 text-xs font-bold text-primary">
                 Open privacy settings
               </button>
             </div>

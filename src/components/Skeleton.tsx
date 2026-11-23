@@ -6,7 +6,7 @@ interface SkeletonProps {
 }
 
 export function Shimmer({ className = '' }: SkeletonProps) {
-  return <div aria-hidden="true" className={`skeleton-shimmer animate-pulse bg-surface-container-high rounded-lg ${className}`} />;
+  return <div aria-hidden="true" className={`skeleton-shimmer rounded-lg ${className}`} />;
 }
 
 function SkeletonSectionTitle({ width = 'w-32' }: { width?: string }) {

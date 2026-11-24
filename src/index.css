@@ -627,3 +627,25 @@ svg.lucide {
   .lbt-glass-surface,
   .lbt-mobile-header-glass { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
+
+
+/* Conversation panel fills the actual area between the fixed mobile header
+   and the floating glass navigation. Desktop keeps the compact top bar. */
+.lbt-messages-screen {
+  height: calc(100dvh - 3.5rem - var(--lbt-nav-reserve) - env(safe-area-inset-top, 0px));
+  min-height: 0;
+  max-height: none;
+}
+.lbt-messages-screen > aside,
+.lbt-messages-screen > section {
+  min-width: 0;
+  min-height: 0;
+}
+@media (min-width: 768px) {
+  .lbt-messages-screen {
+    height: calc(100dvh - 5.5rem);
+  }
+}
+@media (max-width: 380px) {
+  .lbt-messages-screen { border-radius: 1rem; }
+}

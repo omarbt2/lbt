@@ -7,6 +7,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { OutletContextType } from './types/context';
 import { useAppState } from './hooks/useAppState';
 import AuthView from './components/AuthView';
+import lbtLogo from './assets/logo.png';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import BottomSheetMenu from './components/ui/BottomSheetMenu';
@@ -51,7 +52,7 @@ function LoadingSpinner() {
   return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
-        <img src="/logo.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
+        <img src={lbtLogo} alt="LBT" className="w-16 h-16 object-contain" />
         <div className="w-5 h-5 border-2 border-gray-200 border-t-black dark:border-t-white rounded-full animate-spin" />
       </div>
     </div>
@@ -343,7 +344,7 @@ function AppLayout() {
 
       <header className={`hidden md:flex max-w-7xl mx-auto w-full h-16 items-center justify-between px-6 border-b border-outline-variant/15 bg-surface-container-lowest/90 dark:bg-surface-container-low/90 ${isReelsPage ? 'md:hidden' : ''}`}>
         <button type="button" onClick={() => state.navigate('/')} className="flex items-center gap-3 rounded-xl">
-          <img src="/logo.png" alt="LBT Social" className="w-9 h-9 rounded-xl object-contain" />
+          <img src={lbtLogo} alt="LBT Social" className="w-9 h-9 object-contain" />
           <span className="text-sm font-extrabold tracking-tight text-on-surface">LBT Social</span>
         </button>
         <div className="flex items-center gap-2">

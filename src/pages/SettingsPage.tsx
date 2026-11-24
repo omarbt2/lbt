@@ -328,22 +328,26 @@ export default function SettingsPage() {
   useEffect(() => {
     if (activeSubpage !== 'faq' || !currentUser?.id) return;
     let cancelled = false;
-    setTicketsLoading(true);
-    void supabase.from('support_tickets')
-      .select('id, subject, status, created_at')
-      .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false })
-      .limit(10)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error('Could not load support requests:', error);
-          triggerToast('Could not load your support requests', 'error');
-          return;
+    const loadTickets = async () => {
+      setTicketsLoading(true);
+      try {
+        const { data, error } = await supabase.from('support_tickets')
+          .select('id, subject, status, created_at')
+          .eq('user_id', currentUser.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (error) throw error;
+        if (!cancelled) {
+          setTicketHistory((data || []) as { id: string; subject: string; status: string; created_at: string }[]);
         }
-        setTicketHistory((data || []) as { id: string; subject: string; status: string; created_at: string }[]);
-      })
-      .finally(() => { if (!cancelled) setTicketsLoading(false); });
+      } catch (error) {
+        console.error('Could not load support requests:', error);
+        if (!cancelled) triggerToast('Could not load your support requests', 'error');
+      } finally {
+        if (!cancelled) setTicketsLoading(false);
+      }
+    };
+    void loadTickets();
     return () => { cancelled = true; };
   }, [activeSubpage, currentUser?.id]);
 

@@ -94,6 +94,32 @@ async function generate() {
       .toFile(path.join(webDir, 'icon-512.png'))
       .then(() => console.log('  public/web/icon-512.png (512x512)'))
   );
+  tasks.push(
+    sharp(SOURCE)
+      .resize(48, 48, { fit: 'contain', background: BG_COLOR })
+      .png()
+      .toFile(path.join(webDir, 'favicon.png'))
+      .then(() => console.log('  public/web/favicon.png (48x48)'))
+  );
+
+  // Maskable icons keep the same official logo inside the Android/PWA safe zone.
+  for (const size of [192, 512]) {
+    const safeLogoSize = Math.round(size * 0.64);
+    const safePadding = Math.round((size - safeLogoSize) / 2);
+    const safeLogo = await sharp(SOURCE)
+      .resize(safeLogoSize, safeLogoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toBuffer();
+
+    tasks.push(
+      sharp({ create: { width: size, height: size, channels: 4, background: BG_COLOR } })
+        .png()
+        .composite([{ input: safeLogo, left: safePadding, top: safePadding }])
+        .toFile(path.join(webDir, `icon-${size}-maskable.png`))
+        .then(() => console.log(`  public/web/icon-${size}-maskable.png (${size}x${size})`))
+    );
+  }
+
 
   tasks.push(
     sharp(SOURCE)

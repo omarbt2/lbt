@@ -31,7 +31,7 @@ const FAQS = [
 
 export default function FaqSettings({
   faqSearch, setFaqSearch, faqCategory, setFaqCategory, expandedFaq, setExpandedFaq,
-  ticketSubject, setTicketSubject, ticketDesc, setTicketDesc, ticketStatus, handleSubmitTicket,
+  ticketSubject, setTicketSubject, ticketDesc, setTicketDesc, ticketStatus, ticketReference, ticketHistory, ticketsLoading, handleSubmitTicket,
 }: FaqSettingsProps) {
   return (
     <div className="space-y-4 animate-fadeIn">
@@ -83,11 +83,11 @@ export default function FaqSettings({
         ) : (
           <form onSubmit={handleSubmitTicket} className="space-y-2">
             <input type="text" value={ticketSubject} onChange={(e) => setTicketSubject(e.target.value)}
-              placeholder="Subject" required
+              placeholder="Subject" required minLength={3} maxLength={160}
               aria-label="Support ticket subject"
               className="w-full bg-surface-container rounded-xl px-3.5 py-2.5 text-xs outline-none border border-outline-variant/20" />
             <textarea value={ticketDesc} onChange={(e) => setTicketDesc(e.target.value)}
-              placeholder="Describe your issue..." required rows={3}
+              placeholder="Describe your issue..." required minLength={10} maxLength={5000} rows={3}
               aria-label="Support ticket description"
               className="w-full bg-surface-container rounded-xl px-3.5 py-2.5 text-xs outline-none border border-outline-variant/20 resize-none" />
             <button type="submit" disabled={ticketStatus === 'sending'}

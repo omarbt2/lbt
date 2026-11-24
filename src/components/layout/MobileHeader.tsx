@@ -4,6 +4,7 @@ import { Bell, Settings as SettingsIcon, ChevronLeft } from 'lucide-react';
 import { Notification } from '../../types';
 import { useAuthStore } from '../../store/authStore';
 import { Avatar } from '../ui/Avatar';
+import lbtLogo from '../../assets/logo.png';
 
 interface MobileHeaderProps {
   liveNotifications: Notification[];
@@ -66,12 +67,9 @@ export default function MobileHeader({ liveNotifications, currentUser, headerVis
             whileTap={{ scale: 0.96 }}
           >
             <img
-              src="/logo.png"
+              src={lbtLogo}
               alt="LBT Social"
               className="h-8 md:h-10 object-contain"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/web/icon-192.png';
-              }}
             />
           </motion.div>
         )}

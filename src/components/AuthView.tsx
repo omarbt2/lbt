@@ -11,6 +11,22 @@ interface AuthViewProps {
   onLoginSuccess: () => void;
 }
 
+function getLoginErrorMessage(error: any): string {
+  const message = String(error?.message || '').trim();
+  const code = String(error?.code || '').toLowerCase();
+
+  if (code === 'invalid_credentials' || /invalid login credentials/i.test(message)) {
+    return 'The email or password is incorrect. Check both fields and try again.';
+  }
+  if (/failed to fetch|network request failed|load failed|timeout|network error/i.test(message)) {
+    return 'Could not connect to LBT. Check your internet connection and try again.';
+  }
+  if (/email not confirmed/i.test(message)) {
+    return 'Please verify your email address before signing in.';
+  }
+  return message || 'Sign-in failed. Please try again.';
+}
+
 export default function AuthView({ onLoginSuccess }: AuthViewProps) {
   const login = useAuthStore((state) => state.login);
   const signup = useAuthStore((state) => state.signup);
@@ -70,7 +86,7 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
       await login(email, password);
       onLoginSuccess();
     } catch (err: any) {
-      setErrorNotice(err?.message || 'Failed to authenticate. Please check your credentials.');
+      setErrorNotice(getLoginErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }

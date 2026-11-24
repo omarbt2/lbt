@@ -641,7 +641,7 @@ export default function SettingsPage() {
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
-                <MessageCircle className="w-4 h-4 text-on-surface" />
+                <MessageCircle className="w-4 h-4 text-primary" />
               </div>
               <div>
                 <span className="text-xs font-bold text-on-surface block">Direct Messages</span>
@@ -661,7 +661,7 @@ export default function SettingsPage() {
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
-                <Bell className="w-4 h-4 text-on-surface" />
+                <Bell className="w-4 h-4 text-primary" />
               </div>
               <div>
                 <span className="text-xs font-bold text-on-surface block">Notification Preferences</span>
@@ -681,7 +681,7 @@ export default function SettingsPage() {
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
-                {darkMode ? <Moon className="w-4 h-4 text-on-surface-variant" /> : <Sun className="w-4 h-4 text-on-surface-variant" />}
+                {darkMode ? <Moon className="w-4 h-4 text-primary" /> : <Sun className="w-4 h-4 text-primary" />}
               </div>
               <div>
                 <span className="text-xs font-bold text-on-surface block">Theme & Display</span>
@@ -732,8 +732,8 @@ export default function SettingsPage() {
           <div onClick={() => openSubpage('faq')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center">
-                <HelpCircle className="w-4 h-4 text-on-surface-variant" />
+              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                <HelpCircle className="w-4 h-4 text-primary" />
               </div>
               <span className="text-xs font-bold text-on-surface">Help & FAQ</span>
             </div>
@@ -743,7 +743,7 @@ export default function SettingsPage() {
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center">
-                <Info className="w-4 h-4 text-on-surface-variant" />
+                <Info className="w-4 h-4 text-primary" />
               </div>
               <span className="text-xs font-bold text-on-surface">About LBT</span>
             </div>

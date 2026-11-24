@@ -155,6 +155,8 @@ function AppLayout() {
     postMenuPostId: state.postMenuPostId,
     setPostMenuPostId: state.setPostMenuPostId,
     showPermissionDenied: state.showPermissionDenied,
+    permissionDeniedType: state.permissionDeniedType,
+    clearPermissionDenied: state.clearPermissionDenied,
     setRepostTargetPost: state.setRepostTargetPost,
     setShowRepostModal: state.setShowRepostModal,
     handleRepostDirect: state.handleRepostDirect,
@@ -167,7 +169,7 @@ function AppLayout() {
     state.showAddStoryModal, state.setShowAddStoryModal, state.setShowNoteInput,
     state.handleStoryAdded, state.handleViewStory, state.handleMarkAllNotificationsAsRead,
     state.postMenuPostId, state.setPostMenuPostId,
-    state.showPermissionDenied,
+    state.showPermissionDenied, state.permissionDeniedType, state.clearPermissionDenied,
     state.setRepostTargetPost, state.setShowRepostModal,
     state.handleRepostDirect,
   ]);
@@ -193,6 +195,10 @@ function AppLayout() {
       <AnimatePresence>
         {state.toast && <Toast key={state.toast.message} message={state.toast.message} type={state.toast.type} />}
       </AnimatePresence>
+
+      {state.permissionDeniedType && (
+        <PermissionDeniedDialog type={state.permissionDeniedType} onClose={state.clearPermissionDenied} />
+      )}
 
       {state.postMenuPostId && (() => {
         const menuPost = state.posts.find(p => p.id === state.postMenuPostId);

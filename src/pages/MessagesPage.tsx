@@ -593,7 +593,7 @@ export default function MessagesPage() {
   }, [activeChatId]);
 
   return (
-    <div className="flex bg-surface h-[calc(100dvh-140px)] rounded-2xl overflow-hidden border border-white/40 shadow-xl animate-scaleIn" id="messaging_screen">
+    <div className="lbt-messages-screen flex w-full min-w-0 bg-surface rounded-2xl overflow-hidden border border-outline-variant/40 shadow-xl animate-scaleIn" id="messaging_screen">
       {/* SIDEBAR CHAT LIST */}
       <aside className={`w-full md:w-80 lg:w-96 border-r border-outline-variant bg-surface-container-lowest flex flex-col h-full shrink-0 transition-all ${
         mobileChatOpen ? 'hidden md:flex' : 'flex'

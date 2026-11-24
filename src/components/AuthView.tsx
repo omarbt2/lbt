@@ -37,6 +37,8 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [verificationNotice, setVerificationNotice] = useState<string | null>(null);
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -62,11 +64,40 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
         setScreen('update-password');
       }
     });
-    if (new URLSearchParams(window.location.search).get('mode') === 'recovery') {
+    const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const authError = params.get('error_description') || hashParams.get('error_description') || params.get('error') || hashParams.get('error');
+    if (authError) {
+      const normalized = authError.toLowerCase();
+      setErrorNotice(normalized.includes('expired') || normalized.includes('invalid')
+        ? 'This verification link is invalid or has expired. Request a new email and try again.'
+        : authError.replace(/\+/g, ' '));
+      setScreen('login');
+      window.history.replaceState({}, document.title, '/auth');
+    } else if (params.get('mode') === 'recovery') {
       setScreen('update-password');
     }
     return () => subscription.unsubscribe();
   }, []);
+
+  const handleResendVerification = async () => {
+    if (!pendingEmail || isResendingVerification) return;
+    setVerificationNotice(null);
+    setIsResendingVerification(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingEmail,
+        options: { emailRedirectTo: window.location.origin + '/auth' },
+      });
+      if (error) throw error;
+      setVerificationNotice('A new verification email has been requested. Check your inbox and spam folder.');
+    } catch (error: any) {
+      setVerificationNotice(error?.message || 'Could not resend the verification email. Please try again later.');
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
 
   const handlePasswordChange = (val: string) => {
     setSignUpPassword(val);
@@ -177,6 +208,19 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
             <span className="font-bold text-primary">{pendingEmail}</span>.
             Click the link to activate your account, then come back and sign in.
           </p>
+          {verificationNotice && (
+            <p role="status" className="w-full rounded-xl border border-primary/20 bg-primary/10 p-3 text-xs text-primary">
+              {verificationNotice}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleResendVerification()}
+            disabled={isResendingVerification || !pendingEmail}
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {isResendingVerification ? 'Sending…' : 'Resend verification email'}
+          </button>
           <div className="flex items-center gap-2 bg-surface-container rounded-2xl px-4 py-3 border border-outline-variant/30 w-full">
             <CheckCircle className="w-5 h-5 text-on-surface shrink-0" />
             <p className="text-xs text-on-surface-variant text-left">

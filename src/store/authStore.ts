@@ -56,6 +56,24 @@ export interface AuthState {
   initialize: () => Promise<void>;
 }
 
+function fallbackProfileForAuthUser(authUser: SupabaseAuthUser) {
+  const metadata = (authUser.user_metadata || {}) as Record<string, unknown>;
+  const rawUsername = typeof metadata.username === 'string' ? metadata.username.toLowerCase().trim() : '';
+  const username = /^[a-z0-9_]{3,30}$/.test(rawUsername)
+    ? rawUsername
+    : `user_${authUser.id.replace(/-/g, '').slice(0, 10)}`;
+  const displayName = (typeof metadata.name === 'string' && metadata.name.trim())
+    || (typeof metadata.full_name === 'string' && metadata.full_name.trim())
+    || username;
+
+  return {
+    id: authUser.id,
+    username,
+    display_name: displayName,
+    avatar_url: getDefaultAvatar(authUser.id),
+  };
+}
+
 export function mapProfileToUser(profile: any): User {
   return {
     id: profile.id ?? '',
@@ -147,15 +165,30 @@ export const useAuthStore = create<AuthState>()((set) => ({
     set({ isLoading: true });
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+
       if (session?.user) {
-        const profile = await ensureProfileForAuthUser(session.user);
-        set({ session, currentUser: mapProfileToUser(profile), pendingVerification: false, pendingEmail: null });
+        // Keep a valid Auth session usable even if profile hydration is temporarily
+        // unavailable (for example, a weak mobile connection or a slow Data API).
+        set({
+          session,
+          currentUser: mapProfileToUser(fallbackProfileForAuthUser(session.user)),
+          pendingVerification: false,
+          pendingEmail: null,
+        });
+        void ensureProfileForAuthUser(session.user).then(profile => {
+          set({ session, currentUser: mapProfileToUser(profile) });
+        }).catch(profileError => {
+          console.warn('Profile hydration will be retried after sign-in:', profileError);
+        });
       } else {
         set({ session: null, currentUser: null });
       }
     } catch (err) {
       console.error('Session initialization error:', err);
+      // A transient profile/API failure must not erase a session that Supabase
+      // has already restored. getSession errors are handled separately above.
       set({ session: null, currentUser: null });
     } finally {
       set({ isLoading: false });
@@ -171,12 +204,20 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
       // Do not await Supabase queries inside onAuthStateChange: the auth client
       // holds an internal lock while dispatching this event.
+      // Publish the authenticated identity immediately. Profile data is hydrated
+      // afterwards so a secondary request cannot turn a successful login into
+      // a false "failed to sign in" state on slower devices.
+      set({
+        session,
+        currentUser: mapProfileToUser(fallbackProfileForAuthUser(session.user)),
+        pendingVerification: false,
+        pendingEmail: null,
+      });
       setTimeout(() => {
         void ensureProfileForAuthUser(session.user).then(profile => {
-          set({ session, currentUser: mapProfileToUser(profile), pendingVerification: false, pendingEmail: null });
+          set({ session, currentUser: mapProfileToUser(profile) });
         }).catch(error => {
-          console.error('Could not initialize the signed-in LBT profile:', error);
-          set({ session, currentUser: null });
+          console.warn('Could not hydrate the signed-in LBT profile yet:', error);
         });
       }, 0);
     });
@@ -214,9 +255,24 @@ export const useAuthStore = create<AuthState>()((set) => ({
       }
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      if (data.user) {
+      if (!data.user || !data.session) {
+        throw new Error('Supabase did not return an authenticated session. Please try again.');
+      }
+
+      // Authentication is complete at this point. Do not report a login failure
+      // just because the separate profile query/RPC is temporarily unavailable.
+      set({
+        session: data.session,
+        currentUser: mapProfileToUser(fallbackProfileForAuthUser(data.user)),
+        pendingVerification: false,
+        pendingEmail: null,
+      });
+
+      try {
         const profile = await ensureProfileForAuthUser(data.user);
-        set({ session: data.session, currentUser: mapProfileToUser(profile), pendingVerification: false, pendingEmail: null });
+        set({ session: data.session, currentUser: mapProfileToUser(profile) });
+      } catch (profileError) {
+        console.warn('Signed in successfully; profile details could not be refreshed yet:', profileError);
       }
     } catch (err) {
       throw err;

@@ -76,7 +76,7 @@ export default function CloseFriendsManager() {
   );
 
   return (
-    <div className="flex flex-col gap-4 animate-fadeIn py-4 max-w-lg mx-auto">
+    <div className="flex flex-col gap-4 animate-fadeIn py-4 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 px-1">
         <button
           onClick={() => navigate(-1)}

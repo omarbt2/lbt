@@ -26,8 +26,8 @@ class ErrorBoundary extends React.Component<
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#0f172a',
-          color: '#f8fafc',
+          background: '#F7F6F2',
+          color: '#242321',
           fontFamily: 'system-ui, sans-serif',
           padding: '2rem',
           textAlign: 'center',
@@ -36,11 +36,11 @@ class ErrorBoundary extends React.Component<
             <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>
               Something went wrong
             </h2>
-            <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginBottom: '1.5rem' }}>
+            <p style={{ fontSize: '0.875rem', color: '#6f6b65', marginBottom: '1.5rem' }}>
               {this.state.error?.message || 'An unexpected error occurred.'}
             </p>
             <button
-              onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+              onClick={() => { this.setState({ hasError: false, error: null });  }}
               style={{
                 padding: '0.75rem 1.5rem',
                 borderRadius: '0.75rem',
@@ -52,7 +52,7 @@ class ErrorBoundary extends React.Component<
                 fontSize: '0.875rem',
               }}
             >
-              Reload Page
+              Try Again
             </button>
           </div>
         </div>

@@ -367,7 +367,7 @@ function AppLayout() {
         </div>
       </header>
 
-      <div className={`flex max-w-7xl mx-auto w-full relative ${isReelsPage ? 'h-dvh' : 'h-[calc(100dvh-4rem)]'} min-h-0 overflow-x-clip`}>
+      <div className={`flex max-w-7xl mx-auto w-full relative h-dvh md:h-[calc(100dvh-4rem)] min-h-0 overflow-x-clip`}>
         <section
           className={`lbt-mobile-content-offset min-h-0 flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'lbt-mobile-content--fullbleed pb-0 px-0' : isPostDetailPage ? 'px-0 pb-0 md:px-6' : 'lbt-app-scroll-area px-0 pb-20 md:pb-6 md:px-6'}`}
           style={{ WebkitOverflowScrolling: 'touch' }}

@@ -1,11 +1,12 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
+import LbtLogo from '../LbtLogo';
 
 export default function AboutSettings() {
   return (
     <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-6 text-center space-y-5 animate-fadeIn">
       <div className="flex flex-col items-center gap-2">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary to-primary flex items-center justify-center text-white text-2xl font-black">L</div>
+        <LbtLogo size="md" />
         <h2 className="text-base font-black text-on-surface">LBT Social</h2>
         <span className="text-[10px] font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">v1.0.0</span>
       </div>

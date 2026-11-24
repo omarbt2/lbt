@@ -38,6 +38,9 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Generate official LBT icons
+        run: npm run generate:icons
+
       - name: Dependency security audit
         run: |
           npm audit --json > npm-audit.json || true
@@ -87,6 +90,9 @@ jobs:
 
       - name: Install locked dependencies
         run: npm ci
+
+      - name: Generate official LBT icons
+        run: npm run generate:icons
 
       - name: Build web assets
         run: npm run build

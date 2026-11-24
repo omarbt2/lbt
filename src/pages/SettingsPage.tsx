@@ -321,6 +321,31 @@ export default function SettingsPage() {
   const [ticketSubject, setTicketSubject] = useState('');
   const [ticketDesc, setTicketDesc] = useState('');
   const [ticketStatus, setTicketStatus] = useState<'idle' | 'sending' | 'success'>('idle');
+  const [ticketReference, setTicketReference] = useState<string | null>(null);
+  const [ticketHistory, setTicketHistory] = useState<{ id: string; subject: string; status: string; created_at: string }[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeSubpage !== 'faq' || !currentUser?.id) return;
+    let cancelled = false;
+    setTicketsLoading(true);
+    void supabase.from('support_tickets')
+      .select('id, subject, status, created_at')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error('Could not load support requests:', error);
+          triggerToast('Could not load your support requests', 'error');
+          return;
+        }
+        setTicketHistory((data || []) as { id: string; subject: string; status: string; created_at: string }[]);
+      })
+      .finally(() => { if (!cancelled) setTicketsLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeSubpage, currentUser?.id]);
 
   // --- Pro state ---
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -414,13 +439,13 @@ export default function SettingsPage() {
     if (!ticketSubject || !ticketDesc) return;
     setTicketStatus('sending');
     try {
-      const { error } = await supabase.from('support_tickets').insert({
-        user_id: currentUser.id,
-        subject: ticketSubject.trim(),
-        description: ticketDesc.trim(),
-        status: 'open',
-      });
+      const { data, error } = await supabase.from('support_tickets')
+        .insert({ user_id: currentUser.id, subject: ticketSubject.trim(), description: ticketDesc.trim() })
+        .select('id, subject, status, created_at')
+        .single();
       if (error) throw error;
+      setTicketReference(data.id);
+      setTicketHistory(previous => [data, ...previous.filter(ticket => ticket.id !== data.id)].slice(0, 10));
       setTicketStatus('success');
       setTicketSubject('');
       setTicketDesc('');
@@ -488,6 +513,9 @@ export default function SettingsPage() {
             ticketSubject={ticketSubject} setTicketSubject={setTicketSubject}
             ticketDesc={ticketDesc} setTicketDesc={setTicketDesc}
             ticketStatus={ticketStatus}
+            ticketReference={ticketReference}
+            ticketHistory={ticketHistory}
+            ticketsLoading={ticketsLoading}
             handleSubmitTicket={handleSubmitTicket}
           />
         )}

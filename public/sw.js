@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lbt-social-v1';
+const CACHE_NAME = 'lbt-social-v3-network-first-shell';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -17,33 +17,43 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
     ).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  // Browser extensions and non-HTTP schemes are outside this origin's cache.
-  if (!['http:', 'https:'].includes(new URL(event.request.url).protocol)) return;
-  if (new URL(event.request.url).origin !== self.location.origin) return;
-  if (event.request.url.includes('/api/') || event.request.url.includes('supabase')) return;
+  const request = event.request;
+  if (request.method !== 'GET') return;
 
+  const url = new URL(request.url);
+  if (!['http:', 'https:'].includes(url.protocol) || url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/') || url.pathname.includes('supabase')) return;
+
+  // Always ask the network for the app shell. A cache-first index.html can
+  // keep an old landing screen or old JavaScript alive after an APK update.
+  if (request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
+    event.respondWith(
+      fetch(request).catch(async () => {
+        const cached = await caches.match('/index.html') || await caches.match('/');
+        return cached || Response.error();
+      })
+    );
+    return;
+  }
+
+  // Static hashed assets are safe to serve from cache first; update the cache
+  // in the background when a newer response is available.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const networkFetch = fetch(event.request).then((response) => {
+    caches.match(request).then((cached) => {
+      const network = fetch(request).then((response) => {
         if (response && response.status === 200) {
-          const clone = response.clone();
-          // Cache API accepts same-origin HTTP(S) GET requests only. A cache
-          // failure must never reject the fetch event or break the page.
-          caches.open(CACHE_NAME)
-            .then((cache) => cache.put(event.request, clone))
-            .catch(() => {});
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
         }
         return response;
-      }).catch(() => cached);
-
-      return cached || networkFetch;
+      });
+      return cached || network;
     })
   );
 });

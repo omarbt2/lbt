@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Notification } from '../../types';
 import { useAuthStore } from '../../store/authStore';
+import lbtLogo from '../../assets/logo.png';
 
 interface DesktopSidebarProps {
   liveNotifications: Notification[];
@@ -52,12 +53,9 @@ export default function DesktopSidebar({ liveNotifications, darkMode, toggleDark
         {/* Logo */}
         <div className="flex items-center gap-3 cursor-pointer px-2 py-2 rounded-2xl hover:bg-surface-container dark:hover:bg-surface-container-high/50 transition-colors" onClick={() => navigate('/')}>
           <img
-            src="/logo.png"
+            src={lbtLogo}
             alt="LBT Social"
-            className="h-10 w-10 object-contain rounded-2xl shrink-0"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = '/logo.png';
-            }}
+            className="h-10 w-10 object-contain shrink-0"
           />
           <div className="hidden lg:block">
             <h1 className="text-base font-black tracking-tight text-on-surface leading-none">LBT Social</h1>

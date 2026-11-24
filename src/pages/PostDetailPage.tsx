@@ -76,6 +76,66 @@ export default function PostDetailPage() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
+  const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
+  const [commentLikeCounts, setCommentLikeCounts] = useState<Record<string, number>>({});
+  const [commentLikePendingIds, setCommentLikePendingIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const commentIds = post?.commentsList.map(comment => comment.id) || [];
+    if (!currentUser?.id || commentIds.length === 0) {
+      setLikedCommentIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    void (supabase.from('comment_likes' as any) as any)
+      .select('comment_id')
+      .eq('user_id', currentUser.id)
+      .in('comment_id', commentIds)
+      .then(({ data, error }: any) => {
+        if (cancelled) return;
+        if (error) {
+          console.error('Could not load comment likes:', error);
+          return;
+        }
+        setLikedCommentIds(new Set((data || []).map((item: any) => item.comment_id)));
+      });
+    return () => { cancelled = true; };
+  }, [post?.id, post?.commentsList.length, currentUser?.id]);
+
+  const handleToggleCommentLike = async (commentId: string, currentCount: number) => {
+    if (commentLikePendingIds.has(commentId)) return;
+    const wasLiked = likedCommentIds.has(commentId);
+    setCommentLikePendingIds(previous => new Set(previous).add(commentId));
+    try {
+      if (wasLiked) {
+        const { error } = await (supabase.from('comment_likes' as any) as any)
+          .delete()
+          .eq('comment_id', commentId)
+          .eq('user_id', currentUser.id);
+        if (error) throw error;
+        setLikedCommentIds(previous => {
+          const next = new Set(previous);
+          next.delete(commentId);
+          return next;
+        });
+        setCommentLikeCounts(previous => ({ ...previous, [commentId]: Math.max(0, (previous[commentId] ?? currentCount) - 1) }));
+      } else {
+        const { error } = await (supabase.from('comment_likes' as any) as any)
+          .insert({ comment_id: commentId, user_id: currentUser.id });
+        if (error) throw error;
+        setLikedCommentIds(previous => new Set(previous).add(commentId));
+        setCommentLikeCounts(previous => ({ ...previous, [commentId]: (previous[commentId] ?? currentCount) + 1 }));
+      }
+    } catch (error: any) {
+      triggerToast(error?.message || 'Could not update this comment like.', 'error');
+    } finally {
+      setCommentLikePendingIds(previous => {
+        const next = new Set(previous);
+        next.delete(commentId);
+        return next;
+      });
+    }
+  };
 
   const isOwnPost = post ? post.user.id === currentUser.id : false;
 
@@ -311,7 +371,7 @@ export default function PostDetailPage() {
               const replies = post.commentsList.filter((c: any) => (c as any).reply_to_id);
               return topLevel.map((cmt) => (
                 <div key={cmt.id}>
-                  <div className="bg-surface-container-low/75 backdrop-blur-md rounded-2xl p-4 flex gap-3 border border-outline-variant/30 shadow-sm">
+                  <div className="lbt-glass-surface rounded-2xl p-4 flex gap-3 shadow-sm">
                     <Avatar
                       src={cmt.user.avatar}
                       userId={cmt.user.id}
@@ -322,16 +382,24 @@ export default function PostDetailPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start mb-1">
                         <div>
-                          <span className="text-xs font-bold text-on-surface">{cmt.user.name}</span>
-                          <span className="text-[10px] text-on-surface-variant font-semibold ml-2">
+                          <span className="text-[13px] font-bold text-on-surface">{cmt.user.name}</span>
+                          <span className="text-[11px] text-on-surface-variant font-medium ml-2">
                             {cmt.timeLabel}
                           </span>
                         </div>
-                        <button className="text-on-surface-variant hover:text-primary shrink-0" aria-label="Like comment">
-                          <Heart className="w-4 h-4" />
+                        <button
+                          type="button"
+                          onClick={() => void handleToggleCommentLike(cmt.id, commentLikeCounts[cmt.id] ?? cmt.likes ?? 0)}
+                          disabled={commentLikePendingIds.has(cmt.id)}
+                          aria-label={likedCommentIds.has(cmt.id) ? "Unlike comment" : "Like comment"}
+                          aria-pressed={likedCommentIds.has(cmt.id)}
+                          className="flex min-h-9 min-w-9 items-center justify-center gap-1 rounded-full px-2 text-on-surface-variant transition hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+                        >
+                          <Heart className={`h-4 w-4 ${likedCommentIds.has(cmt.id) ? "fill-error text-error" : ""}`} />
+                          <span className="text-[10px] tabular-nums">{commentLikeCounts[cmt.id] ?? cmt.likes ?? 0}</span>
                         </button>
                       </div>
-                      <p className="text-xs text-on-surface leading-normal">{cmt.content}</p>
+                      <p className="lbt-comment-body text-on-surface">{cmt.content}</p>
                       <button
                         onClick={() => setReplyingTo({ id: cmt.id, username: cmt.user.name || '' })}
                         className="text-[10px] text-outline font-semibold mt-1"
@@ -352,8 +420,8 @@ export default function PostDetailPage() {
                           className="w-6 h-6 shrink-0"
                         />
                         <div>
-                          <span className="text-xs font-bold text-on-surface">{reply.user?.name || reply.user?.username}</span>
-                          <p className="text-xs text-on-surface/85">{reply.content}</p>
+                          <span className="text-[13px] font-bold text-on-surface">{reply.user?.name || reply.user?.username}</span>
+                          <p className="lbt-comment-body text-on-surface/85 text-[13px]">{reply.content}</p>
                         </div>
                       </div>
                     ))}

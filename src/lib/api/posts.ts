@@ -292,9 +292,10 @@ export async function getPosts(
               isFollowing: false,
             },
         content: c.content,
-        likes: c.likes_count,
+        likes: c.likes_count ?? 0,
         timeLabel: formatTimeLabel(c.created_at),
         hasLiked: false,
+        reply_to_id: c.reply_to_id ?? null,
       };
     });
     return {
@@ -376,9 +377,10 @@ export async function getPostById(id: string): Promise<Post | null> {
         ? { id: cProfile.id, name: cProfile.display_name || cProfile.username || 'Unknown', username: cProfile.username, avatar: cProfile.avatar_url || getDefaultAvatar(cProfile.id || cProfile.username || 'user'), bio: cProfile.bio || '', cover_url: cProfile.cover_url || '', website: cProfile.website || '', phone: cProfile.phone || '', is_private: cProfile.is_private ?? false, is_verified: cProfile.is_verified ?? false, posts_count: cProfile.posts_count ?? 0, followersCount: cProfile.followers_count ?? 0, followingCount: cProfile.following_count ?? 0, isFollowing: false }
         : { id: c.user_id || '', name: 'Unknown', username: '', avatar: getDefaultAvatar('user'), bio: '', cover_url: '', website: '', phone: '', is_private: false, is_verified: false, posts_count: 0, followersCount: 0, followingCount: 0, isFollowing: false },
       content: c.content,
-      likes: c.likes_count,
+      likes: c.likes_count ?? 0,
       timeLabel: formatTimeLabel(c.created_at),
       hasLiked: false,
+      reply_to_id: c.reply_to_id ?? null,
     };
   });
 

@@ -321,6 +321,35 @@ export default function SettingsPage() {
   const [ticketSubject, setTicketSubject] = useState('');
   const [ticketDesc, setTicketDesc] = useState('');
   const [ticketStatus, setTicketStatus] = useState<'idle' | 'sending' | 'success'>('idle');
+  const [ticketReference, setTicketReference] = useState<string | null>(null);
+  const [ticketHistory, setTicketHistory] = useState<{ id: string; subject: string; status: string; created_at: string }[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeSubpage !== 'faq' || !currentUser?.id) return;
+    let cancelled = false;
+    const loadTickets = async () => {
+      setTicketsLoading(true);
+      try {
+        const { data, error } = await supabase.from('support_tickets')
+          .select('id, subject, status, created_at')
+          .eq('user_id', currentUser.id)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (error) throw error;
+        if (!cancelled) {
+          setTicketHistory((data || []) as { id: string; subject: string; status: string; created_at: string }[]);
+        }
+      } catch (error) {
+        console.error('Could not load support requests:', error);
+        if (!cancelled) triggerToast('Could not load your support requests', 'error');
+      } finally {
+        if (!cancelled) setTicketsLoading(false);
+      }
+    };
+    void loadTickets();
+    return () => { cancelled = true; };
+  }, [activeSubpage, currentUser?.id]);
 
   // --- Pro state ---
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -414,13 +443,13 @@ export default function SettingsPage() {
     if (!ticketSubject || !ticketDesc) return;
     setTicketStatus('sending');
     try {
-      const { error } = await supabase.from('support_tickets').insert({
-        user_id: currentUser.id,
-        subject: ticketSubject.trim(),
-        description: ticketDesc.trim(),
-        status: 'open',
-      });
+      const { data, error } = await supabase.from('support_tickets')
+        .insert({ user_id: currentUser.id, subject: ticketSubject.trim(), description: ticketDesc.trim() })
+        .select('id, subject, status, created_at')
+        .single();
       if (error) throw error;
+      setTicketReference(data.id);
+      setTicketHistory(previous => [data, ...previous.filter(ticket => ticket.id !== data.id)].slice(0, 10));
       setTicketStatus('success');
       setTicketSubject('');
       setTicketDesc('');
@@ -488,6 +517,9 @@ export default function SettingsPage() {
             ticketSubject={ticketSubject} setTicketSubject={setTicketSubject}
             ticketDesc={ticketDesc} setTicketDesc={setTicketDesc}
             ticketStatus={ticketStatus}
+            ticketReference={ticketReference}
+            ticketHistory={ticketHistory}
+            ticketsLoading={ticketsLoading}
             handleSubmitTicket={handleSubmitTicket}
           />
         )}
@@ -539,7 +571,7 @@ export default function SettingsPage() {
 
   // --- Main Settings Page ---
   return (
-    <div className="flex flex-col gap-5 animate-fadeIn py-3 pb-24 max-w-xl mx-auto text-on-surface" id="settings_master">
+    <div className="lbt-settings-page flex flex-col gap-5 animate-fadeIn py-3 pb-4 text-on-surface" id="settings_master">
       <div className="pb-1">
         <h2 className="text-lg font-bold tracking-tight text-on-surface">Settings</h2>
         <p className="text-xs text-outline">Manage your account preferences</p>
@@ -580,7 +612,7 @@ export default function SettingsPage() {
               </div>
               <div>
                 <span className="text-xs font-bold text-on-surface block">Security</span>
-                <span className="text-[10px] text-outline">Password, 2FA, devices</span>
+                <span className="text-[10px] text-outline">Password, registered devices, account safety</span>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-outline" />
@@ -609,7 +641,7 @@ export default function SettingsPage() {
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
-                <MessageCircle className="w-4 h-4 text-on-surface" />
+                <MessageCircle className="w-4 h-4 text-primary" />
               </div>
               <div>
                 <span className="text-xs font-bold text-on-surface block">Direct Messages</span>
@@ -629,7 +661,7 @@ export default function SettingsPage() {
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
-                <Bell className="w-4 h-4 text-on-surface" />
+                <Bell className="w-4 h-4 text-primary" />
               </div>
               <div>
                 <span className="text-xs font-bold text-on-surface block">Notification Preferences</span>
@@ -649,7 +681,7 @@ export default function SettingsPage() {
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center">
-                {darkMode ? <Moon className="w-4 h-4 text-on-surface-variant" /> : <Sun className="w-4 h-4 text-on-surface-variant" />}
+                {darkMode ? <Moon className="w-4 h-4 text-primary" /> : <Sun className="w-4 h-4 text-primary" />}
               </div>
               <div>
                 <span className="text-xs font-bold text-on-surface block">Theme & Display</span>
@@ -700,8 +732,8 @@ export default function SettingsPage() {
           <div onClick={() => openSubpage('faq')}
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center">
-                <HelpCircle className="w-4 h-4 text-on-surface-variant" />
+              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                <HelpCircle className="w-4 h-4 text-primary" />
               </div>
               <span className="text-xs font-bold text-on-surface">Help & FAQ</span>
             </div>
@@ -711,7 +743,7 @@ export default function SettingsPage() {
             className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-container/30 transition-all">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center">
-                <Info className="w-4 h-4 text-on-surface-variant" />
+                <Info className="w-4 h-4 text-primary" />
               </div>
               <span className="text-xs font-bold text-on-surface">About LBT</span>
             </div>

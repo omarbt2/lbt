@@ -46,6 +46,8 @@ export default function MessagesPage() {
   const [reactionPickerMessageId, setReactionPickerMessageId] = useState<string | null>(null);
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [isStartingRecording, setIsStartingRecording] = useState(false);
+  const [isSendingVoice, setIsSendingVoice] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [voiceProgress, setVoiceProgress] = useState<Record<string, number>>({});
@@ -74,6 +76,7 @@ export default function MessagesPage() {
   const recordingStopRequestedRef = useRef(false);
   const recordingDiscardRef = useRef(false);
   const recordingStartedAtRef = useRef<number | null>(null);
+  const recordingStartInProgressRef = useRef(false);
 
   // Hide disappearing messages immediately in an already-open conversation.
   // The database cron job remains responsible for physical deletion.
@@ -378,34 +381,48 @@ export default function MessagesPage() {
   };
 
   const startRecording = async () => {
+    if (recordingStartInProgressRef.current || isRecording || isSendingVoice) return;
+    recordingStartInProgressRef.current = true;
+    setIsStartingRecording(true);
     recordingStopRequestedRef.current = false;
     recordingDiscardRef.current = false;
+
     const chatIdAtStart = activeChatId;
     const senderIdAtStart = currentUser.id;
-    if (!chatIdAtStart || !senderIdAtStart || typeof MediaRecorder === 'undefined') {
+    if (!chatIdAtStart || !senderIdAtStart) {
+      recordingStartInProgressRef.current = false;
+      setIsStartingRecording(false);
+      triggerToast('Open a conversation before recording a voice message.', 'error');
+      return;
+    }
+
+    if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      recordingStartInProgressRef.current = false;
+      setIsStartingRecording(false);
       showPermissionDenied('microphone');
+      triggerToast('Voice recording is not supported in this browser or web view.', 'error');
       return;
     }
 
     let stream: MediaStream | null = null;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
 
-      // A quick pointer-up may happen before the microphone permission prompt
-      // resolves. In that case, do not unexpectedly begin recording later.
+      // A user can cancel while the OS permission prompt is still open.
       if (recordingStopRequestedRef.current) {
         stream.getTracks().forEach(track => track.stop());
         return;
       }
 
-      const mimeType = [
-        'audio/webm;codecs=opus',
-        'audio/webm',
-        'audio/mp4',
-      ].find(type => MediaRecorder.isTypeSupported(type));
-      const mediaRecorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
+      const mimeCandidates = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm'];
+      const mimeType = mimeCandidates.find(type =>
+        typeof MediaRecorder.isTypeSupported !== 'function' || MediaRecorder.isTypeSupported(type)
+      );
+      const recorderOptions: MediaRecorderOptions = { audioBitsPerSecond: 64000 };
+      if (mimeType) recorderOptions.mimeType = mimeType;
+      const mediaRecorder = new MediaRecorder(stream, recorderOptions);
 
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -417,93 +434,118 @@ export default function MessagesPage() {
 
       mediaRecorder.onstop = async () => {
         stream?.getTracks().forEach(track => track.stop());
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+
         const recordedType = mediaRecorder.mimeType || mimeType || 'audio/webm';
-        const blob = new Blob(audioChunksRef.current, { type: recordedType });
+        const chunks = audioChunksRef.current;
+        audioChunksRef.current = [];
+        const blob = new Blob(chunks, { type: recordedType });
         const startedAt = recordingStartedAtRef.current;
         const duration = startedAt ? Math.max(1, Math.round((Date.now() - startedAt) / 1000)) : 1;
         recordingStartedAtRef.current = null;
+        mediaRecorderRef.current = null;
+        setIsRecording(false);
         setRecordingDuration(0);
 
         if (recordingDiscardRef.current) {
           recordingDiscardRef.current = false;
           return;
         }
-        if (!blob.size || (recordingStopRequestedRef.current && duration < 1)) return;
+        if (!blob.size) {
+          triggerToast('The recording was empty. Please try again.', 'error');
+          return;
+        }
+        if (blob.size > 10 * 1024 * 1024) {
+          triggerToast('Voice messages must be 10 MB or smaller.', 'error');
+          return;
+        }
 
+        setIsSendingVoice(true);
+        let uploadedPath: string | null = null;
         try {
-          const extension = recordedType.includes('mp4') ? 'm4a' : 'webm';
-          const fileName = `voice/${senderIdAtStart}/${Date.now()}.${extension}`;
+          const extension = recordedType.includes('mp4') ? 'm4a' : recordedType.includes('ogg') ? 'ogg' : 'webm';
+          uploadedPath = 'voice/' + senderIdAtStart + '/' + Date.now() + '.' + extension;
           const { error: uploadError } = await supabase.storage
             .from('voice-messages')
-            .upload(fileName, blob, { contentType: recordedType });
-
+            .upload(uploadedPath, blob, { contentType: recordedType, upsert: false });
           if (uploadError) throw uploadError;
 
-          const { data: urlData } = supabase.storage
-            .from('voice-messages')
-            .getPublicUrl(fileName);
-
+          const { data: urlData } = supabase.storage.from('voice-messages').getPublicUrl(uploadedPath);
           if (!urlData?.publicUrl) throw new Error('Could not create a voice message URL.');
 
           const voiceMsg = await sendMessage(chatIdAtStart, '', {
-            messageType: 'voice',
-            voiceUrl: urlData.publicUrl,
-            voiceDuration: duration,
+            messageType: 'voice', voiceUrl: urlData.publicUrl, voiceDuration: duration,
           });
-
           setChats(prev => prev.map(chat => {
             if (chat.id !== chatIdAtStart) return chat;
             if (chat.messages.some(message => message.id === voiceMsg.id)) return chat;
             return { ...chat, messages: [...chat.messages, voiceMsg] };
           }));
+          triggerToast('Voice message sent', 'success');
         } catch (error: any) {
-          console.error('Failed to send voice message:', error?.message || error);
+          console.error('Failed to send voice message:', error);
+          if (uploadedPath) {
+            const { error: cleanupError } = await supabase.storage.from('voice-messages').remove([uploadedPath]);
+            if (cleanupError) console.warn('Voice upload cleanup failed:', cleanupError);
+          }
+          triggerToast(error?.message || 'Could not send the voice message. Please try again.', 'error');
+        } finally {
+          setIsSendingVoice(false);
         }
       };
 
       mediaRecorder.onerror = (event) => {
         console.error('Voice recording failed:', event);
         stream?.getTracks().forEach(track => track.stop());
+        recordingStartedAtRef.current = null;
+        mediaRecorderRef.current = null;
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
         setIsRecording(false);
+        setRecordingDuration(0);
+        triggerToast('Recording stopped because the microphone reported an error.', 'error');
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(250);
       setIsRecording(true);
       setRecordingDuration(0);
       recordingTimerRef.current = setInterval(() => {
         const startedAt = recordingStartedAtRef.current;
         setRecordingDuration(startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0);
       }, 250);
-    } catch (error) {
+    } catch (error: any) {
       stream?.getTracks().forEach(track => track.stop());
       recordingStartedAtRef.current = null;
       console.error('Microphone access or recording failed:', error);
-      showPermissionDenied('microphone');
+      if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError' || error?.name === 'PermissionDeniedError') {
+        showPermissionDenied('microphone');
+        triggerToast('Allow microphone access for LBT, then try again.', 'error');
+      } else {
+        triggerToast(error?.message || 'Could not start voice recording. Check your microphone and try again.', 'error');
+      }
+    } finally {
+      recordingStartInProgressRef.current = false;
+      setIsStartingRecording(false);
     }
   };
 
   const stopRecording = () => {
     recordingStopRequestedRef.current = true;
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
     setIsRecording(false);
   };
 
   const cancelRecording = () => {
     recordingDiscardRef.current = true;
     recordingStopRequestedRef.current = true;
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
     setIsRecording(false);
     setRecordingDuration(0);
   };
@@ -593,7 +635,7 @@ export default function MessagesPage() {
   }, [activeChatId]);
 
   return (
-    <div className="flex bg-surface h-[calc(100dvh-140px)] rounded-2xl overflow-hidden border border-white/40 shadow-xl animate-scaleIn" id="messaging_screen">
+    <div className="lbt-messages-screen flex w-full min-w-0 bg-surface rounded-2xl overflow-hidden border border-outline-variant/40 shadow-xl animate-scaleIn" id="messaging_screen">
       {/* SIDEBAR CHAT LIST */}
       <aside className={`w-full md:w-80 lg:w-96 border-r border-outline-variant bg-surface-container-lowest flex flex-col h-full shrink-0 transition-all ${
         mobileChatOpen ? 'hidden md:flex' : 'flex'
@@ -762,6 +804,8 @@ export default function MessagesPage() {
               activeChat={activeChat}
               typeInput={typeInput}
               isRecording={isRecording}
+              isVoiceProcessing={isStartingRecording || isSendingVoice}
+              voiceProcessingLabel={isSendingVoice ? 'Sending voice message…' : 'Preparing microphone…'}
               recordingDuration={recordingDuration}
               replyToMessage={replyToMessage}
               showEmojiPicker={showEmojiPicker}

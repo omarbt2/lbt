@@ -7,6 +7,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { OutletContextType } from './types/context';
 import { useAppState } from './hooks/useAppState';
 import AuthView from './components/AuthView';
+import lbtLogo from './assets/logo.png';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import BottomSheetMenu from './components/ui/BottomSheetMenu';
@@ -51,7 +52,7 @@ function LoadingSpinner() {
   return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
-        <img src="/logo.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
+        <img src={lbtLogo} alt="LBT" className="w-16 h-16 object-contain" />
         <div className="w-5 h-5 border-2 border-gray-200 border-t-black dark:border-t-white rounded-full animate-spin" />
       </div>
     </div>
@@ -76,16 +77,19 @@ function AuthPage() {
 
 function NotFoundPage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4 text-center">
-        <img src="/logo.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
-        <h1 className="text-2xl font-bold text-on-surface">Page Not Found</h1>
-        <p className="text-outline text-sm">The page you're looking for doesn't exist.</p>
-        <a href="/" className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium">
-          Go Home
+    <main className="min-h-[70dvh] w-full flex items-center justify-center px-6 py-12 text-on-surface">
+      <div className="w-full max-w-sm rounded-3xl border border-outline-variant/30 bg-surface-container-lowest p-8 text-center shadow-sm">
+        <img src={lbtLogo} alt="LBT Social" className="mx-auto h-14 w-14 object-contain" />
+        <p className="mt-7 text-xs font-bold uppercase tracking-[0.24em] text-primary">Error 404</p>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Page not found</h1>
+        <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+          This page may have moved, or the address may be incorrect.
+        </p>
+        <a href="/" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:opacity-90">
+          Back to LBT
         </a>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -151,6 +155,8 @@ function AppLayout() {
     postMenuPostId: state.postMenuPostId,
     setPostMenuPostId: state.setPostMenuPostId,
     showPermissionDenied: state.showPermissionDenied,
+    permissionDeniedType: state.permissionDeniedType,
+    clearPermissionDenied: state.clearPermissionDenied,
     setRepostTargetPost: state.setRepostTargetPost,
     setShowRepostModal: state.setShowRepostModal,
     handleRepostDirect: state.handleRepostDirect,
@@ -163,7 +169,7 @@ function AppLayout() {
     state.showAddStoryModal, state.setShowAddStoryModal, state.setShowNoteInput,
     state.handleStoryAdded, state.handleViewStory, state.handleMarkAllNotificationsAsRead,
     state.postMenuPostId, state.setPostMenuPostId,
-    state.showPermissionDenied,
+    state.showPermissionDenied, state.permissionDeniedType, state.clearPermissionDenied,
     state.setRepostTargetPost, state.setShowRepostModal,
     state.handleRepostDirect,
   ]);
@@ -189,6 +195,10 @@ function AppLayout() {
       <AnimatePresence>
         {state.toast && <Toast key={state.toast.message} message={state.toast.message} type={state.toast.type} />}
       </AnimatePresence>
+
+      {state.permissionDeniedType && (
+        <PermissionDeniedDialog type={state.permissionDeniedType} onClose={state.clearPermissionDenied} />
+      )}
 
       {state.postMenuPostId && (() => {
         const menuPost = state.posts.find(p => p.id === state.postMenuPostId);
@@ -343,7 +353,7 @@ function AppLayout() {
 
       <header className={`hidden md:flex max-w-7xl mx-auto w-full h-16 items-center justify-between px-6 border-b border-outline-variant/15 bg-surface-container-lowest/90 dark:bg-surface-container-low/90 ${isReelsPage ? 'md:hidden' : ''}`}>
         <button type="button" onClick={() => state.navigate('/')} className="flex items-center gap-3 rounded-xl">
-          <img src="/logo.png" alt="LBT Social" className="w-9 h-9 rounded-xl object-contain" />
+          <img src={lbtLogo} alt="LBT Social" className="w-9 h-9 object-contain" />
           <span className="text-sm font-extrabold tracking-tight text-on-surface">LBT Social</span>
         </button>
         <div className="flex items-center gap-2">
@@ -357,9 +367,9 @@ function AppLayout() {
         </div>
       </header>
 
-      <div className={`flex max-w-7xl mx-auto w-full relative ${isReelsPage ? 'h-dvh' : 'h-[calc(100dvh-4rem)]'} min-h-0 overflow-x-clip`}>
+      <div className={`flex max-w-7xl mx-auto w-full relative h-dvh md:h-[calc(100dvh-4rem)] min-h-0 overflow-x-clip`}>
         <section
-          className={`lbt-mobile-content-offset min-h-0 flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'lbt-mobile-content--fullbleed pb-0 px-0' : isPostDetailPage ? 'px-0 pb-0 md:px-6' : 'px-0 pb-20 md:pb-6 md:px-6'}`}
+          className={`lbt-mobile-content-offset min-h-0 flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'lbt-mobile-content--fullbleed pb-0 px-0' : isPostDetailPage ? 'px-0 pb-0 md:px-6' : 'lbt-app-scroll-area px-0 pb-20 md:pb-6 md:px-6'}`}
           style={{ WebkitOverflowScrolling: 'touch' }}
           onTouchStart={handleSwipeStart}
           onTouchEnd={handleSwipeEnd}
@@ -373,7 +383,7 @@ function AppLayout() {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] } }}
                   exit={{ opacity: 0, y: -4, transition: { duration: 0.15 } }}
-                  className={isFullWidth ? 'w-full' : 'max-w-[600px] mx-auto w-full'}
+                  className={isFullWidth ? 'w-full' : 'lbt-page-width'}
                 >
                   <React.Suspense fallback={<LoadingSpinner />}>
                     <Routes>

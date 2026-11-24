@@ -19,6 +19,8 @@ interface MessageInputProps {
   activeChat: Chat;
   typeInput: string;
   isRecording: boolean;
+  isVoiceProcessing: boolean;
+  voiceProcessingLabel: string;
   recordingDuration: number;
   replyToMessage: { id: string; senderName: string; text?: string } | null;
   showEmojiPicker: boolean;
@@ -34,7 +36,7 @@ interface MessageInputProps {
 }
 
 const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
-  ({ activeChat, typeInput, isRecording, recordingDuration,
+  ({ activeChat, typeInput, isRecording, isVoiceProcessing, voiceProcessingLabel, recordingDuration,
     onTypeInputChange, onToggleEmojiPicker, onSendMessage, onStartRecording,
     onStopRecording, onCancelRecording, onEmitTyping, onAttachmentSent }, ref) => {
     const cameraPickerRef = useRef<HTMLInputElement>(null);
@@ -104,20 +106,22 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
 
           <div className="container-upload-files" aria-label="Message attachments">
             <button type="button" className="upload-file lbt-camera-trigger" title="Take a photo" aria-label="Take a photo"
-              onClick={() => cameraPickerRef.current?.click()} disabled={isRecording}><Camera /></button>
+              onClick={() => cameraPickerRef.current?.click()} disabled={isRecording || isVoiceProcessing}><Camera /></button>
             <button type="button" className="upload-file lbt-browse-trigger" title="Browse files" aria-label="Browse files"
-              onClick={() => folderPickerRef.current?.click()} disabled={isRecording}><FolderOpen /></button>
+              onClick={() => folderPickerRef.current?.click()} disabled={isRecording || isVoiceProcessing}><FolderOpen /></button>
           </div>
 
           <button type="button" className="lbt-emoji-trigger" aria-label="Open emoji picker" title="Emoji"
-            onClick={onToggleEmojiPicker} disabled={isRecording}><Smile /></button>
+            onClick={onToggleEmojiPicker} disabled={isRecording || isVoiceProcessing}><Smile /></button>
 
           {!canSend && (
             <button
               type="button"
               className={`label-voice ${isRecording ? 'is-recording' : ''}`}
               aria-label={isRecording ? 'Send voice message' : 'Start voice message'}
-              title={isRecording ? 'Tap to send voice message' : 'Tap to start recording'}
+              title={isRecording ? 'Tap to send voice message' : isVoiceProcessing ? voiceProcessingLabel : 'Tap to start recording'}
+              disabled={!isRecording && isVoiceProcessing}
+              aria-busy={!isRecording && isVoiceProcessing}
               onClick={() => isRecording ? onStopRecording() : onStartRecording()}
             >
               {isRecording ? (
@@ -129,7 +133,7 @@ const MessageInput = forwardRef<HTMLInputElement, MessageInputProps>(
                   </span>
                   <Send className="lbt-recording-stop-icon" />
                 </span>
-              ) : <Mic className="icon-voice" />}
+              ) : isVoiceProcessing ? <span className="lbt-voice-processing-label">{voiceProcessingLabel}</span> : <Mic className="icon-voice" />}
             </button>
           )}
           {isRecording && (

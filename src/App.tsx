@@ -77,16 +77,19 @@ function AuthPage() {
 
 function NotFoundPage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4 text-center">
-        <img src="/logo.png" alt="LBT" className="w-16 h-16 rounded-2xl" />
-        <h1 className="text-2xl font-bold text-on-surface">Page Not Found</h1>
-        <p className="text-outline text-sm">The page you're looking for doesn't exist.</p>
-        <a href="/" className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium">
-          Go Home
+    <main className="min-h-[70dvh] w-full flex items-center justify-center px-6 py-12 text-on-surface">
+      <div className="w-full max-w-sm rounded-3xl border border-outline-variant/30 bg-surface-container-lowest p-8 text-center shadow-sm">
+        <img src={lbtLogo} alt="LBT Social" className="mx-auto h-14 w-14 object-contain" />
+        <p className="mt-7 text-xs font-bold uppercase tracking-[0.24em] text-primary">Error 404</p>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Page not found</h1>
+        <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+          This page may have moved, or the address may be incorrect.
+        </p>
+        <a href="/" className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:opacity-90">
+          Back to LBT
         </a>
       </div>
-    </div>
+    </main>
   );
 }
 

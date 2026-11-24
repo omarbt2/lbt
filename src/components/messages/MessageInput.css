@@ -498,3 +498,19 @@
   .lbt-chat-composer .input-text:valid { padding-left: 82px; padding-right: 88px; }
   .lbt-chat-composer .upload-file { width: 31px; }
 }
+
+
+.lbt-chat-composer .label-voice:disabled {
+  cursor: wait;
+  opacity: .72;
+}
+.lbt-voice-processing-label {
+  width: max-content;
+  max-width: 9.5rem;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 700;
+  text-align: center;
+  white-space: normal;
+  color: var(--color-on-surface-variant);
+}

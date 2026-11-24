@@ -571,7 +571,7 @@ export default function SettingsPage() {
 
   // --- Main Settings Page ---
   return (
-    <div className="flex flex-col gap-5 animate-fadeIn py-3 pb-24 max-w-xl mx-auto text-on-surface" id="settings_master">
+    <div className="lbt-settings-page flex flex-col gap-5 animate-fadeIn py-3 pb-4 text-on-surface" id="settings_master">
       <div className="pb-1">
         <h2 className="text-lg font-bold tracking-tight text-on-surface">Settings</h2>
         <p className="text-xs text-outline">Manage your account preferences</p>

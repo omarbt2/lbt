@@ -15,15 +15,18 @@ interface FaqSettingsProps {
   ticketDesc: string;
   setTicketDesc: (v: string) => void;
   ticketStatus: 'idle' | 'sending' | 'success';
+  ticketReference: string | null;
+  ticketHistory: { id: string; subject: string; status: string; created_at: string }[];
+  ticketsLoading: boolean;
   handleSubmitTicket: (e: React.FormEvent) => void;
 }
 
 const FAQS = [
-  { id: 1, cat: 'pro' as const, q: 'How do I upgrade to LBT Premium Pro?', a: 'Go to LBT Pro Account, select Monthly/Yearly, and check out via Apple Pay, Google Pay, or Credit Card.' },
-  { id: 2, cat: 'privacy' as const, q: 'Is my data kept secure?', a: 'Yes. LBT processes all data with encrypted storage vaults.' },
+  { id: 1, cat: 'pro' as const, q: 'How do I upgrade to LBT Premium Pro?', a: 'LBT Pro subscriptions and payments are not available yet. No payment will be taken in this version.' },
+  { id: 2, cat: 'privacy' as const, q: 'How is my account data protected?', a: 'LBT uses Supabase authentication and database access policies. Review the Privacy Policy for the data practices that apply to your account.' },
   { id: 3, cat: 'account' as const, q: 'How do I change my username?', a: 'Go to Settings > Personal Information. Enter any non-taken username.' },
-  { id: 4, cat: 'privacy' as const, q: 'How do I enable 2FA?', a: 'Navigate to Settings > Security. Enable via SMS or Authenticator App.' },
-  { id: 5, cat: 'pro' as const, q: 'Can Pro accounts customize insights?', a: 'Yes. Pro unlocks 30-day analytics and demographic maps.' }
+  { id: 4, cat: 'privacy' as const, q: 'Does LBT support two-factor authentication?', a: 'Two-factor authentication is not configured in this version. The Security page will not show inactive SMS or authenticator switches as if they were protecting your account.' },
+  { id: 5, cat: 'pro' as const, q: 'Are premium insights available?', a: 'Premium subscription features are not active yet. Existing account insights remain available where supported.' }
 ];
 
 export default function FaqSettings({
@@ -65,6 +68,9 @@ export default function FaqSettings({
               )}
             </div>
           ))}
+          {FAQS.filter(f => (faqCategory === 'all' || f.cat === faqCategory) && (f.q.toLowerCase().includes(faqSearch.toLowerCase()) || f.a.toLowerCase().includes(faqSearch.toLowerCase()))).length === 0 && (
+            <p className="rounded-xl bg-surface-container-low p-4 text-center text-xs text-on-surface-variant">No help articles match that search.</p>
+          )}
         </div>
       </div>
 
@@ -72,7 +78,7 @@ export default function FaqSettings({
         <h3 className="text-xs font-bold text-on-surface">Contact Support</h3>
         {ticketStatus === 'success' ? (
           <div className="bg-surface-container-low text-on-surface border border-outline-variant p-3 rounded-xl text-xs font-bold text-center">
-            Ticket submitted! #{Math.floor(Math.random() * 89999 + 10000)}
+            Ticket submitted successfully. Reference: {ticketReference || 'Saved'}
           </div>
         ) : (
           <form onSubmit={handleSubmitTicket} className="space-y-2">
@@ -89,6 +95,27 @@ export default function FaqSettings({
               {ticketStatus === 'sending' ? 'Sending...' : 'Submit Ticket'}
             </button>
           </form>
+        )}
+      </div>
+
+      <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-4 space-y-3">
+        <h3 className="text-xs font-bold text-on-surface">Your support requests</h3>
+        {ticketsLoading ? (
+          <p className="text-xs text-outline">Loading your requests…</p>
+        ) : ticketHistory.length === 0 ? (
+          <p className="text-xs text-outline">You have not submitted any support requests yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {ticketHistory.map(ticket => (
+              <div key={ticket.id} className="rounded-xl border border-outline-variant/20 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-semibold text-on-surface">{ticket.subject}</p>
+                  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[10px] font-bold capitalize text-primary">{ticket.status.replace('_', ' ')}</span>
+                </div>
+                <p className="mt-1 text-[10px] text-outline">#{ticket.id.slice(0, 8)} · {new Date(ticket.created_at).toLocaleString()}</p>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

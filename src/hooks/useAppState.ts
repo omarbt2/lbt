@@ -125,7 +125,9 @@ export function useAppState() {
     };
   }, [currentUser?.id]);
 
-  const showPermissionDenied = useCallback((_type: 'camera' | 'microphone') => {}, []);
+  const [permissionDeniedType, setPermissionDeniedType] = useState<'camera' | 'microphone' | null>(null);
+  const showPermissionDenied = useCallback((type: 'camera' | 'microphone') => setPermissionDeniedType(type), []);
+  const clearPermissionDenied = useCallback(() => setPermissionDeniedType(null), []);
 
   const [showAddStoryModal, setShowAddStoryModal] = useState(false);
   const [viewingStoryGroupIndex, setViewingStoryGroupIndex] = useState<number | null>(null);
@@ -445,6 +447,8 @@ export function useAppState() {
     liveNotifications,
     unreadMessages,
     showPermissionDenied,
+    permissionDeniedType,
+    clearPermissionDenied,
     showAddStoryModal,
     setShowAddStoryModal,
     viewingStoryGroupIndex,

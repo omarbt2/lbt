@@ -88,7 +88,6 @@ export default function AuthView({ onLoginSuccess }: AuthViewProps) {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: pendingEmail,
-        options: { emailRedirectTo: window.location.origin + '/auth' },
       });
       if (error) throw error;
       setVerificationNotice('A new verification email has been requested. Check your inbox and spam folder.');

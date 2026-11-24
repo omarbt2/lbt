@@ -56,6 +56,7 @@ export interface Comment {
   content: string;
   likes: number;
   hasLiked?: boolean;
+  reply_to_id?: string | null;
 }
 
 export interface Story {

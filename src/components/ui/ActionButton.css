@@ -119,13 +119,13 @@
 }
 
 .lbt-action-button:hover:not(:disabled) .svg-wrapper {
-  transform: scale(1.25);
-  transition: .5s linear;
+  transform: scale(1.04);
+  transition: .18s ease;
 }
 
 .lbt-action-button:hover:not(:disabled) svg {
-  transform: translateX(1.2em) scale(1.1);
-  color: #ffffff;
+  transform: scale(1.06);
+  color: var(--lbt-action-fg);
 }
 .lbt-action-button:hover:not(:disabled) svg.lbt-action-button-default-icon {
   fill: #ffffff;
@@ -135,8 +135,8 @@
 }
 
 .lbt-action-button:hover:not(:disabled) > span {
-  opacity: 0;
-  transition: .5s linear;
+  opacity: 1;
+  transition: .18s ease;
 }
 
 .lbt-action-button:active:not(:disabled) {

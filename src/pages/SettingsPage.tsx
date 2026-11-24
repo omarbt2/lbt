@@ -608,7 +608,7 @@ export default function SettingsPage() {
               </div>
               <div>
                 <span className="text-xs font-bold text-on-surface block">Security</span>
-                <span className="text-[10px] text-outline">Password, 2FA, devices</span>
+                <span className="text-[10px] text-outline">Password, registered devices, account safety</span>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-outline" />

@@ -259,21 +259,24 @@ export const useAuthStore = create<AuthState>()((set) => ({
         throw new Error('Supabase did not return an authenticated session. Please try again.');
       }
 
-      // Authentication is complete at this point. Do not report a login failure
-      // just because the separate profile query/RPC is temporarily unavailable.
+      // Supabase Auth has succeeded. Unlock the app immediately; profile
+      // hydration is a separate Data API operation and must never hold the
+      // login spinner or delay navigation on slower mobile connections.
       set({
         session: data.session,
         currentUser: mapProfileToUser(fallbackProfileForAuthUser(data.user)),
         pendingVerification: false,
         pendingEmail: null,
+        isLoading: false,
       });
 
-      try {
-        const profile = await ensureProfileForAuthUser(data.user);
+      // Refresh profile details in the background. The fallback identity is
+      // sufficient to enter the app while this request completes.
+      void ensureProfileForAuthUser(data.user).then(profile => {
         set({ session: data.session, currentUser: mapProfileToUser(profile) });
-      } catch (profileError) {
-        console.warn('Signed in successfully; profile details could not be refreshed yet:', profileError);
-      }
+      }).catch(profileError => {
+        console.warn('Signed in; profile details could not be refreshed yet:', profileError);
+      });
     } catch (err) {
       throw err;
     } finally {

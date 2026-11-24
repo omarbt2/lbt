@@ -27,6 +27,8 @@ export interface OutletContextType {
   postMenuPostId: string | null;
   setPostMenuPostId: (id: string | null) => void;
   showPermissionDenied: (type: 'camera' | 'microphone') => void;
+  permissionDeniedType: 'camera' | 'microphone' | null;
+  clearPermissionDenied: () => void;
   setRepostTargetPost: (post: any) => void;
   setShowRepostModal: (show: boolean) => void;
   handleRepostDirect: (post: any) => Promise<void>;

@@ -1,7 +1,7 @@
 /* Uiverse.io input styling adapted to LBT's existing warm light/dark surfaces.
    No voice-call mode is exposed here; the microphone records a voice message only. */
 .lbt-chat-composer-footer {
-  padding: 12px 16px max(12px, env(safe-area-inset-bottom, 0px));
+  padding: 12px 16px;
   background: transparent;
   border-top: 1px solid color-mix(in srgb, var(--color-outline-variant, #b8b5ad) 24%, transparent);
   flex-shrink: 0;

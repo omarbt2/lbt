@@ -469,7 +469,7 @@ button, a, [role="button"] {
 .always-dark { background-color: #0a0a0c !important; }
 
 @media (display-mode: standalone) {
-  body { background-color: #0a0a0c; }
+  body { background-color: var(--color-surface-container-low); }
 }
 
 [dir="rtl"] {
@@ -530,7 +530,7 @@ button, a, [role="button"] {
 /* LBT shared layout, icon and glass tokens. These reserve real space for the
    fixed mobile navigation instead of letting it cover the end of each page. */
 :root {
-  --lbt-nav-reserve: calc(6.25rem + env(safe-area-inset-bottom, 0px));
+  --lbt-nav-reserve: calc(5.25rem + env(safe-area-inset-bottom, 0px));
   --lbt-glass-light: color-mix(in srgb, var(--color-surface-container-lowest, #fff) 86%, transparent);
   --lbt-glass-dark: rgba(24, 24, 29, .88);
   --lbt-icon-stroke: 1.9;

@@ -112,7 +112,7 @@ export default function EditProfilePage() {
     <div className="flex flex-col min-h-dvh bg-surface-container-low animate-fadeIn">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-surface-container-lowest/95 backdrop-blur-xl border-b border-outline-variant/10">
-        <div className="flex items-center justify-between px-4 py-3 max-w-xl mx-auto">
+        <div className="flex items-center justify-between px-4 py-3 max-w-2xl mx-auto">
           <button onClick={onBack} className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors active:scale-90">
             <ArrowLeft className="w-5 h-5 text-on-surface" />
           </button>
@@ -122,7 +122,7 @@ export default function EditProfilePage() {
       </div>
 
       <div className="pb-28">
-        <div className="max-w-xl mx-auto">
+        <div className="max-w-2xl mx-auto">
           {/* Cover + Avatar — Snapchat-style centered */}
           <div className="relative">
             <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />

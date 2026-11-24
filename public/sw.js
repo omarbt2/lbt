@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lbt-social-v1';
+const CACHE_NAME = 'lbt-social-v2-auth-logo';
 const PRECACHE_URLS = [
   '/',
   '/index.html',

@@ -369,7 +369,7 @@ function AppLayout() {
 
       <div className={`flex max-w-7xl mx-auto w-full relative ${isReelsPage ? 'h-dvh' : 'h-[calc(100dvh-4rem)]'} min-h-0 overflow-x-clip`}>
         <section
-          className={`lbt-mobile-content-offset min-h-0 flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'lbt-mobile-content--fullbleed pb-0 px-0' : isPostDetailPage ? 'px-0 pb-0 md:px-6' : 'px-0 pb-20 md:pb-6 md:px-6'}`}
+          className={`lbt-mobile-content-offset min-h-0 flex-1 overflow-y-auto overflow-x-clip w-full no-scrollbar ${isReelsPage ? 'lbt-mobile-content--fullbleed pb-0 px-0' : isPostDetailPage ? 'px-0 pb-0 md:px-6' : 'lbt-app-scroll-area px-0 pb-20 md:pb-6 md:px-6'}`}
           style={{ WebkitOverflowScrolling: 'touch' }}
           onTouchStart={handleSwipeStart}
           onTouchEnd={handleSwipeEnd}
@@ -383,7 +383,7 @@ function AppLayout() {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] } }}
                   exit={{ opacity: 0, y: -4, transition: { duration: 0.15 } }}
-                  className={isFullWidth ? 'w-full' : 'max-w-[600px] mx-auto w-full'}
+                  className={isFullWidth ? 'w-full' : 'lbt-page-width'}
                 >
                   <React.Suspense fallback={<LoadingSpinner />}>
                     <Routes>

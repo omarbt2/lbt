@@ -77,7 +77,7 @@ async function initNativeApp() {
     const statusBarMod = await loadNativeModule('@capacitor/status-bar');
     if (statusBarMod) {
       await statusBarMod.StatusBar.setStyle({ style: statusBarMod.Style.Dark });
-      await statusBarMod.StatusBar.setBackgroundColor({ color: '#0a0a0a' });
+      await statusBarMod.StatusBar.setBackgroundColor({ color: '#F7F6F2' });
     }
   } catch {}
 
